@@ -1,0 +1,245 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { normalizePhone } from "@/lib/whatsapp/types";
+import { isOptOutMessage } from "@/lib/whatsapp/compliance";
+import { handleIncomingMessage, handleOptOut, replyToUnsupportedMedia } from "@/lib/whatsapp/conversation";
+import { isHandledMessageType } from "@/lib/whatsapp/unsupported-media";
+import {
+  applyReminderReply,
+  isAwaitingReminderReply,
+  parseReminderReply,
+} from "@/lib/whatsapp/reminders";
+import { createLeadFromFirstMessage } from "@/lib/whatsapp/first-contact";
+import { transcribeVoiceNote } from "@/lib/whatsapp/voice-note";
+import { decryptAccessToken } from "@/lib/whatsapp/credentials";
+import { sendWhatsAppMessage } from "@/lib/whatsapp/client";
+
+/**
+ * Handshake di verifica webhook di Meta: risponde con hub.challenge in
+ * chiaro quando il verify token corrisponde a quello dell'agenzia.
+ */
+export async function GET(request: Request) {
+  const params = new URL(request.url).searchParams;
+  const mode = params.get("hub.mode");
+  const token = params.get("hub.verify_token");
+  const challenge = params.get("hub.challenge");
+
+  if (mode !== "subscribe" || !token || !challenge) {
+    return new NextResponse("Bad Request", { status: 400 });
+  }
+
+  const config = await prisma.whatsAppConfig.findFirst({
+    where: { webhookVerifyToken: token },
+  });
+
+  if (!config) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+
+  return new NextResponse(challenge, {
+    status: 200,
+    headers: { "Content-Type": "text/plain" },
+  });
+}
+
+const webhookPayloadSchema = z.object({
+  entry: z.array(
+    z.object({
+      changes: z.array(
+        z.object({
+          value: z.object({
+            metadata: z.object({ phone_number_id: z.string() }).optional(),
+            /**
+             * Meta include il nome del profilo WhatsApp di chi scrive. Per un
+             * contatto che arriva dal QR è l'unico nome disponibile: senza,
+             * la scheda nascerebbe con un segnaposto.
+             */
+            contacts: z
+              .array(
+                z.object({
+                  wa_id: z.string(),
+                  profile: z.object({ name: z.string() }).optional(),
+                })
+              )
+              .optional(),
+            messages: z
+              .array(
+                z.object({
+                  from: z.string(),
+                  type: z.string(),
+                  text: z.object({ body: z.string() }).optional(),
+                  /**
+                   * Nota vocale o file audio. `voice: true` distingue il vocale
+                   * registrato sul momento da un brano allegato: entrambi si
+                   * trascrivono, ma solo il primo è una risposta al bot.
+                   */
+                  audio: z
+                    .object({
+                      id: z.string(),
+                      mime_type: z.string().optional(),
+                      voice: z.boolean().optional(),
+                    })
+                    .optional(),
+                })
+              )
+              .optional(),
+          }),
+        })
+      ),
+    })
+  ),
+});
+
+/**
+ * Messaggi in arrivo dai clienti.
+ *
+ * Risponde sempre 200: Meta ritenta in modo aggressivo su qualsiasi non-2xx e
+ * un errore applicativo su un singolo messaggio genererebbe una tempesta di
+ * retry. Gli errori sono loggati lato server, non propagati a Meta.
+ */
+export async function POST(request: Request) {
+  const payload = await request.json().catch(() => null);
+  const parsed = webhookPayloadSchema.safeParse(payload);
+
+  if (!parsed.success) {
+    console.warn("[api/whatsapp/webhook] Unrecognized payload shape");
+    return NextResponse.json({ received: true }, { status: 200 });
+  }
+
+  for (const entry of parsed.data.entry) {
+    for (const change of entry.changes) {
+      const phoneNumberId = change.value.metadata?.phone_number_id;
+      const messages = change.value.messages ?? [];
+
+      if (!phoneNumberId || messages.length === 0) continue;
+
+      const config = await prisma.whatsAppConfig.findFirst({
+        where: { metaPhoneAccountId: phoneNumberId },
+        include: { organization: true },
+      });
+
+      if (!config) {
+        console.warn("[api/whatsapp/webhook] No organization for phone_number_id");
+        continue;
+      }
+
+      for (const message of messages) {
+        // Il testo può arrivare scritto oppure parlato: su WhatsApp rispondere
+        // a voce è la norma, e finché l'agente leggeva solo il testo quei
+        // messaggi si perdevano in silenzio.
+        let body: string | null = null;
+
+        if (message.type === "text" && message.text?.body) {
+          body = message.text.body;
+        } else if (message.type === "audio" && message.audio?.id) {
+          const outcome = await transcribeVoiceNote(message.audio.id, config.metaAccessToken);
+
+          if (outcome.ok) {
+            body = outcome.text;
+          } else {
+            // Si risponde comunque: chi ha appena parlato al telefono aspetta
+            // una reazione, e il silenzio lo convince che il numero è morto.
+            const accessToken = decryptAccessToken(config.metaAccessToken);
+            if (accessToken && config.metaPhoneAccountId) {
+              await sendWhatsAppMessage(
+                { metaAccessToken: accessToken, metaPhoneAccountId: config.metaPhoneAccountId },
+                message.from,
+                outcome.reply
+              ).catch((error) => {
+                console.error("[api/whatsapp/webhook] Risposta al vocale non inviata", error);
+              });
+            }
+            continue;
+          }
+        }
+
+        // Immagini, documenti, posizioni, schede contatto: non alimentano la
+        // qualificazione, ma non vanno lasciati cadere nel vuoto. Chi ha appena
+        // mandato la foto della cucina si aspetta una reazione, e il silenzio
+        // gli fa concludere che il numero non è attivo.
+        if (!body) {
+          if (isHandledMessageType(message.type)) continue;
+
+          await replyToUnsupportedMedia({
+            config,
+            organizationId: config.organizationId,
+            fromPhone: message.from,
+          }).catch((error) => {
+            console.error("[api/whatsapp/webhook] Invito a scrivere non inviato", error);
+          });
+
+          continue;
+        }
+
+        const existing = await prisma.lead.findUnique({
+          where: {
+            organizationId_clientPhone: {
+              organizationId: config.organizationId,
+              clientPhone: normalizePhone(message.from),
+            },
+          },
+        });
+
+        // Numero mai visto: è la persona che ha inquadrato il QR in vetrina o
+        // sul cartello dell'immobile e ha scritto per prima. La scheda nasce
+        // qui e la qualificazione parte subito — prima questo messaggio veniva
+        // scartato e la scansione non produceva nulla.
+        if (!existing) {
+          const profileName = change.value.contacts?.find(
+            (contact) => normalizePhone(contact.wa_id) === normalizePhone(message.from)
+          )?.profile?.name;
+
+          try {
+            await createLeadFromFirstMessage({
+              config,
+              agencyName: config.organization.agencyName,
+              fromPhone: message.from,
+              profileName,
+              messageText: body,
+            });
+          } catch (error) {
+            console.error("[api/whatsapp/webhook] Creazione lead da primo contatto fallita", error);
+          }
+
+          continue;
+        }
+
+        const lead = existing;
+
+        // Un contatto già in opt-out non riceve più nulla, nemmeno se riscrive.
+        if (lead.qualificationStatus === "OPT_OUT") continue;
+
+        try {
+          // Ordine deliberato: l'opt-out vince su tutto, poi la risposta a un
+          // promemoria in attesa, e solo da ultimo la conversazione con l'AI.
+          // Un "NO" a un promemoria deve liberare l'agenda, non finire in pasto
+          // al modello che lo leggerebbe come risposta di qualificazione.
+          const reminderReply = isAwaitingReminderReply(lead)
+            ? parseReminderReply(body)
+            : null;
+
+          if (isOptOutMessage(body)) {
+            await handleOptOut(lead, config);
+          } else if (reminderReply) {
+            await applyReminderReply(lead, config, reminderReply);
+          } else {
+            await handleIncomingMessage(
+              lead,
+              config,
+              config.organization.agencyName,
+              body
+            );
+          }
+        } catch (error) {
+          console.error("[api/whatsapp/webhook] Message handling failed", {
+            leadId: lead.id,
+            error,
+          });
+        }
+      }
+    }
+  }
+
+  return NextResponse.json({ received: true }, { status: 200 });
+}

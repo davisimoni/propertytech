@@ -1,0 +1,42 @@
+# dependencies
+node_modules
+
+# next.js
+.next
+out
+
+# production
+build
+
+# env
+.env
+.env*.local
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# misc
+.DS_Store
+*.log
+.vercel
+
+# Claude Code internal state — must never be uploaded to a deploy.
+# This project lives inside ~/.claude, which also holds Claude Code's
+# own credentials, history, and session data.
+.credentials.json
+.last-cleanup
+.last-update-result.json
+settings.json
+settings.local.json
+history.jsonl
+sessions
+shell-snapshots
+session-env
+plugins
+cache
+file-history
+ide
+downloads
+backups
+projects

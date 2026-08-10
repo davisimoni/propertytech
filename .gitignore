@@ -1,0 +1,47 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# env
+.env
+.env*.local
+.env*
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# misc
+.DS_Store
+Thumbs.db
+*.log
+
+.vercel
+
+# --- Claude Code: stato/config dell'ambiente, non codice del progetto ---
+# Questa cartella viene usata anche come home directory di Claude Code
+# (CLAUDE_CONFIG_DIR), quindi contiene credenziali, transcript di sessioni
+# (anche di altri progetti) e cache dell'assistente: non va mai versionato.
+/.claude/
+/.credentials.json
+/.last-cleanup
+/.last-update-result.json
+/backups/
+/cache/
+/downloads/
+/file-history/
+/history.jsonl
+/ide/
+/plugins/
+/projects/
+/session-env/
+/sessions/
+/shell-snapshots/
+/telemetry/
+/settings.json

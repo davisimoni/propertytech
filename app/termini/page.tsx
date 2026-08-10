@@ -1,0 +1,174 @@
+import type { Metadata } from "next";
+import { auth } from "@/auth";
+import { LegalList, LegalPage, LegalSection, LEGAL_ENTITY } from "@/components/legal/legal-page";
+import { BRAND } from "@/lib/brand";
+import { PLANS } from "@/lib/plans";
+
+export const metadata: Metadata = {
+  title: `Termini di Servizio — ${BRAND.name}`,
+  description:
+    "Condizioni d'uso di PropertyTech: crediti, abbonamenti, obblighi dell'agenzia e limitazione di responsabilità.",
+};
+
+export default async function TerminiPage() {
+  const session = await auth();
+
+  return (
+    <LegalPage
+      isLoggedIn={Boolean(session?.user)}
+      title="Termini e Condizioni di Servizio"
+      intro={`Questi termini regolano l'accesso e l'uso di ${BRAND.name}, servizio SaaS rivolto ad agenzie immobiliari e professionisti del settore. Creando un account accetti quanto segue.`}
+    >
+      <LegalSection title="1. Oggetto del servizio">
+        <p>
+          {BRAND.name} mette a disposizione strumenti basati su intelligenza artificiale per la
+          qualificazione dei contatti via WhatsApp, l&apos;estrazione di dati da documenti
+          immobiliari, la generazione di contenuti per annunci e social e la redazione di report per
+          i proprietari. Il servizio è offerto in modalità &quot;software come servizio&quot;, senza
+          cessione di licenze d&apos;uso permanenti.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="2. Account e requisiti">
+        <LegalList
+          items={[
+            "Il servizio è riservato a soggetti che operano in ambito professionale (B2B). Non è destinato ai consumatori.",
+            "Le credenziali sono personali: l'agenzia è responsabile della loro custodia e di ogni attività svolta tramite il proprio account.",
+            "I dati forniti in fase di registrazione devono essere veritieri e mantenuti aggiornati.",
+          ]}
+        />
+      </LegalSection>
+
+      <LegalSection title="3. Piani, crediti e limiti d'uso">
+        <p>
+          L&apos;uso del servizio è misurato in crediti, differenziati per tipo di attività
+          (conversazioni WhatsApp, analisi documentali, note vocali). Ogni piano include una
+          dotazione:
+        </p>
+        <LegalList
+          items={Object.values(PLANS).map((plan) => {
+            const price = plan.priceEurMonthly === null ? "gratuito" : `${plan.priceEurMonthly}€/mese`;
+            const docs =
+              plan.ocrDocumentsLimit === null
+                ? "analisi documentali illimitate"
+                : `${plan.ocrDocumentsLimit} analisi documentali`;
+            return `${plan.name} (${price}): ${plan.waConversationsLimit} conversazioni WhatsApp${
+              plan.id === "trial" ? " complessive" : " al mese"
+            }, ${docs}.`;
+          })}
+        />
+        <LegalList
+          items={[
+            "I crediti dei piani a pagamento si rinnovano a ogni periodo di fatturazione e non sono cumulabili con quelli non utilizzati nel periodo precedente.",
+            "I crediti del piano Trial sono complessivi e non si rinnovano.",
+            "Al raggiungimento del limite le funzioni che consumano crediti vengono sospese fino al rinnovo o all'upgrade. Il controllo avviene prima dell'esecuzione dell'operazione.",
+            "Alcuni moduli sono inclusi esclusivamente in determinati piani e non sono acquistabili separatamente a consumo.",
+          ]}
+        />
+      </LegalSection>
+
+      <LegalSection title="4. Prova gratuita">
+        <p>
+          Il piano Trial non richiede l&apos;inserimento di una carta di credito, non si converte
+          automaticamente in un piano a pagamento e non prevede alcun addebito. Al termine dei
+          crediti inclusi puoi scegliere se attivare un piano oppure lasciare l&apos;account inattivo.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="5. Abbonamenti, pagamenti e disdetta">
+        <LegalList
+          items={[
+            "Gli abbonamenti sono mensili e si rinnovano automaticamente fino a disdetta.",
+            "I pagamenti sono gestiti da Stripe. Non trattiamo né conserviamo i dati della tua carta.",
+            "I prezzi sono espressi in euro e si intendono al netto di IVA e imposte applicabili.",
+            "Puoi disdire in qualsiasi momento: il servizio resta attivo fino alla fine del periodo già pagato, senza rimborsi per le frazioni non utilizzate salvo diversa previsione di legge.",
+            "Eventuali variazioni di prezzo sono comunicate con almeno 30 giorni di preavviso e si applicano dal rinnovo successivo.",
+          ]}
+        />
+      </LegalSection>
+
+      <LegalSection title="6. Obblighi dell'agenzia">
+        <p>
+          Rispetto ai dati che carichi o che il servizio raccoglie per tuo conto, agisci come
+          titolare del trattamento. In particolare ti impegni a:
+        </p>
+        <LegalList
+          items={[
+            "Disporre di una base giuridica valida per contattare i tuoi lead e per trattare i dati contenuti nei documenti che carichi.",
+            "Non utilizzare il servizio per comunicazioni non sollecitate al di fuori dei casi consentiti dalla normativa applicabile.",
+            "Rispettare le condizioni d'uso di Meta per WhatsApp Business, incluse le regole sui messaggi avviati dall'azienda.",
+            "Non caricare contenuti illeciti, né dati per i quali non sei autorizzato al trattamento.",
+            "Verificare gli output generati dall'AI prima di utilizzarli verso terzi.",
+          ]}
+        />
+      </LegalSection>
+
+      <LegalSection title="7. Natura degli output generati dall'AI">
+        <p>
+          I contenuti prodotti dal servizio — dati estratti dai documenti, annunci, post, script e
+          report — sono <strong className="text-foreground">proposte automatiche</strong> soggette a
+          verifica. Possono contenere imprecisioni od omissioni, specialmente su documenti poco
+          leggibili o audio di scarsa qualità. Non costituiscono consulenza legale, fiscale,
+          notarile o di stima immobiliare, e non sostituiscono il controllo sulle fonti ufficiali. La
+          responsabilità sulla correttezza di quanto pubblicato o comunicato a terzi resta
+          dell&apos;agenzia.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="8. Disponibilità del servizio e dipendenze esterne">
+        <p>
+          Il servizio si appoggia a fornitori terzi (messaggistica, modelli di AI, pagamenti,
+          hosting). Interruzioni, modifiche o limitazioni imposte da tali fornitori possono incidere
+          sulla disponibilità di singole funzioni. Ci impegniamo a garantire la continuità con la
+          diligenza professionale richiesta, senza tuttavia assicurare un funzionamento ininterrotto
+          o privo di errori. Gli interventi di manutenzione programmata sono comunicati con
+          ragionevole preavviso.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="9. Limitazione di responsabilità">
+        <p>
+          Nei limiti consentiti dalla legge applicabile, la nostra responsabilità complessiva verso
+          l&apos;agenzia è limitata all&apos;importo effettivamente corrisposto nei dodici mesi
+          precedenti l&apos;evento da cui deriva la richiesta. Non rispondiamo di mancati guadagni,
+          perdita di opportunità commerciali, mandati non acquisiti o danni indiretti. Nulla in
+          questi termini esclude la responsabilità per dolo o colpa grave, né i diritti inderogabili
+          previsti dalla legge.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="10. Sospensione e chiusura dell'account">
+        <p>
+          Possiamo sospendere o chiudere un account in caso di mancato pagamento, uso in violazione
+          di questi termini o attività che comprometta la sicurezza della piattaforma o di terzi. Ove
+          possibile la sospensione è preceduta da un avviso. Puoi richiedere in qualsiasi momento la
+          chiusura del tuo account e l&apos;esportazione dei dati scrivendo a{" "}
+          {LEGAL_ENTITY.email}.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="11. Proprietà intellettuale">
+        <p>
+          La piattaforma, il marchio {BRAND.name} e il software restano di titolarità del fornitore.
+          I dati che carichi e i contenuti generati a partire da essi restano tuoi: puoi usarli,
+          modificarli e pubblicarli liberamente nell&apos;ambito della tua attività.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="12. Modifiche ai termini">
+        <p>
+          Possiamo aggiornare questi termini per ragioni tecniche, normative o di evoluzione del
+          servizio. Le modifiche sostanziali sono comunicate via email con almeno 30 giorni di
+          preavviso; la prosecuzione dell&apos;uso dopo tale termine ne comporta l&apos;accettazione.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="13. Legge applicabile e foro competente">
+        <p>
+          Il rapporto è regolato dalla legge italiana. Per le controversie è competente il foro della
+          sede del fornitore, salvo diversa previsione inderogabile di legge.
+        </p>
+      </LegalSection>
+    </LegalPage>
+  );
+}

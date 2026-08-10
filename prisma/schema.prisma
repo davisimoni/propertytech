@@ -1,0 +1,816 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PlanId {
+  trial
+  starter
+  pro
+  enterprise
+}
+
+/// Stato del funnel di qualificazione di un lead.
+/// OPT_OUT è distinto da UNQUALIFIED: indica una revoca esplicita del consenso
+/// (STOP/CANCELLAMI) e blocca in modo permanente ogni invio successivo.
+enum QualificationStatus {
+  PENDING
+  IN_PROGRESS
+  QUALIFIED
+  UNQUALIFIED
+  OPT_OUT
+}
+
+enum PortalSource {
+  IMMOBILIARE_IT
+  IDEALISTA
+  CASA_IT
+  SITO_WEB
+  /// Contatto nato da una scansione del QR dell'agenzia (vetrina, cartello
+  /// immobile, volantino). Tenerlo distinto da SITO_WEB è l'unico modo per
+  /// dire all'agente se quel cartello sta davvero portando notizie.
+  QR_CODE
+  /// Caricato dall'agenzia da un file CSV: non è una notizia nuova ma un
+  /// contatto già in rubrica, e mescolarlo alle altre falserebbe le statistiche.
+  IMPORT
+}
+
+/// Classificazione commerciale del contatto in base al portafoglio immobili
+/// rilevato. Serve all'agente per capire a colpo d'occhio se dal lead può
+/// nascere anche un incarico di vendita, non solo una visita.
+///
+/// È sempre derivata da `Lead.ownedPropertiesCount` tramite
+/// `deriveSellerCategory()` in lib/whatsapp/portfolio.ts: non va mai impostata
+/// a mano, altrimenti conteggio e categoria possono divergere.
+enum SellerCategory {
+  BUYER_ONLY
+  SINGLE_SELLER
+  MULTI_OWNER
+}
+
+/// Tipo di documento nel fascicolo di un immobile o di un cliente.
+///
+/// L'elenco segue i documenti che un'agenzia immobiliare italiana raccoglie
+/// davvero durante un incarico, non una tassonomia generica: è ciò che rende
+/// utile la lista "cosa manca" invece di un archivio indistinto.
+enum DocumentCategory {
+  IDENTITA
+  CODICE_FISCALE
+  VISURA_CATASTALE
+  PLANIMETRIA
+  ATTO_PROVENIENZA
+  APE
+  MANDATO
+  PROPOSTA
+  COMPROMESSO
+  CONFORMITA_IMPIANTI
+  ALTRO
+}
+
+/// Tipo di elaborazione svolta dall'AI, per filtrare la cronologia.
+enum GenerationKind {
+  /// Modulo 2 — estrazione da visura, atto o planimetria.
+  DOCUMENT_EXTRACTION
+  /// Modulo 3 — annuncio per i portali.
+  LISTING
+  /// Modulo 3 — post social e script per i reel.
+  SOCIAL
+}
+
+/// Ruolo di una persona dentro l'agenzia.
+///
+/// `OWNER` è il titolare: gestisce abbonamento, integrazioni e collaboratori.
+/// `AGENT` è il collaboratore: lavora lead, agenda e immobili ma non tocca la
+/// configurazione dell'agenzia né invita altre persone.
+enum UserRole {
+  OWNER
+  AGENT
+}
+
+/// Fase della trattativa, gestita a mano dall'agente sulla board Kanban.
+///
+/// Volutamente separata da `QualificationStatus`: quest'ultimo è scritto
+/// dall'agente AI a ogni messaggio del cliente e, se le due cose vivessero
+/// nello stesso campo, la conversazione riporterebbe indietro una scheda che
+/// l'agente ha appena spostato su "Proposta inviata".
+enum DealStage {
+  NEW
+  QUALIFIED
+  VISIT_SCHEDULED
+  OFFER_SENT
+  WON
+  LOST
+}
+
+enum ContractType {
+  VENDITA
+  AFFITTO
+}
+
+enum PropertyType {
+  APPARTAMENTO
+  ATTICO
+  VILLA
+  VILLETTA
+  LOFT
+  RUSTICO
+  TERRENO
+  NEGOZIO
+  UFFICIO
+  BOX
+  ALTRO
+}
+
+/// Classi energetiche italiane, dalla migliore alla peggiore.
+/// `A4`-`A1` sostituiscono la vecchia `A` dal 2015: entrambe compaiono negli
+/// APE in circolazione, quindi l'elenco le comprende tutte.
+enum EnergyClass {
+  A4
+  A3
+  A2
+  A1
+  A
+  B
+  C
+  D
+  E
+  F
+  G
+}
+
+/// Esito della validazione di una corrispondenza visura ↔ lead.
+///
+/// PENDING è lo stato iniziale di ogni match: il sistema propone, l'agente
+/// decide. IGNORED registra un'omonimia accertata e impedisce che lo stesso
+/// abbinamento venga riproposto al prossimo caricamento della stessa visura.
+enum PortfolioMatchStatus {
+  PENDING
+  CONFIRMED
+  IGNORED
+}
+
+/// Persona che accede alla piattaforma per conto di un'agenzia.
+///
+/// L'autenticazione vive qui, non più su `Organization`: un'agenzia con cinque
+/// agenti aveva cinque persone su una sola password, e il piano Professional
+/// prometteva l'opposto. Ogni utente appartiene a una sola organizzazione, che
+/// resta il confine del multi-tenancy.
+model User {
+  id String @id @default(cuid())
+
+  email        String  @unique
+  /// Null per gli account creati via Google e per gli inviti non ancora
+  /// accettati: il provider Credentials rifiuta chi non ha un hash.
+  passwordHash String?
+  firstName    String?
+  lastName     String?
+
+  role UserRole @default(AGENT)
+
+  /// --- Invito di un collaboratore ---
+  ///
+  /// Del token si conserva solo l'hash: chi legge il database non deve poter
+  /// ricostruire un link di invito valido e accedere all'agenzia.
+  inviteTokenHash String?   @unique
+  inviteExpiresAt DateTime?
+  /// `null` finché la persona non ha impostato la propria password.
+  acceptedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  assignedLeads     Lead[]
+  assignedSlots     CalendarSlot[]
+  uploadedDocuments AgencyDocument[]
+  aiGenerations     AiGeneration[]
+
+  @@index([organizationId, role])
+}
+
+/// Ogni Agenzia immobiliare è un tenant isolato.
+///
+/// Non è più l'account di login: le credenziali sono passate a `User`. I campi
+/// `email` e `passwordHash` restano per compatibilità con i dati esistenti e
+/// non vengono più letti dall'autenticazione.
+model Organization {
+  id String @id @default(cuid())
+
+  email        String  @unique
+  /// Null per gli account creati via OAuth (Google): non hanno una password
+  /// locale. Il provider Credentials rifiuta gli account senza hash.
+  passwordHash String?
+
+  /// Nome e cognome della persona che ha aperto l'account, distinti dal nome
+  /// dell'agenzia: "Mario Rossi" è il referente, "Rossi Immobiliare" è
+  /// l'organizzazione, e servono in due posti diversi.
+  ///
+  /// Opzionali a livello di schema perché gli account creati via OAuth non
+  /// passano dal form di registrazione: lì i due campi si ricavano, quando
+  /// possibile, dal profilo Google. Il form li richiede entrambi.
+  firstName String?
+  lastName  String?
+
+  agencyName          String
+  /// false quando `agencyName` è stato dedotto (es. dal nome dell'account
+  /// Google) anziché dichiarato dall'agenzia. Un flag esplicito è più
+  /// affidabile del confrontare a posteriori il nome con quello del profilo.
+  agencyNameConfirmed Boolean @default(false)
+
+  /// Ragione sociale completa, usata nell'intestazione dei PDF consegnati a
+  /// proprietari e clienti. Distinta da `agencyName`, che è il nome d'uso.
+  legalName   String?
+  /// Logo dell'agenzia come data URI (immagine piccola, in linea).
+  /// Salvato nel database anziché su filesystem perché il deploy è serverless
+  /// e non ha storage persistente; la dimensione è limitata a monte.
+  logoDataUrl String?
+
+  /// Accettazione dell'accordo sul trattamento dei dati (DPA).
+  ///
+  /// Si registrano istante e versione, non un semplice booleano: revisionando
+  /// il testo, senza la versione non sarebbe più dimostrabile *quale* accordo
+  /// una data agenzia abbia accettato — che è precisamente ciò che va provato
+  /// in caso di contestazione o audit.
+  dpaAcceptedAt      DateTime?
+  dpaAcceptedVersion String?
+
+  /// --- Integrazione con il gestionale / MLS dell'agenzia ---
+  ///
+  /// Endpoint a cui inoltrare il lead appena diventa QUALIFIED (Zapier, Make,
+  /// Gestim o qualsiasi API esterna). `null` = integrazione non configurata.
+  crmWebhookUrl    String?
+  /// Segreto con cui si firma il payload (HMAC-SHA256, header
+  /// `X-PropertyTech-Signature`). Generato dal sistema, non scelto dall'utente:
+  /// permette al gestionale di verificare che la chiamata arrivi davvero da noi
+  /// e non da chiunque conosca l'URL.
+  crmWebhookSecret String?
+
+  /// Quale gestionale è collegato: `webhook`, `zapier`, `make`, `getrix`…
+  ///
+  /// Stringa e non enum Prisma di proposito: l'elenco vive in
+  /// `lib/integrations/providers.ts`, che è già la fonte di verità di schema di
+  /// autenticazione e mappatura campi. Con un enum, aggiungere un gestionale
+  /// richiederebbe una migrazione del database per un dato che è solo
+  /// un'etichetta. I valori ignoti ripiegano sul webhook generico.
+  crmProvider String?
+
+  /// Credenziale del gestionale (token Bearer o chiave API), **cifrata**
+  /// con AES-256-GCM da `lib/crypto/secrets.ts`. In chiaro sarebbe leggibile
+  /// da qualunque copia del database e permetterebbe di scrivere nel
+  /// gestionale dell'agenzia. Non torna mai al browser: la UI ne mostra solo
+  /// le ultime quattro cifre.
+  crmAuthToken String?
+  /// Nome utente per l'autenticazione Basic. Non è un segreto e resta in chiaro.
+  crmAuthUser  String?
+
+  /// Mappatura campo nostro → nome del campo nel gestionale.
+  /// `null` = si usa quella del preset. Le chiavi ignote sono scartate in
+  /// lettura, così una mappatura manomessa non può iniettare campi arbitrari
+  /// nel corpo che spediamo.
+  crmFieldMap Json?
+
+  createdAt DateTime @default(now())
+
+  users            User[]
+  subscription     Subscription?
+  usageTracker     UsageTracker?
+  whatsAppConfig   WhatsAppConfig?
+  leads            Lead[]
+  calendarSlots    CalendarSlot[]
+  voiceReports     VoiceReport[]
+  portfolioMatches PortfolioMatch[]
+  properties       Property[]
+  propertyMatches  PropertyLeadMatch[]
+  agencyDocuments  AgencyDocument[]
+  aiGenerations    AiGeneration[]
+}
+
+model Subscription {
+  id                   String   @id @default(cuid())
+  status               PlanId   @default(trial)
+  stripeCustomerId     String?  @unique
+  stripeSubscriptionId String?  @unique
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+/// Contatori di consumo crediti per periodo corrente. I limiti per piano
+/// vivono in lib/plans.ts, non qui, per avere un'unica fonte di verità.
+model UsageTracker {
+  id                  String   @id @default(cuid())
+  whatsappCreditsUsed Int      @default(0)
+  docCreditsUsed      Int      @default(0)
+  voiceCreditsUsed    Int      @default(0)
+  updatedAt           DateTime @updatedAt
+
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+/// Credenziali Meta WhatsApp Cloud API per agenzia.
+/// `inboundToken` è il segreto che i portali includono nel webhook di ingaggio
+/// lead: identifica il tenant senza esporre l'organizationId.
+model WhatsAppConfig {
+  id                 String  @id @default(cuid())
+  isConnected        Boolean @default(false)
+  phoneNumber        String?
+  metaAccessToken    String?
+  metaPhoneAccountId String?
+  webhookVerifyToken String?
+  inboundToken       String  @unique @default(cuid())
+
+  /// --- Promemoria anti no-show ---
+  /// Attivo per default: il no-show è il costo operativo che questa funzione
+  /// esiste per ridurre, e un'agenzia che non lo vuole lo disattiva in un clic.
+  reminderEnabled     Boolean @default(true)
+  /// Quante ore prima dell'appuntamento parte il promemoria (tipicamente 2 o 24).
+  reminderHoursBefore Int     @default(24)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+/// Lead intercettato dai portali immobiliari e qualificato via WhatsApp.
+/// `clientPhone` è unico per organizzazione: un secondo annuncio richiesto dallo
+/// stesso numero riusa il lead esistente invece di duplicarlo.
+model Lead {
+  id                  String              @id @default(uuid())
+  clientName          String
+  clientPhone         String
+  /// Email del contatto, quando l'agenzia ce l'ha in rubrica. Il flusso
+  /// WhatsApp non la usa: serve all'agente e all'esportazione verso il gestionale.
+  clientEmail         String?
+  portalSource        PortalSource
+  propertyRef         String
+  qualificationStatus QualificationStatus @default(PENDING)
+
+  budget           String?
+  mortgageApproved Boolean?
+  mustSellFirst    Boolean?
+  timeframe        String?
+  appointmentSlot  DateTime?
+
+  /// --- Lead Intelligence: portafoglio immobili del contatto ---
+  ///
+  /// Numero di immobili che risultano in possesso del contatto. È una stima,
+  /// non un dato certificato: nasce da ciò che il cliente dichiara durante la
+  /// qualificazione, dall'incrocio con gli intestatari delle visure caricate
+  /// nel Modulo 2, o dall'inserimento manuale dell'agente.
+  ///
+  /// `null` significa "non ancora rilevato" ed è diverso da `0`, che significa
+  /// "acquirente senza immobili da vendere": la GUI mostra due cose diverse.
+  ownedPropertiesCount Int?
+  /// Derivata sempre da `ownedPropertiesCount`. È persistita, invece che
+  /// calcolata a ogni lettura, solo per poter filtrare e ordinare i lead lato
+  /// database senza scorrere le righe in memoria.
+  sellerCategory       SellerCategory?
+  /// --- Promemoria anti no-show sull'appuntamento ---
+  ///
+  /// Istante di invio del promemoria WhatsApp; `null` = non ancora inviato.
+  /// Serve anche da guardia di idempotenza: il job può girare più volte
+  /// nella stessa finestra senza tempestare il cliente di messaggi.
+  reminderSentAt       DateTime?
+  /// Risposta del cliente al promemoria: `true` = SI (confermato),
+  /// `false` = NO (disdetta), `null` = non ha ancora risposto.
+  appointmentConfirmed Boolean?
+
+  /// --- Fase della trattativa (board Kanban) ---
+  ///
+  /// Distinta da `qualificationStatus`, che è dell'AI. L'agente la muove a
+  /// mano; il valore iniziale si deriva dallo stato di qualifica una sola
+  /// volta, alla creazione del lead.
+  dealStage DealStage @default(NEW)
+
+  /// --- Preferenze di ricerca dichiarate, per lo Smart Matching ---
+  ///
+  /// Tutte opzionali: si popolano man mano che emergono dalla conversazione o
+  /// che l'agente le raccoglie al telefono. Un lead senza preferenze non
+  /// partecipa al matching, invece di generare accoppiamenti casuali.
+  ///
+  /// `budgetMin`/`budgetMax` sono in euro interi, non testo: `Lead.budget`
+  /// resta la frase così come l'ha detta il cliente ("intorno ai 250 mila"),
+  /// che serve all'agente ma non è confrontabile.
+  preferredZone   String?
+  preferredType   PropertyType?
+  budgetMin       Int?
+  budgetMax       Int?
+  minSquareMeters Int?
+
+  /// Agente dell'agenzia che segue questo contatto. `null` = non ancora
+  /// assegnato, ed è diverso da "assegnato al titolare": la pipeline mostra i
+  /// due stati in modo distinto.
+  assignedToId String?
+
+  /// Ultima consegna riuscita al gestionale dell'agenzia via webhook.
+  /// `null` significa "mai esportato", ed è ciò che la scheda lead mostra
+  /// all'agente prima che l'integrazione sia configurata o vada a buon fine.
+  crmDeliveredAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizationId   String
+  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedTo       User?               @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  chat             WhatsAppChat?
+  portfolioMatches PortfolioMatch[]
+  propertyMatches  PropertyLeadMatch[]
+  documents        AgencyDocument[]
+
+  /// Slot prenotato a valle della qualificazione. `appointmentSlot` resta come
+  /// copia denormalizzata dell'orario, così lo storico dell'appuntamento
+  /// sopravvive all'eventuale cancellazione dello slot in agenda.
+  calendarSlotId String?       @unique
+  calendarSlot   CalendarSlot? @relation(fields: [calendarSlotId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, clientPhone])
+  @@index([organizationId, qualificationStatus])
+  /// Supporta il caricamento per colonna della board Kanban.
+  @@index([organizationId, dealStage])
+  /// Filtro "i miei lead" nella pipeline.
+  @@index([organizationId, assignedToId])
+  /// Supporta l'ordinamento "prima i multi-proprietari" della pipeline lead.
+  @@index([organizationId, ownedPropertiesCount])
+}
+
+/// Corrispondenza proposta fra un intestatario di visura (Modulo 2) e un lead
+/// in pipeline (Modulo 1), in attesa di validazione dell'agente.
+///
+/// Perché non si fondono i dati in automatico: "Mario Rossi" nella visura e
+/// "Mario Rossi" fra i lead possono essere due persone diverse. Attribuire a un
+/// contatto un immobile che non è suo significa trattare un dato personale
+/// errato — e far chiamare all'agenzia un acquirente proponendogli di vendere
+/// una casa altrui. Il sistema quindi propone, l'agente conferma.
+model PortfolioMatch {
+  id String @id @default(cuid())
+
+  /// Chiave catastale dell'immobile: comune|foglio|particella|subalterno.
+  propertyKey        String
+  comune             String?
+  foglio             String?
+  particella         String?
+  subalterno         String?
+  categoriaCatastale String?
+  /// Intestatario così come compare nella visura, non normalizzato: è il testo
+  /// che l'agente legge per decidere se si tratta della stessa persona.
+  ownerName          String
+  quotaProprieta     String?
+
+  status     PortfolioMatchStatus @default(PENDING)
+  resolvedAt DateTime?
+  createdAt  DateTime             @default(now())
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Un immobile può essere proposto una sola volta per lead: ricaricare la
+  /// stessa visura non riapre una decisione che l'agente ha già preso.
+  @@unique([leadId, propertyKey])
+  @@index([organizationId, status])
+}
+
+/// Immobile in portafoglio all'agenzia.
+///
+/// Nasce dal Modulo 3: l'agente compila i dati strutturati, l'AI genera i
+/// testi, e da qui escono sia il feed XML per i portali sia il confronto con
+/// le preferenze dei lead. È il pezzo che finora mancava: gli annunci venivano
+/// generati e persi, quindi non c'era nulla su cui far girare un matching né
+/// da cui esportare un tracciato con i campi obbligatori.
+model Property {
+  id String @id @default(cuid())
+
+  /// Riferimento interno dell'agenzia, quello che compare negli annunci.
+  reference String
+  title     String
+  contract  ContractType
+  type      PropertyType
+
+  comune    String
+  provincia String?
+  /// Quartiere o zona, il criterio con cui gli acquirenti cercano davvero.
+  zona      String?
+  indirizzo String?
+
+  /// Prezzo in euro interi: i centesimi non esistono nel mercato immobiliare
+  /// e un intero si confronta senza sorprese di virgola mobile.
+  priceEur     Int
+  squareMeters Int
+  rooms        Int?
+  bathrooms    Int?
+  floor        String?
+  energyClass  EnergyClass?
+
+  /// Testo dell'annuncio generato dall'AI, riusato nel feed XML.
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leadMatches    PropertyLeadMatch[]
+  documents      AgencyDocument[]
+  aiGenerations  AiGeneration[]
+
+  /// Il riferimento è unico per agenzia: due immobili con lo stesso codice
+  /// renderebbero ambiguo il feed verso i portali.
+  @@unique([organizationId, reference])
+  @@index([organizationId, createdAt])
+}
+
+/// Accoppiamento fra un immobile in portafoglio e un lead le cui preferenze
+/// combaciano ("Match Perfetto").
+///
+/// Tabella distinta da `PortfolioMatch`, che confronta *nomi di persona* fra
+/// visura e lead per l'anti-omonimia. Sono due domande diverse — "questo
+/// intestatario è il mio contatto?" contro "questa casa piacerebbe al mio
+/// contatto?" — e tenerle separate evita che un giorno un punteggio di
+/// compatibilità venga scambiato per una conferma di identità.
+model PropertyLeadMatch {
+  id String @id @default(cuid())
+
+  /// Punteggio 0-100 calcolato da lib/matching/smart-match.ts.
+  score   Int
+  /// Motivazioni leggibili ("Budget compatibile", "Zona richiesta"): l'agente
+  /// deve capire *perché* è un match prima di alzare il telefono.
+  reasons String[] @default([])
+
+  /// Segnato quando l'agente ha preso visione, per non riproporlo ogni volta.
+  seenAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Un solo match per coppia: ricalcolare aggiorna il punteggio invece di
+  /// accumulare duplicati.
+  @@unique([propertyId, leadId])
+  @@index([organizationId, score])
+}
+
+/// Documento nel fascicolo di un immobile o di un cliente.
+///
+/// Risolve tre cose che oggi un'agenzia tiene su cartelle e memoria: sapere
+/// quali documenti esistono per un incarico, quali scadono, e per quanto vanno
+/// conservati. La conservazione decennale non è una scelta di prodotto: il
+/// D.Lgs. 231/2007 la impone ai soggetti obbligati, e gli agenti immobiliari
+/// lo sono.
+///
+/// NOTA SULLO STORAGE: il contenuto è salvato in linea come data URI, con un
+/// tetto stretto, perché il deploy è serverless e non ha filesystem
+/// persistente. È adeguato a documenti scansionati singoli, non a un archivio
+/// di volume: prima di un uso intensivo va introdotto uno storage a oggetti in
+/// UE e questo campo va sostituito da un riferimento esterno.
+model AgencyDocument {
+  id String @id @default(cuid())
+
+  title    String
+  category DocumentCategory
+  notes    String?
+
+  /// File in linea, opzionale: il fascicolo resta utile anche solo come
+  /// registro di cosa esiste e dove, per chi tiene gli originali altrove.
+  fileDataUrl String?
+  fileName    String?
+  /// Byte del file originale, per mostrarne la dimensione senza decodificare.
+  fileSize    Int?
+
+  /// Scadenza del documento: carta d'identità, APE, conformità impianti.
+  /// `null` per i documenti che non scadono, come un atto di provenienza.
+  expiresAt DateTime?
+
+  /// Fino a quando va conservato. Precalcolato e non derivato a ogni lettura,
+  /// così resta valido anche se un domani la durata di legge cambia: ciò che
+  /// conta è il termine applicabile al momento dell'acquisizione.
+  retentionUntil DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Il documento appartiene al fascicolo di un immobile, di un cliente, o di
+  /// entrambi: un mandato riguarda l'immobile e il proprietario insieme.
+  leadId     String?
+  lead       Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  /// Chi l'ha caricato. `SetNull`: un documento non sparisce perché la persona
+  /// che l'ha inserito ha lasciato l'agenzia.
+  uploadedById String?
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, expiresAt])
+  @@index([organizationId, propertyId])
+  @@index([organizationId, leadId])
+}
+
+/// Richiesta di contatto dalla landing pubblica.
+///
+/// Non appartiene a nessuna `Organization`: la scrive un visitatore anonimo che
+/// un'agenzia non è ancora. È l'unica tabella del sistema senza
+/// `organizationId`, e la sola rotta che vi scrive è pubblica — da qui i
+/// controlli anti-abuso.
+model ContactRequest {
+  id String @id @default(cuid())
+
+  firstName  String
+  lastName   String
+  email      String
+  phone      String
+  agencyName String?
+  message    String
+
+  /// Impronta SHA-256 dell'indirizzo IP, non l'indirizzo.
+  ///
+  /// L'IP è un dato personale (GDPR, considerando 30): serve solo a limitare gli
+  /// invii ripetuti, e per quello un'impronta basta. Conservarlo in chiaro
+  /// significherebbe custodire la posizione approssimativa di chi scrive senza
+  /// alcun bisogno.
+  ipHash String?
+
+  /// Segnata quando la richiesta è stata evasa, così non si ricontatta due volte.
+  handledAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([ipHash, createdAt])
+  @@index([email, createdAt])
+}
+
+/// Elaborazione svolta dall'AI, conservata per la cronologia.
+///
+/// Prima di questa tabella un'estrazione da visura **consumava un credito e poi
+/// spariva al primo aggiornamento della pagina**: il risultato viveva solo nello
+/// stato del browser. Un'agenzia che aveva pagato per leggere venti visure non
+/// aveva modo di rileggerne una.
+///
+/// I report vocali restano su `VoiceReport`, che ha campi e stato di invio
+/// propri: la cronologia li unisce in lettura anziché duplicarne lo storage.
+model AiGeneration {
+  id String @id @default(cuid())
+
+  kind GenerationKind
+
+  /// Come compare in elenco: nome del file per una visura, riferimento
+  /// dell'immobile per un annuncio.
+  title String
+
+  /// Prime righe del risultato, già pronte per l'elenco.
+  ///
+  /// Ridondante rispetto a `output`, e volutamente: elencare cinquanta
+  /// elaborazioni senza caricare cinquanta JSON interi è la differenza fra una
+  /// lista che si apre e una che si aspetta.
+  preview String
+
+  /// Risultato completo, nella forma prodotta dal modulo che l'ha generato.
+  output Json
+
+  /// Immobile a cui l'elaborazione si riferisce, quando l'agente lo ha indicato:
+  /// è ciò che permette lo storico nella scheda dell'immobile.
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  /// Chi l'ha lanciata. `SetNull`: la cronologia dell'agenzia non si svuota
+  /// perché un collaboratore se ne è andato.
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  /// Ordine di lettura della cronologia: per agenzia, per tipo, dal più recente.
+  @@index([organizationId, kind, createdAt])
+  @@index([organizationId, propertyId, createdAt])
+}
+
+/// Traccia di un messaggio inviato all'assistente clienti pubblico.
+///
+/// Conserva **solo l'impronta dell'IP e l'istante**: mai il testo della
+/// domanda. Serve a limitare gli abusi su una rotta che spende token a ogni
+/// chiamata ed è raggiungibile senza autenticazione — e chi scrive nel widget
+/// può digitare dati personali che non abbiamo motivo di custodire.
+///
+/// Il conteggio sta nel database e non in memoria perché il deploy è
+/// serverless: un contatore per istanza conterebbe solo una frazione degli
+/// invii, quindi non sarebbe un limite.
+model SupportChatHit {
+  id String @id @default(cuid())
+
+  /// SHA-256 con sale dell'indirizzo IP.
+  ipHash String
+
+  createdAt DateTime @default(now())
+
+  @@index([ipHash, createdAt])
+  @@index([createdAt])
+}
+
+/// Cronologia della conversazione WhatsApp fra l'agente AI e il cliente.
+/// `messages` è un array JSON di { sender, text, timestamp } (vedi lib/whatsapp/types.ts).
+model WhatsAppChat {
+  id        String   @id @default(cuid())
+  messages  Json     @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leadId String @unique
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+}
+
+/// Slot di disponibilità di un agente per le visite immobiliari.
+/// Il numero di agende attive per organizzazione è limitato dal piano
+/// (vedi `agendasLimit` in lib/plans.ts).
+model CalendarSlot {
+  id String @id @default(cuid())
+
+  /// Nome mostrato al cliente nel messaggio WhatsApp ("giovedì alle 15 con
+  /// Mario"). Resta una stringa anche quando lo slot è assegnato a un utente:
+  /// il testo già inviato non deve cambiare se quella persona lascia
+  /// l'agenzia e il suo account viene rimosso.
+  agentName String
+  startTime DateTime
+  endTime   DateTime
+  isBooked  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Collaboratore che effettua la visita. `null` per gli slot generici, che
+  /// qualsiasi agente dell'agenzia può coprire.
+  assignedToId String?
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedTo     User?        @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  lead           Lead?
+
+  @@index([organizationId, isBooked, startTime])
+  @@index([organizationId, assignedToId])
+}
+
+/// Iscrizione alla newsletter dalla landing pubblica.
+///
+/// Non è legata a un'organizzazione: chi si iscrive è tipicamente un visitatore
+/// non ancora registrato. L'email è normalizzata in minuscolo prima del
+/// salvataggio, così `@unique` intercetta davvero i doppioni.
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  /// Nome e cognome dichiarati dal visitatore, per personalizzare gli invii.
+  /// Opzionale: un'iscrizione con la sola email è comunque valida.
+  name      String?
+  email     String   @unique
+  /// Pagina o campagna di provenienza, utile per misurare le conversioni.
+  source    String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// Report post-visita generato dalla nota vocale dell'agente (Modulo 4).
+///
+/// GDPR (CLAUDE.md §5): l'audio grezzo NON è mai persistito. Viene elaborato in
+/// memoria per ricavarne la trascrizione e poi scartato; qui restano solo il
+/// testo trascritto e il report strutturato.
+model VoiceReport {
+  id           String    @id @default(cuid())
+  propertyRef  String
+  sellerName   String?
+  sellerPhone  String?
+  transcript   String
+  report       Json
+  sourceType   String
+  sentToSeller Boolean   @default(false)
+  sentAt       DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+}

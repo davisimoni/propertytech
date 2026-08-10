@@ -1,0 +1,15 @@
+{
+  "extends": "next/core-web-vitals",
+  "ignorePatterns": [
+    "node_modules/",
+    ".next/",
+    "out/",
+    "build/",
+    "next-env.d.ts",
+    "prisma/generated/",
+    "plugins/",
+    "projects/",
+    "statsig/",
+    "shell-snapshots/"
+  ]
+}

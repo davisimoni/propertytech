@@ -1,0 +1,45 @@
+import type { ReactNode } from "react";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import { AppShell } from "@/components/layout/app-shell";
+import { DpaAcceptancePrompt } from "@/components/dashboard/dpa-acceptance-prompt";
+import { SupportWidget } from "@/components/support/support-widget";
+
+/**
+ * Il gate sull'accordo di trattamento vive qui e non nella singola dashboard:
+ * ogni rotta di questo gruppo tratta dati di terzi, e dopo l'accesso l'utente
+ * può atterrare direttamente su una qualsiasi di esse (link profondo, o
+ * `callbackUrl` propagato dal middleware). Un controllo su una sola pagina
+ * sarebbe aggirabile semplicemente digitando un altro indirizzo.
+ */
+export default async function AppGroupLayout({ children }: { children: ReactNode }) {
+  const session = await auth();
+
+  const organization = session?.user?.organizationId
+    ? await prisma.organization.findUnique({
+        where: { id: session.user.organizationId },
+        select: { dpaAcceptedAt: true },
+      })
+    : null;
+
+  const needsDpaAcceptance = Boolean(organization && !organization.dpaAcceptedAt);
+
+  return (
+    <AppShell>
+      {needsDpaAcceptance ? (
+        <div className="mx-auto max-w-2xl space-y-4">
+          <div>
+            <h1 className="text-xl font-semibold text-foreground">Benvenuto in PropertyTech</h1>
+            <p className="text-sm text-muted-foreground">
+              Manca un solo passaggio prima di poter usare il servizio.
+            </p>
+          </div>
+          <DpaAcceptancePrompt />
+        </div>
+      ) : (
+        children
+      )}
+      <SupportWidget />
+    </AppShell>
+  );
+}
