@@ -42,11 +42,11 @@ export function isOptOutMessage(text: string): boolean {
 
 /** Informativa privacy breve + opt-out, obbligatoria nel primo messaggio. */
 export const PRIVACY_DISCLOSURE =
-  "I tuoi dati sono trattati solo per gestire questa richiesta, ai sensi del GDPR. Rispondi STOP per cancellarti in qualsiasi momento.";
+  "I suoi dati sono trattati solo per gestire questa richiesta, ai sensi del GDPR. Risponda STOP per cancellarsi in qualsiasi momento.";
 
 /** Conferma di cancellazione inviata al riconoscimento dell'opt-out. */
 export const OPT_OUT_CONFIRMATION =
-  "Ricevuto. Non riceverai più messaggi automatici da noi e i tuoi dati non saranno più utilizzati per questa richiesta. Grazie e buona giornata!";
+  "Ricevuto. Non riceverà più messaggi automatici da noi e i suoi dati non saranno più utilizzati per questa richiesta. Grazie e buona giornata!";
 
 /** Compone il primo messaggio: saluto personalizzato + immobile + informativa. */
 export function buildOpeningMessage(

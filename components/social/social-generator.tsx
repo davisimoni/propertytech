@@ -7,6 +7,7 @@ import { ShareActions } from "@/components/shared/share-actions";
 import { ListingImport, type ImportedListingView } from "@/components/social/listing-import";
 import { PropertyExportPanel } from "@/components/social/property-export-panel";
 import { AiDisclaimer } from "@/components/shared/ai-disclaimer";
+import { AI_DISCLAIMER_SHORT } from "@/lib/compliance";
 import { TONE_LABELS, TONE_OPTIONS, type SocialContent, type ToneOfVoice } from "@/lib/ai/social-schema";
 import { LISTING_PROGRESS, ProgressMessages } from "@/components/shared/progress-messages";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,12 @@ function reelToPlainText(reel: SocialContent["reelScript"]): string {
     .map((scene) => `[${scene.timeRange}] ${scene.voiceover}\n  Ripresa: ${scene.visual}`)
     .join("\n\n");
   return `HOOK: ${reel.hook}\n\n${scenes}\n\nCALL TO ACTION: ${reel.callToAction}`;
+}
+
+/** Il disclaimer deve viaggiare col testo copiato, non restare solo a video:
+ *  è ciò che l'agente incolla su Instagram o nel portale (CLAUDE.md §5). */
+function withDisclaimer(text: string): string {
+  return `${text}\n\n---\n${AI_DISCLAIMER_SHORT}`;
 }
 
 export function SocialGenerator() {
@@ -200,7 +207,7 @@ export function SocialGenerator() {
                     {content.portalListing.title}
                   </h3>
                   <ShareActions
-                    text={`${content.portalListing.title}\n\n${content.portalListing.body}`}
+                    text={withDisclaimer(`${content.portalListing.title}\n\n${content.portalListing.body}`)}
                     copyLabel="Copia Testo"
                   />
                 </div>
@@ -227,9 +234,11 @@ export function SocialGenerator() {
               <div className="space-y-3">
                 <div className="flex justify-end">
                   <ShareActions
-                    text={`${content.socialPost.caption}\n\n${content.socialPost.hashtags
-                      .map((tag) => `#${tag}`)
-                      .join(" ")}`}
+                    text={withDisclaimer(
+                      `${content.socialPost.caption}\n\n${content.socialPost.hashtags
+                        .map((tag) => `#${tag}`)
+                        .join(" ")}`
+                    )}
                     copyLabel="Copia Testo"
                   />
                 </div>
@@ -253,7 +262,10 @@ export function SocialGenerator() {
                     <p className="text-xs font-medium text-muted-foreground">Hook (primi 3 secondi)</p>
                     <p className="text-sm font-semibold text-foreground">{content.reelScript.hook}</p>
                   </div>
-                  <ShareActions text={reelToPlainText(content.reelScript)} copyLabel="Copia Testo" />
+                  <ShareActions
+                    text={withDisclaimer(reelToPlainText(content.reelScript))}
+                    copyLabel="Copia Testo"
+                  />
                 </div>
 
                   {/* Storyboard impilato su mobile: le tre colonne a 520px

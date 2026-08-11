@@ -1,4 +1,5 @@
 import type { ContractType, EnergyClass, PropertyType } from "@prisma/client";
+import { AI_DISCLAIMER_SHORT } from "@/lib/compliance";
 
 /**
  * Feed XML per i portali immobiliari.
@@ -107,8 +108,11 @@ function listingXml(listing: PortalListingInput): string {
     tag("indirizzo", listing.indirizzo),
   ].filter(Boolean);
 
+  // Il testo è generato dall'AI (Modulo 3): il disclaimer viaggia dentro la
+  // descrizione stessa, non solo a video, altrimenti non arriva sul portale
+  // insieme all'annuncio (CLAUDE.md §5).
   const description = listing.description?.trim()
-    ? `    <descrizione>${cdata(listing.description.trim())}</descrizione>`
+    ? `    <descrizione>${cdata(`${listing.description.trim()}\n\n---\n${AI_DISCLAIMER_SHORT}`)}</descrizione>`
     : "";
 
   return ["  <annuncio>", ...rows, description, "  </annuncio>"].filter(Boolean).join("\n");

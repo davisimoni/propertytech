@@ -6,7 +6,7 @@
  */
 export const QUALIFICATION_QUESTIONS = {
   mortgage:
-    "Per iniziare: avete già ottenuto la delibera del mutuo dalla banca, oppure disponete di liquidità immediata?",
-  sellFirst: "Per acquistare questo immobile dovete prima venderne un altro?",
-  timeframe: "Entro quali tempi desiderate concludere l'acquisto?",
+    "Per iniziare: ha già ottenuto la delibera del mutuo dalla banca, oppure dispone di liquidità immediata?",
+  sellFirst: "Per acquistare questo immobile deve prima venderne un altro?",
+  timeframe: "Entro quali tempi desidera concludere l'acquisto?",
 } as const;
