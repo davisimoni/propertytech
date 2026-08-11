@@ -2,15 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone } from "@/lib/whatsapp/types";
-import { isOptOutMessage } from "@/lib/whatsapp/compliance";
-import { handleIncomingMessage, handleOptOut, replyToUnsupportedMedia } from "@/lib/whatsapp/conversation";
+import { replyToUnsupportedMedia } from "@/lib/whatsapp/conversation";
 import { isHandledMessageType } from "@/lib/whatsapp/unsupported-media";
-import {
-  applyReminderReply,
-  isAwaitingReminderReply,
-  parseReminderReply,
-} from "@/lib/whatsapp/reminders";
-import { createLeadFromFirstMessage } from "@/lib/whatsapp/first-contact";
+import { handleInboundWhatsAppMessage } from "@/lib/whatsapp/inbound";
 import { transcribeVoiceNote } from "@/lib/whatsapp/voice-note";
 import { decryptAccessToken } from "@/lib/whatsapp/credentials";
 import { sendWhatsAppMessage } from "@/lib/whatsapp/client";
@@ -172,71 +166,21 @@ export async function POST(request: Request) {
           continue;
         }
 
-        const existing = await prisma.lead.findUnique({
-          where: {
-            organizationId_clientPhone: {
-              organizationId: config.organizationId,
-              clientPhone: normalizePhone(message.from),
-            },
-          },
+        // Il profilo WhatsApp è l'unico nome disponibile per un contatto che
+        // scrive per la prima volta: senza, la scheda nascerebbe con un
+        // segnaposto.
+        const profileName = change.value.contacts?.find(
+          (contact) => normalizePhone(contact.wa_id) === normalizePhone(message.from)
+        )?.profile?.name;
+
+        // Da qui in poi il flusso è quello condiviso con Twilio e col webhook
+        // generico: lookup del lead, opt-out, risposta a un promemoria in
+        // attesa, e solo da ultimo la qualificazione via AI (Modulo 1).
+        await handleInboundWhatsAppMessage(config, {
+          fromPhone: message.from,
+          profileName,
+          text: body,
         });
-
-        // Numero mai visto: è la persona che ha inquadrato il QR in vetrina o
-        // sul cartello dell'immobile e ha scritto per prima. La scheda nasce
-        // qui e la qualificazione parte subito — prima questo messaggio veniva
-        // scartato e la scansione non produceva nulla.
-        if (!existing) {
-          const profileName = change.value.contacts?.find(
-            (contact) => normalizePhone(contact.wa_id) === normalizePhone(message.from)
-          )?.profile?.name;
-
-          try {
-            await createLeadFromFirstMessage({
-              config,
-              agencyName: config.organization.agencyName,
-              fromPhone: message.from,
-              profileName,
-              messageText: body,
-            });
-          } catch (error) {
-            console.error("[api/whatsapp/webhook] Creazione lead da primo contatto fallita", error);
-          }
-
-          continue;
-        }
-
-        const lead = existing;
-
-        // Un contatto già in opt-out non riceve più nulla, nemmeno se riscrive.
-        if (lead.qualificationStatus === "OPT_OUT") continue;
-
-        try {
-          // Ordine deliberato: l'opt-out vince su tutto, poi la risposta a un
-          // promemoria in attesa, e solo da ultimo la conversazione con l'AI.
-          // Un "NO" a un promemoria deve liberare l'agenda, non finire in pasto
-          // al modello che lo leggerebbe come risposta di qualificazione.
-          const reminderReply = isAwaitingReminderReply(lead)
-            ? parseReminderReply(body)
-            : null;
-
-          if (isOptOutMessage(body)) {
-            await handleOptOut(lead, config);
-          } else if (reminderReply) {
-            await applyReminderReply(lead, config, reminderReply);
-          } else {
-            await handleIncomingMessage(
-              lead,
-              config,
-              config.organization.agencyName,
-              body
-            );
-          }
-        } catch (error) {
-          console.error("[api/whatsapp/webhook] Message handling failed", {
-            leadId: lead.id,
-            error,
-          });
-        }
       }
     }
   }

@@ -3,7 +3,7 @@ import type { Lead, WhatsAppConfig } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { incrementUsage } from "@/lib/usage";
 import { bookSlot, formatSlotForChat, getAvailableSlots } from "@/lib/calendar";
-import { sendWhatsAppMessage } from "./client";
+import { hasSendableCredentials, sendWhatsAppMessageForProvider } from "./client";
 import { appendMessage } from "./chat-history";
 import { buildOpeningMessage, OPT_OUT_CONFIRMATION } from "./compliance";
 import { generateAgentReply, AGENT_FALLBACK_MESSAGE } from "@/lib/ai/whatsapp-agent";
@@ -14,7 +14,7 @@ import {
   deriveSellerCategory,
   reconcileOwnedPropertiesCount,
 } from "./portfolio";
-import { decryptAccessToken } from "./credentials";
+import { resolveWhatsAppCredentials } from "./credentials";
 import { MEDIA_NUDGE, shouldSendMediaNudge } from "./unsupported-media";
 import { normalizePhone, parseChatMessages } from "@/lib/whatsapp/types";
 
@@ -41,14 +41,7 @@ export async function startConversation(
     QUALIFICATION_QUESTIONS.mortgage
   );
 
-  await sendWhatsAppMessage(
-    {
-      metaAccessToken: decryptAccessToken(config.metaAccessToken) ?? "",
-      metaPhoneAccountId: config.metaPhoneAccountId ?? "",
-    },
-    lead.clientPhone,
-    opening
-  );
+  await sendWhatsAppMessageForProvider(resolveWhatsAppCredentials(config), lead.clientPhone, opening);
 
   await appendMessage(lead.id, { sender: "bot", text: opening, timestamp: nowIso() });
 
@@ -79,11 +72,8 @@ export async function handleOptOut(lead: Lead, config: WhatsAppConfig): Promise<
   });
 
   try {
-    await sendWhatsAppMessage(
-      {
-        metaAccessToken: decryptAccessToken(config.metaAccessToken) ?? "",
-        metaPhoneAccountId: config.metaPhoneAccountId ?? "",
-      },
+    await sendWhatsAppMessageForProvider(
+      resolveWhatsAppCredentials(config),
       lead.clientPhone,
       OPT_OUT_CONFIRMATION
     );
@@ -173,14 +163,7 @@ export async function handleIncomingMessage(
     });
   }
 
-  await sendWhatsAppMessage(
-    {
-      metaAccessToken: decryptAccessToken(config.metaAccessToken) ?? "",
-      metaPhoneAccountId: config.metaPhoneAccountId ?? "",
-    },
-    lead.clientPhone,
-    replyText
-  );
+  await sendWhatsAppMessageForProvider(resolveWhatsAppCredentials(config), lead.clientPhone, replyText);
 
   await appendMessage(lead.id, { sender: "bot", text: replyText, timestamp: nowIso() });
 
@@ -222,8 +205,8 @@ export async function replyToUnsupportedMedia({
   organizationId: string;
   fromPhone: string;
 }): Promise<void> {
-  const accessToken = decryptAccessToken(config.metaAccessToken);
-  if (!accessToken || !config.metaPhoneAccountId) return;
+  const credentials = resolveWhatsAppCredentials(config);
+  if (!hasSendableCredentials(credentials)) return;
 
   const lead = await prisma.lead.findUnique({
     where: { organizationId_clientPhone: { organizationId, clientPhone: normalizePhone(fromPhone) } },
@@ -236,11 +219,7 @@ export async function replyToUnsupportedMedia({
   const history = parseChatMessages(lead?.chat?.messages);
   if (!shouldSendMediaNudge(history)) return;
 
-  await sendWhatsAppMessage(
-    { metaAccessToken: accessToken, metaPhoneAccountId: config.metaPhoneAccountId },
-    fromPhone,
-    MEDIA_NUDGE
-  );
+  await sendWhatsAppMessageForProvider(credentials, fromPhone, MEDIA_NUDGE);
 
   // Registrato in cronologia solo se il lead esiste: è ciò che permette di non
   // ripetersi al messaggio successivo.

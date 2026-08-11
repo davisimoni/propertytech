@@ -9,12 +9,15 @@ import {
 } from "lucide-react";
 import { SELLER_CATEGORY_LABELS } from "@/lib/whatsapp/portfolio";
 import { CrmConnector } from "@/components/settings/crm-connector";
+import { CrmListingImport } from "@/components/settings/crm-listing-import";
 import type { CrmProviderId, LeadFieldKey } from "@/lib/integrations/providers";
 import { cn } from "@/lib/utils";
 
 interface IntegrationView {
   crmWebhookUrl: string | null;
   crmWebhookSecret: string | null;
+  crmListingImportUrl: string | null;
+  crmListingImportedAt: string | null;
   crmProvider: CrmProviderId;
   crmAuthTokenMask: string | null;
   crmAuthUser: string | null;
@@ -191,12 +194,20 @@ export function IntegrationPanel() {
 
       {/* --- Collegamento al gestionale --- */}
       {config && (
-        <CrmConnector
-          state={config}
-          onSaved={(next) => {
-            setConfig({ ...config, ...next });
-          }}
-        />
+        <>
+          <CrmConnector
+            state={config}
+            onSaved={(next) => {
+              setConfig({ ...config, ...next });
+            }}
+          />
+          <CrmListingImport
+            state={config}
+            onSaved={(next) => {
+              setConfig({ ...config, ...next });
+            }}
+          />
+        </>
       )}
 
       {/* --- Promemoria anti no-show --- */}

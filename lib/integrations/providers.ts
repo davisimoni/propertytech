@@ -89,6 +89,8 @@ export type CrmProviderId =
   | "getrix"
   | "gestim"
   | "frimm"
+  | "realgest"
+  | "miogest"
   | "custom";
 
 export interface CrmProvider {
@@ -233,6 +235,30 @@ export const CRM_PROVIDERS: Record<CrmProviderId, CrmProvider> = {
     verified: false,
     setupHint:
       "Chiedi a Frimm l'endpoint e le credenziali API della tua agenzia, poi allinea la mappatura ai nomi dei loro campi.",
+  },
+  realgest: {
+    id: "realgest",
+    name: "RealGest",
+    tagline: "Gestionale immobiliare",
+    auth: "bearer",
+    allowedHosts: null,
+    bodyShape: "flat",
+    fieldMap: ITALIAN_FIELD_MAP,
+    verified: false,
+    setupHint:
+      "Preset non confermato: non abbiamo un contratto API verificato per RealGest. Chiedi al fornitore l'endpoint di importazione lead (ed eventualmente quello di lettura annunci) e il token della tua agenzia, poi allinea qui sotto la mappatura ai nomi dei loro campi. Verifica sempre con \"Invia lead di prova\" prima di andare in produzione.",
+  },
+  miogest: {
+    id: "miogest",
+    name: "Miogest",
+    tagline: "Gestionale immobiliare",
+    auth: "bearer",
+    allowedHosts: null,
+    bodyShape: "flat",
+    fieldMap: ITALIAN_FIELD_MAP,
+    verified: false,
+    setupHint:
+      "Preset non confermato: non abbiamo un contratto API verificato per Miogest. Chiedi al fornitore l'endpoint di importazione lead (ed eventualmente quello di lettura annunci) e il token della tua agenzia, poi allinea qui sotto la mappatura ai nomi dei loro campi. Verifica sempre con \"Invia lead di prova\" prima di andare in produzione.",
   },
   custom: {
     id: "custom",

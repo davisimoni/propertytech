@@ -261,6 +261,17 @@ model Organization {
   /// e non da chiunque conosca l'URL.
   crmWebhookSecret String?
 
+  /// Endpoint REST da cui importare gli annunci del gestionale (direzione
+  /// opposta a `crmWebhookUrl`: da lì il gestionale RICEVE i lead, da qui
+  /// PropertyTech LEGGE gli immobili). Riusa `crmProvider`/`crmAuthToken` per
+  /// l'autenticazione: nella maggior parte dei gestionali la stessa chiave
+  /// vale per lettura e scrittura, cambia solo l'indirizzo. `null` =
+  /// importazione non configurata.
+  crmListingImportUrl String?
+  /// Ultima sincronizzazione riuscita, mostrata in UI così l'agenzia sa se
+  /// il portafoglio è aggiornato senza dover guardare i log.
+  crmListingImportedAt DateTime?
+
   /// Quale gestionale è collegato: `webhook`, `zapier`, `make`, `getrix`…
   ///
   /// Stringa e non enum Prisma di proposito: l'elenco vive in
@@ -366,7 +377,30 @@ model WhatsAppConfig {
   metaAccessToken    String?
   metaPhoneAccountId String?
   webhookVerifyToken String?
+  /// Identifica il tenant sulle rotte pubbliche che non passano da NextAuth
+  /// (ingaggio lead dai portali, webhook WhatsApp generico): un token nell'URL
+  /// o nell'header, non l'organizationId in chiaro.
   inboundToken       String  @unique @default(cuid())
+
+  /// --- Provider di messaggistica ---
+  /// Quale trasporto usa questa agenzia: `meta` (Cloud API diretta, storico
+  /// e default), `twilio`, `generic` (relay verso un BSP non elencato).
+  /// Stringa e non enum, stesso motivo di Organization.crmProvider: un
+  /// provider in più è un dato, non deve costare una migrazione.
+  provider String @default("meta")
+
+  /// --- Twilio ---
+  twilioAccountSid     String?
+  /// Auth Token, cifrato con lo stesso schema del token Meta (lib/whatsapp/credentials.ts).
+  twilioAuthToken      String?
+  /// Mittente nel formato richiesto da Twilio, es. "whatsapp:+14155238886".
+  twilioWhatsAppNumber String?
+
+  /// --- Webhook generico (BSP non elencati) ---
+  /// Endpoint a cui POSTiamo i messaggi in uscita quando `provider = "generic"`.
+  genericSendUrl   String?
+  /// Credenziale opzionale (Bearer), cifrata come sopra.
+  genericAuthToken String?
 
   /// --- Promemoria anti no-show ---
   /// Attivo per default: il no-show è il costo operativo che questa funzione

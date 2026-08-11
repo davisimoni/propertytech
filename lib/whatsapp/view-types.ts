@@ -6,6 +6,7 @@ import type {
   SellerCategory,
 } from "@prisma/client";
 import type { ChatMessage } from "./types";
+import type { WhatsAppProviderId } from "./provider";
 
 /** Forma del lead restituita da /api/whatsapp/leads e consumata dalla GUI. */
 export interface LeadView {
@@ -60,10 +61,16 @@ export interface PortfolioMatchView {
 
 /** Forma della configurazione restituita da /api/whatsapp/config. */
 export interface WhatsAppConfigView {
+  provider: WhatsAppProviderId;
   isConnected: boolean;
   phoneNumber: string | null;
   metaPhoneAccountId: string | null;
   hasAccessToken: boolean;
+  twilioAccountSid: string | null;
+  twilioWhatsAppNumber: string | null;
+  hasTwilioAuthToken: boolean;
+  genericSendUrl: string | null;
+  hasGenericAuthToken: boolean;
   inboundToken: string;
   webhookVerifyToken: string | null;
 }

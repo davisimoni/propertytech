@@ -1,9 +1,9 @@
 import "server-only";
 import type { Lead, WhatsAppConfig } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { sendWhatsAppMessage } from "./client";
+import { sendWhatsAppMessageForProvider } from "./client";
 import { appendMessage } from "./chat-history";
-import { decryptAccessToken } from "./credentials";
+import { resolveWhatsAppCredentials } from "./credentials";
 
 /**
  * Promemoria anti no-show (Modulo 1).
@@ -194,14 +194,7 @@ export async function applyReminderReply(
   });
 
   try {
-    await sendWhatsAppMessage(
-      {
-        metaAccessToken: decryptAccessToken(config.metaAccessToken) ?? "",
-        metaPhoneAccountId: config.metaPhoneAccountId ?? "",
-      },
-      lead.clientPhone,
-      text
-    );
+    await sendWhatsAppMessageForProvider(resolveWhatsAppCredentials(config), lead.clientPhone, text);
   } catch (error) {
     console.error("[whatsapp/reminders] Conferma non recapitata", { leadId: lead.id, error });
   }
@@ -263,14 +256,7 @@ export async function sendDueReminders(now: Date = new Date()): Promise<Reminder
       );
 
       try {
-        await sendWhatsAppMessage(
-          {
-            metaAccessToken: decryptAccessToken(config.metaAccessToken) ?? "",
-            metaPhoneAccountId: config.metaPhoneAccountId ?? "",
-          },
-          lead.clientPhone,
-          text
-        );
+        await sendWhatsAppMessageForProvider(resolveWhatsAppCredentials(config), lead.clientPhone, text);
 
         // `reminderSentAt` è scritto solo dopo un invio riuscito: se la Cloud
         // API è giù, il prossimo giro riproverà invece di considerare

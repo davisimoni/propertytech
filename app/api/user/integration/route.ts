@@ -32,6 +32,8 @@ const fieldMapSchema = z
 const integrationSchema = z.object({
   /** Stringa vuota o `null` disattiva l'integrazione. */
   crmWebhookUrl: z.string().trim().max(500).nullable().optional(),
+  /** Direzione opposta: da qui importiamo gli annunci del gestionale. */
+  crmListingImportUrl: z.string().trim().max(500).nullable().optional(),
   crmProvider: z.enum(CRM_PROVIDER_IDS as [CrmProviderId, ...CrmProviderId[]]).optional(),
   /**
    * Credenziale in chiaro dal browser: viaggia solo su HTTPS e viene cifrata
@@ -53,6 +55,8 @@ const integrationSchema = z.object({
 interface IntegrationView {
   crmWebhookUrl: string | null;
   crmWebhookSecret: string | null;
+  crmListingImportUrl: string | null;
+  crmListingImportedAt: string | null;
   crmProvider: CrmProviderId;
   /** Solo la coda della chiave: il valore in chiaro non torna mai al browser. */
   crmAuthTokenMask: string | null;
@@ -68,6 +72,8 @@ async function readIntegration(organizationId: string): Promise<IntegrationView 
     select: {
       crmWebhookUrl: true,
       crmWebhookSecret: true,
+      crmListingImportUrl: true,
+      crmListingImportedAt: true,
       crmProvider: true,
       crmAuthToken: true,
       crmAuthUser: true,
@@ -87,6 +93,8 @@ async function readIntegration(organizationId: string): Promise<IntegrationView 
   return {
     crmWebhookUrl: organization.crmWebhookUrl,
     crmWebhookSecret: organization.crmWebhookSecret,
+    crmListingImportUrl: organization.crmListingImportUrl,
+    crmListingImportedAt: organization.crmListingImportedAt?.toISOString() ?? null,
     crmProvider: provider.id,
     crmAuthTokenMask: organization.crmAuthToken
       ? token
@@ -135,6 +143,7 @@ export async function PUT(request: Request) {
 
   const {
     crmWebhookUrl,
+    crmListingImportUrl,
     crmProvider,
     crmAuthToken,
     crmAuthUser,
@@ -146,6 +155,7 @@ export async function PUT(request: Request) {
   const organizationData: {
     crmWebhookUrl?: string | null;
     crmWebhookSecret?: string;
+    crmListingImportUrl?: string | null;
     crmProvider?: string;
     crmAuthToken?: string | null;
     crmAuthUser?: string | null;
@@ -203,6 +213,35 @@ export async function PUT(request: Request) {
       if (!current?.crmWebhookSecret) {
         organizationData.crmWebhookSecret = generateWebhookSecret();
       }
+    }
+  }
+
+  if (crmListingImportUrl !== undefined) {
+    if (!crmListingImportUrl) {
+      organizationData.crmListingImportUrl = null;
+    } else {
+      // Stessa guardia SSRF dell'endpoint di consegna: un URL interno qui
+      // significherebbe far leggere al nostro server un bersaglio a scelta
+      // dell'agente, con tanto di chiave API in header.
+      const safeImport = parsePublicHttpUrl(crmListingImportUrl);
+      if (!safeImport.ok) {
+        return NextResponse.json(
+          { error: "invalid_import_url", message: UNSAFE_URL_MESSAGES[safeImport.reason] },
+          { status: 400 }
+        );
+      }
+
+      if (!isHostAllowed(provider, safeImport.url.hostname)) {
+        return NextResponse.json(
+          {
+            error: "host_not_allowed",
+            message: `Per ${provider.name} l'indirizzo deve essere su ${provider.allowedHosts?.join(" o ")}.`,
+          },
+          { status: 400 }
+        );
+      }
+
+      organizationData.crmListingImportUrl = safeImport.url.toString();
     }
   }
 

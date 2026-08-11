@@ -1,5 +1,8 @@
 import "server-only";
+import type { WhatsAppConfig } from "@prisma/client";
 import { decryptSecret, encryptSecret, isEncryptionAvailable } from "@/lib/crypto/secrets";
+import { isWhatsAppProviderId, type WhatsAppProviderId } from "./provider";
+import type { ResolvedWhatsAppCredentials } from "./client";
 
 /**
  * Confine di cifratura del token di accesso WhatsApp.
@@ -74,4 +77,54 @@ export function decryptAccessToken(stored: string | null | undefined): string | 
  */
 export function hasUsableAccessToken(stored: string | null | undefined): boolean {
   return decryptAccessToken(stored) !== null;
+}
+
+/**
+ * Risolve le credenziali di invio dal provider configurato dall'agenzia.
+ *
+ * Unico punto in cui un token cifrato in `WhatsAppConfig` diventa un valore
+ * utilizzabile per l'invio: stesso principio del resto del file, esteso ai
+ * provider aggiunti dopo Meta. `sendWhatsAppMessageForProvider` (client.ts)
+ * riceve solo il risultato, mai il record grezzo.
+ */
+export function resolveWhatsAppCredentials(config: WhatsAppConfig): ResolvedWhatsAppCredentials {
+  const provider: WhatsAppProviderId = isWhatsAppProviderId(config.provider)
+    ? config.provider
+    : "meta";
+
+  switch (provider) {
+    case "twilio":
+      return {
+        provider,
+        twilio:
+          config.twilioAccountSid && config.twilioWhatsAppNumber
+            ? {
+                accountSid: config.twilioAccountSid,
+                authToken: decryptAccessToken(config.twilioAuthToken) ?? "",
+                fromWhatsAppNumber: config.twilioWhatsAppNumber,
+              }
+            : undefined,
+      };
+
+    case "generic":
+      return {
+        provider,
+        generic: config.genericSendUrl
+          ? {
+              sendUrl: config.genericSendUrl,
+              authToken: decryptAccessToken(config.genericAuthToken),
+            }
+          : undefined,
+      };
+
+    case "meta":
+    default:
+      return {
+        provider: "meta",
+        meta: {
+          metaAccessToken: decryptAccessToken(config.metaAccessToken) ?? "",
+          metaPhoneAccountId: config.metaPhoneAccountId ?? "",
+        },
+      };
+  }
 }
