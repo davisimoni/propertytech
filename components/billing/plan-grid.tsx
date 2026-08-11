@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Check, X } from "lucide-react";
 import { BillingIntervalToggle } from "@/components/billing/billing-interval-toggle";
 import { UpgradeButton } from "@/components/billing/upgrade-button";
+import { CancelSubscriptionFlow } from "@/components/billing/cancel-subscription-flow";
 import {
   formatEur,
   getPlanPricing,
@@ -131,6 +132,8 @@ export function PlanGrid({ currentPlanId }: { currentPlanId: PlanId }) {
                   className="mt-5"
                 />
               )}
+
+              {isCurrent && plan.id !== "trial" && <CancelSubscriptionFlow />}
             </div>
           );
         })}

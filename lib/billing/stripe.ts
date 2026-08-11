@@ -1,7 +1,9 @@
 import "server-only";
 import Stripe from "stripe";
+import type { CancellationReason } from "@prisma/client";
 import type { BillingInterval, PlanId } from "@/lib/plans";
 import { isConfiguredSecret, readSecret } from "@/lib/env";
+export { isCancellationReason } from "@/lib/billing/cancellation";
 
 /** Piani acquistabili: `trial` è gratuito e non ha un prezzo su Stripe. */
 export type PaidPlanId = Exclude<PlanId, "trial">;
@@ -82,3 +84,54 @@ export function readPlanFromMetadata(metadata: Stripe.Metadata | null): PaidPlan
   const plan = metadata?.planId;
   return typeof plan === "string" && isPaidPlanId(plan) ? plan : null;
 }
+
+/**
+ * Sconto di retention (-50% a vita), offerto una sola volta prima che
+ * l'agenzia completi la disdetta.
+ *
+ * `id` fisso invece di crearne uno nuovo a ogni chiamata: così due richieste
+ * concorrenti convergono sullo stesso coupon anziché duplicarlo, e riaprire
+ * il modale dopo un refresh non ne crea uno in più.
+ */
+const RETENTION_COUPON_ID = "retention-50-forever";
+export const RETENTION_DISCOUNT_PERCENT_OFF = 50;
+
+export async function getOrCreateRetentionCoupon(stripe: Stripe): Promise<string> {
+  try {
+    await stripe.coupons.retrieve(RETENTION_COUPON_ID);
+  } catch {
+    try {
+      await stripe.coupons.create({
+        id: RETENTION_COUPON_ID,
+        percent_off: RETENTION_DISCOUNT_PERCENT_OFF,
+        duration: "forever",
+        name: "Offerta di retention -50%",
+      });
+    } catch (createError) {
+      // Creato nel frattempo da una richiesta concorrente: il coupon esiste
+      // comunque con l'id atteso, non è un errore da propagare.
+      const alreadyExists =
+        createError instanceof Stripe.errors.StripeInvalidRequestError &&
+        createError.code === "resource_already_exists";
+      if (!alreadyExists) throw createError;
+    }
+  }
+
+  return RETENTION_COUPON_ID;
+}
+
+/**
+ * Il motivo scelto nel questionario di disdetta viaggia anche verso Stripe:
+ * compare nel Dashboard sull'abbonamento cancellato, senza dover incrociare
+ * manualmente i dati con il nostro database.
+ */
+export const CANCELLATION_REASON_TO_STRIPE_FEEDBACK: Record<
+  CancellationReason,
+  Stripe.SubscriptionUpdateParams.CancellationDetails.Feedback
+> = {
+  TOO_EXPENSIVE: "too_expensive",
+  NOT_USED_ENOUGH: "unused",
+  MISSING_FEATURES: "missing_features",
+  CHOSE_ALTERNATIVE: "switched_service",
+  OTHER: "other",
+};

@@ -45,7 +45,29 @@ async function downgradeToTrial(stripeSubscriptionId: string) {
 
   await prisma.subscription.update({
     where: { organizationId: subscription.organizationId },
-    data: { status: "trial" },
+    // La disdetta, se c'era, ha appena avuto effetto: non è più "in corso".
+    data: { status: "trial", cancelAtPeriodEnd: false, currentPeriodEnd: null },
+  });
+}
+
+/**
+ * Sincronizza lo stato di disdetta dall'abbonamento Stripe.
+ *
+ * `cancel_at_period_end` non cambia lo `status` dell'abbonamento — resta
+ * "active" fino alla fine del periodo pagato — quindi va letto qui a parte,
+ * indipendentemente dal ramo che gestisce l'attivazione del piano. Serve
+ * anche a restare corretti se la disdetta parte dal portale clienti di
+ * Stripe invece che dalla nostra UI.
+ */
+async function syncCancellationState(organizationId: string, subscription: Stripe.Subscription) {
+  const periodEndSeconds = subscription.items.data[0]?.current_period_end;
+
+  await prisma.subscription.update({
+    where: { organizationId },
+    data: {
+      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      currentPeriodEnd: periodEndSeconds ? new Date(periodEndSeconds * 1000) : null,
+    },
   });
 }
 
@@ -110,6 +132,7 @@ export async function POST(request: Request) {
         // attivo il piano.
         if (organizationId && planId && subscription.status === "active") {
           await activatePlan(organizationId, planId, subscription.id, null);
+          await syncCancellationState(organizationId, subscription);
         } else if (subscription.status === "canceled" || subscription.status === "unpaid") {
           await downgradeToTrial(subscription.id);
         }

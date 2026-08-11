@@ -13,6 +13,17 @@ enum PlanId {
   enterprise
 }
 
+/// Motivo scelto dall'agenzia nel questionario di disdetta (flusso di
+/// cancellazione, Modulo 2). "Altro" copre i casi non previsti, con il
+/// dettaglio libero nel campo `details` di CancellationFeedback.
+enum CancellationReason {
+  TOO_EXPENSIVE
+  NOT_USED_ENOUGH
+  MISSING_FEATURES
+  CHOSE_ALTERNATIVE
+  OTHER
+}
+
 /// Stato del funnel di qualificazione di un lead.
 /// OPT_OUT è distinto da UNQUALIFIED: indica una revoca esplicita del consenso
 /// (STOP/CANCELLAMI) e blocca in modo permanente ogni invio successivo.
@@ -276,18 +287,19 @@ model Organization {
 
   createdAt DateTime @default(now())
 
-  users            User[]
-  subscription     Subscription?
-  usageTracker     UsageTracker?
-  whatsAppConfig   WhatsAppConfig?
-  leads            Lead[]
-  calendarSlots    CalendarSlot[]
-  voiceReports     VoiceReport[]
-  portfolioMatches PortfolioMatch[]
-  properties       Property[]
-  propertyMatches  PropertyLeadMatch[]
-  agencyDocuments  AgencyDocument[]
-  aiGenerations    AiGeneration[]
+  users                User[]
+  subscription         Subscription?
+  usageTracker         UsageTracker?
+  whatsAppConfig       WhatsAppConfig?
+  leads                Lead[]
+  calendarSlots        CalendarSlot[]
+  voiceReports         VoiceReport[]
+  portfolioMatches     PortfolioMatch[]
+  properties           Property[]
+  propertyMatches      PropertyLeadMatch[]
+  agencyDocuments      AgencyDocument[]
+  aiGenerations        AiGeneration[]
+  cancellationFeedback CancellationFeedback[]
 }
 
 model Subscription {
@@ -295,10 +307,39 @@ model Subscription {
   status               PlanId   @default(trial)
   stripeCustomerId     String?  @unique
   stripeSubscriptionId String?  @unique
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+
+  /// Impostato quando l'agenzia conferma la disdetta (`cancel_at_period_end`
+  /// su Stripe): l'abbonamento resta attivo fino a `currentPeriodEnd`, non
+  /// finisce subito. Sincronizzato anche dal webhook, per restare corretto
+  /// anche se la disdetta avviene dal portale clienti di Stripe.
+  cancelAtPeriodEnd Boolean   @default(false)
+  /// Fine del periodo di fatturazione corrente, da Stripe. `null` finché non
+  /// è mai arrivato un evento con questo dato.
+  currentPeriodEnd  DateTime?
+  /// Quando è stato applicato lo sconto di retention (-50% a vita). Non è la
+  /// fonte di verità del prezzo — quella resta Stripe — ma serve a sapere se
+  /// è già stato offerto a questa agenzia.
+  retentionDiscountAppliedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+/// Risposta al questionario di disdetta: una riga per ogni cancellazione
+/// confermata (un'agenzia può riabbonarsi e disdire più volte nel tempo). Il
+/// piano è duplicato dallo stato dell'abbonamento al momento dell'evento
+/// perché l'aggiornamento successivo del piano lo sovrascriverebbe.
+model CancellationFeedback {
+  id                 String             @id @default(cuid())
+  reason             CancellationReason
+  details            String?
+  planAtCancellation PlanId
+  createdAt          DateTime           @default(now())
+
+  organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
