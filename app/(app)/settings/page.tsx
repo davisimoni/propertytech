@@ -67,7 +67,11 @@ export default async function SettingsPage() {
 
       <IntegrationPanel />
 
-      <ReferralPanel />
+      {/* `scroll-mt-20` come per #prezzi: l'intestazione è fissa e senza
+          margine di ancoraggio il titolo resterebbe nascosto sotto la barra. */}
+      <section id="referral" className="scroll-mt-20">
+        <ReferralPanel />
+      </section>
 
       <section className="rounded-xl border border-border bg-card p-4">
         <div className="flex items-start gap-3">

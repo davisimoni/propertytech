@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/layout/app-shell";
 import { DpaAcceptancePrompt } from "@/components/dashboard/dpa-acceptance-prompt";
+import { ReferralPromo } from "@/components/referrals/referral-promo";
 import { SupportWidget } from "@/components/support/support-widget";
 
 /**
@@ -40,6 +41,13 @@ export default async function AppGroupLayout({ children }: { children: ReactNode
         children
       )}
       <SupportWidget />
+
+      {/* L'area riservata non monta il footer (vedi site-footer.tsx), quindi
+          il popup va montato qui a parte: è proprio l'agente già dentro il
+          prodotto quello che ha più motivo di invitare un collega.
+          Escluso mentre manca l'accettazione del DPA: quel passaggio è
+          bloccante e non va coperto da una promozione. */}
+      {!needsDpaAcceptance && <ReferralPromo />}
     </AppShell>
   );
 }

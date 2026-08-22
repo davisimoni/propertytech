@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
+import { ReferralFooterLink } from "@/components/referrals/referral-footer-link";
+import { ReferralPromo } from "@/components/referrals/referral-promo";
 import { BRAND } from "@/lib/brand";
 
 /**
@@ -103,6 +105,14 @@ export function LandingFooter() {
                     )}
                   </li>
                 ))}
+
+                {/* Voce fuori dall'elenco dichiarativo perché è un'azione, non
+                    una destinazione: apre il popup invece di navigare. */}
+                {column.title === "Risorse" && (
+                  <li>
+                    <ReferralFooterLink className={LINK_CLASS} />
+                  </li>
+                )}
               </ul>
             </nav>
           ))}
@@ -124,6 +134,11 @@ export function LandingFooter() {
           </p>
         </div>
       </div>
+
+      {/* Montato qui e non nelle singole pagine: il footer è l'unico elemento
+          presente su tutta l'area pubblica (landing, guida, pagine legali),
+          quindi il popup e il link che lo apre restano sempre insieme. */}
+      <ReferralPromo />
     </footer>
   );
 }

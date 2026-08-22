@@ -139,8 +139,10 @@ export async function getOrCreateRetentionCoupon(stripe: Stripe): Promise<string
  * impostato — riconciliare più sconti simultanei sullo stesso abbonamento è
  * fuori dallo scopo di questa modifica.
  */
-export const REFERRAL_DISCOUNT_PERCENT_PER_REFERRAL = 30;
-export const MAX_REFERRAL_DISCOUNT_PERCENT = 90;
+export {
+  REFERRAL_DISCOUNT_PERCENT_PER_REFERRAL,
+  MAX_REFERRAL_DISCOUNT_PERCENT,
+} from "@/lib/referrals/constants";
 
 function referralCouponId(percent: number): string {
   return `referral-${percent}-forever`;
