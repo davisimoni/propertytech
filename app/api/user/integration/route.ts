@@ -16,6 +16,7 @@ import {
   type CrmProviderId,
   type LeadFieldKey,
 } from "@/lib/integrations/providers";
+import { resolveListingFieldMap } from "@/lib/integrations/crm/listing-import";
 
 /** Anticipi proposti dalla UI: il giorno prima, oppure poco prima della visita. */
 const ALLOWED_REMINDER_HOURS = [1, 2, 3, 6, 12, 24, 48] as const;
@@ -42,6 +43,16 @@ const integrationSchema = z.object({
   crmAuthToken: z.string().trim().max(500).nullable().optional(),
   crmAuthUser: z.string().trim().max(200).nullable().optional(),
   crmFieldMap: fieldMapSchema.nullable().optional(),
+  /**
+   * Tracciato per l'import annunci: nome del campo nel gestionale → nostro
+   * campo. Le chiavi sono libere (sono i nomi che sceglie il gestionale, non
+   * li conosciamo in anticipo); `resolveListingFieldMap` scarta i valori che
+   * non corrispondono a un nostro campo noto.
+   */
+  crmListingFieldMap: z
+    .record(z.string().trim().min(1).max(60), z.string().trim().max(60))
+    .nullable()
+    .optional(),
   reminderEnabled: z.boolean().optional(),
   reminderHoursBefore: z
     .number()
@@ -57,6 +68,7 @@ interface IntegrationView {
   crmWebhookSecret: string | null;
   crmListingImportUrl: string | null;
   crmListingImportedAt: string | null;
+  crmListingFieldMap: Record<string, string> | null;
   crmProvider: CrmProviderId;
   /** Solo la coda della chiave: il valore in chiaro non torna mai al browser. */
   crmAuthTokenMask: string | null;
@@ -74,6 +86,7 @@ async function readIntegration(organizationId: string): Promise<IntegrationView 
       crmWebhookSecret: true,
       crmListingImportUrl: true,
       crmListingImportedAt: true,
+      crmListingFieldMap: true,
       crmProvider: true,
       crmAuthToken: true,
       crmAuthUser: true,
@@ -95,6 +108,7 @@ async function readIntegration(organizationId: string): Promise<IntegrationView 
     crmWebhookSecret: organization.crmWebhookSecret,
     crmListingImportUrl: organization.crmListingImportUrl,
     crmListingImportedAt: organization.crmListingImportedAt?.toISOString() ?? null,
+    crmListingFieldMap: resolveListingFieldMap(organization.crmListingFieldMap),
     crmProvider: provider.id,
     crmAuthTokenMask: organization.crmAuthToken
       ? token
@@ -148,6 +162,7 @@ export async function PUT(request: Request) {
     crmAuthToken,
     crmAuthUser,
     crmFieldMap,
+    crmListingFieldMap,
     reminderEnabled,
     reminderHoursBefore,
   } = parsed.data;
@@ -161,8 +176,10 @@ export async function PUT(request: Request) {
     crmAuthUser?: string | null;
     // `Prisma.DbNull` e non `null`: per una colonna Json, Prisma distingue il
     // NULL della colonna dal valore JSON `null`, e solo il primo significa
-    // "torna al preset del provider".
+    // "torna al preset del provider" (crmFieldMap) o "nessun tracciato,
+    // usa i nostri nomi nativi" (crmListingFieldMap).
     crmFieldMap?: Record<string, string> | typeof Prisma.DbNull;
+    crmListingFieldMap?: Record<string, string> | typeof Prisma.DbNull;
   } = {};
 
   // Il provider serve anche a validare l'URL: va risolto prima, usando quello
@@ -273,6 +290,14 @@ export async function PUT(request: Request) {
     organizationData.crmFieldMap = crmFieldMap
       ? resolveFieldMap(provider, crmFieldMap)
       : Prisma.DbNull;
+  }
+
+  if (crmListingFieldMap !== undefined) {
+    // Stessa depurazione usata in lettura: un valore che non corrisponde a
+    // un nostro campo noto viene scartato qui, non solo all'uso — non deve
+    // restare nel database un tracciato che punta a un campo inesistente.
+    const resolved = crmListingFieldMap ? resolveListingFieldMap(crmListingFieldMap) : null;
+    organizationData.crmListingFieldMap = resolved ?? Prisma.DbNull;
   }
 
   if (Object.keys(organizationData).length > 0) {

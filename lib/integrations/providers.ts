@@ -91,6 +91,9 @@ export type CrmProviderId =
   | "frimm"
   | "realgest"
   | "miogest"
+  | "tecnocasa"
+  | "tempocasa"
+  | "gabetti"
   | "custom";
 
 export interface CrmProvider {
@@ -259,6 +262,42 @@ export const CRM_PROVIDERS: Record<CrmProviderId, CrmProvider> = {
     verified: false,
     setupHint:
       "Preset non confermato: non abbiamo un contratto API verificato per Miogest. Chiedi al fornitore l'endpoint di importazione lead (ed eventualmente quello di lettura annunci) e il token della tua agenzia, poi allinea qui sotto la mappatura ai nomi dei loro campi. Verifica sempre con \"Invia lead di prova\" prima di andare in produzione.",
+  },
+  tecnocasa: {
+    id: "tecnocasa",
+    name: "Tecnocasa",
+    tagline: "Network in franchising",
+    auth: "bearer",
+    allowedHosts: null,
+    bodyShape: "flat",
+    fieldMap: ITALIAN_FIELD_MAP,
+    verified: false,
+    setupHint:
+      "Preset non confermato. Tecnocasa è un network in franchising: l'integrazione, se disponibile, passa dal sistema gestionale centrale del network, non da un'API pubblica per singola agenzia — verifica con la tua area manager o con l'assistenza IT del franchising se e come esporlo. Una volta ottenuti endpoint e chiave, allinea qui sotto la mappatura ai loro campi e usa \"Invia lead di prova\" prima di andare in produzione.",
+  },
+  tempocasa: {
+    id: "tempocasa",
+    name: "Tempocasa",
+    tagline: "Network in franchising",
+    auth: "bearer",
+    allowedHosts: null,
+    bodyShape: "flat",
+    fieldMap: ITALIAN_FIELD_MAP,
+    verified: false,
+    setupHint:
+      "Preset non confermato. Come per gli altri network in franchising, l'integrazione dipende dal sistema gestionale centrale di Tempocasa: verifica con l'assistenza IT del franchising se e come esporre un endpoint per la tua agenzia, poi allinea qui sotto la mappatura ai loro campi.",
+  },
+  gabetti: {
+    id: "gabetti",
+    name: "Gabetti",
+    tagline: "Network in franchising",
+    auth: "bearer",
+    allowedHosts: null,
+    bodyShape: "flat",
+    fieldMap: ITALIAN_FIELD_MAP,
+    verified: false,
+    setupHint:
+      "Preset non confermato. Come per gli altri network in franchising, l'integrazione dipende dal sistema gestionale centrale di Gabetti Group: verifica con l'assistenza IT del franchising se e come esporre un endpoint per la tua agenzia, poi allinea qui sotto la mappatura ai loro campi.",
   },
   custom: {
     id: "custom",

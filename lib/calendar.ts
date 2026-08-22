@@ -5,8 +5,13 @@ import { prisma } from "@/lib/prisma";
 /** Quanti slot proporre al cliente qualificato nel messaggio WhatsApp. */
 export const PROPOSED_SLOTS_COUNT = 2;
 
-/** Formatta uno slot per il messaggio WhatsApp: "lunedì 4 agosto alle 15:30". */
-export function formatSlotForChat(slot: CalendarSlot): string {
+/**
+ * Formatta uno slot per il messaggio WhatsApp: "lunedì 4 agosto alle 15:30
+ * con Mario". Accetta la forma minima (non l'intero `CalendarSlot`) perché
+ * la usano anche gli adapter esterni in `lib/calendar/provider.ts`, dove non
+ * esiste un nome agente associato allo slot.
+ */
+export function formatSlotForChat(slot: { startTime: Date; agentName: string }): string {
   const formatted = new Intl.DateTimeFormat("it-IT", {
     weekday: "long",
     day: "numeric",
@@ -16,7 +21,7 @@ export function formatSlotForChat(slot: CalendarSlot): string {
     timeZone: "Europe/Rome",
   }).format(slot.startTime);
 
-  return `${formatted} con ${slot.agentName}`;
+  return slot.agentName ? `${formatted} con ${slot.agentName}` : formatted;
 }
 
 /**

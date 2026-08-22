@@ -2,7 +2,8 @@ import "server-only";
 import type { Lead, WhatsAppConfig } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { incrementUsage } from "@/lib/usage";
-import { bookSlot, formatSlotForChat, getAvailableSlots } from "@/lib/calendar";
+import { formatSlotForChat } from "@/lib/calendar";
+import { resolveCalendarProvider } from "@/lib/calendar/provider";
 import { hasSendableCredentials, sendWhatsAppMessageForProvider } from "./client";
 import { appendMessage } from "./chat-history";
 import { buildOpeningMessage, OPT_OUT_CONFIRMATION } from "./compliance";
@@ -107,7 +108,14 @@ export async function handleIncomingMessage(
   // Gli slot sono recuperati prima della chiamata perché è l'AI stessa a
   // decidere, nello stesso turno, se il lead è qualificato e va invitato.
   // Un lead che ha già un appuntamento non riceve nuove proposte.
-  const availableSlots = lead.calendarSlotId ? [] : await getAvailableSlots(lead.organizationId);
+  //
+  // Passa dall'adapter (lib/calendar/provider.ts) invece che dall'agenda
+  // interna direttamente: oggi risolve sempre su `internal`, ma è il seam su
+  // cui si innesteranno Google Calendar e Outlook.
+  const calendarProvider = await resolveCalendarProvider(lead.organizationId);
+  const availableSlots = lead.calendarSlotId
+    ? []
+    : await calendarProvider.getAvailableSlots(lead.organizationId);
 
   try {
     const agentReply = await generateAgentReply({
@@ -146,8 +154,12 @@ export async function handleIncomingMessage(
         : undefined;
 
     if (chosen) {
-      const booked = await bookSlot(lead.organizationId, chosen.id, lead.id);
-      if (!booked) {
+      const appointment = await calendarProvider.createAppointment({
+        organizationId: lead.organizationId,
+        leadId: lead.id,
+        slotId: chosen.id,
+      });
+      if (!appointment.ok) {
         // Lo slot è stato preso da un'altra conversazione fra la proposta e la
         // scelta: meglio dirlo subito che confermare un appuntamento inesistente.
         replyText =

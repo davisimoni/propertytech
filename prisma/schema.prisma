@@ -271,6 +271,10 @@ model Organization {
   /// Ultima sincronizzazione riuscita, mostrata in UI così l'agenzia sa se
   /// il portafoglio è aggiornato senza dover guardare i log.
   crmListingImportedAt DateTime?
+  /// Tracciato personalizzato per l'import: nome del campo nel gestionale →
+  /// nostro campo (direzione opposta a `crmFieldMap`). `null` = si assume che
+  /// il gestionale risponda già con i nostri nomi di campo nativi.
+  crmListingFieldMap Json?
 
   /// Quale gestionale è collegato: `webhook`, `zapier`, `make`, `getrix`…
   ///

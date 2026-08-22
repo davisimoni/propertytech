@@ -57,6 +57,63 @@ const remoteFeedSchema = z.object({
   listings: z.array(remoteListingSchema).max(MAX_LISTINGS_PER_SYNC),
 });
 
+/** Nomi di campo che questo importatore si aspetta nativamente. */
+export const LISTING_FIELD_KEYS = [
+  "reference",
+  "title",
+  "contract",
+  "type",
+  "comune",
+  "provincia",
+  "zona",
+  "indirizzo",
+  "priceEur",
+  "squareMeters",
+  "rooms",
+  "bathrooms",
+  "floor",
+  "energyClass",
+  "description",
+] as const;
+
+/**
+ * Tracciato salvato (nome del gestionale → nostro campo), depurato dalle
+ * chiavi ignote: un tracciato manomesso non può far scrivere in campi
+ * arbitrari, stessa cautela di `resolveFieldMap` per l'export lead.
+ */
+export function resolveListingFieldMap(raw: unknown): Record<string, string> | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+
+  const resolved: Record<string, string> = {};
+
+  for (const [theirKey, ourKey] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof ourKey === "string" && (LISTING_FIELD_KEYS as readonly string[]).includes(ourKey)) {
+      resolved[theirKey] = ourKey;
+    }
+  }
+
+  return Object.keys(resolved).length > 0 ? resolved : null;
+}
+
+/**
+ * Applica il tracciato personalizzato a un annuncio grezzo, prima della
+ * validazione. Un campo non elencato nel tracciato passa comunque invariato:
+ * il tracciato serve a *rinominare* le chiavi diverse dalle nostre, non a
+ * escludere quelle il gestionale manda già col nome giusto.
+ */
+function remapListingKeys(raw: unknown, fieldMap: Record<string, string> | null): unknown {
+  if (!fieldMap || typeof raw !== "object" || raw === null || Array.isArray(raw)) return raw;
+
+  const source = raw as Record<string, unknown>;
+  const remapped: Record<string, unknown> = { ...source };
+
+  for (const [theirKey, ourKey] of Object.entries(fieldMap)) {
+    if (theirKey in source) remapped[ourKey] = source[theirKey];
+  }
+
+  return remapped;
+}
+
 function buildReadHeaders(
   provider: CrmProvider,
   token: string | null,
@@ -95,6 +152,7 @@ export async function importListingsFromCrm(organizationId: string): Promise<Lis
       crmProvider: true,
       crmAuthToken: true,
       crmAuthUser: true,
+      crmListingFieldMap: true,
     },
   });
 
@@ -152,9 +210,15 @@ export async function importListingsFromCrm(organizationId: string): Promise<Lis
   }
 
   // Alcuni gestionali restituiscono direttamente un array, altri lo
-  // annidano: si accettano entrambe le forme prima di validare.
-  const candidate = Array.isArray(raw) ? { listings: raw } : raw;
-  const parsed = remoteFeedSchema.safeParse(candidate);
+  // annidano: si accettano entrambe le forme. Il tracciato personalizzato,
+  // se configurato, rinomina le chiavi di ciascun annuncio prima di validare.
+  const fieldMap = resolveListingFieldMap(organization.crmListingFieldMap);
+  const rawListings = Array.isArray(raw) ? raw : (raw as { listings?: unknown[] } | null)?.listings;
+  const remappedListings = Array.isArray(rawListings)
+    ? rawListings.map((item) => remapListingKeys(item, fieldMap))
+    : rawListings;
+
+  const parsed = remoteFeedSchema.safeParse({ listings: remappedListings });
 
   if (!parsed.success) {
     return {
