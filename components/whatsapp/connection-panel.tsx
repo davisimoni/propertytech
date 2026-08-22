@@ -442,7 +442,7 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
           <p className="mt-3 text-xs text-muted-foreground">
             {provider === "twilio" ? (
               <>
-                Nella Console Twilio imposta come webhook "When a message comes in"{" "}
+                Nella Console Twilio imposta come webhook &quot;When a message comes in&quot;{" "}
                 <code className="rounded bg-muted px-1 py-0.5">
                   {origin}
                   {WHATSAPP_PROVIDERS.twilio.webhookPathHint}
