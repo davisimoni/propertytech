@@ -1,11 +1,15 @@
 import NextAuth, { type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
+import { cookies } from "next/headers";
 import { authConfig } from "@/auth.config";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
 import { loginSchema } from "@/lib/validation/auth";
 import { isGoogleAuthEnabled } from "@/lib/auth-providers";
+import { createOrganizationWithReferralCode } from "@/lib/referrals/code";
+import { linkReferral } from "@/lib/referrals/link";
+import { REFERRAL_COOKIE_NAME } from "@/lib/referrals/constants";
 import type { UserRole } from "@prisma/client";
 import type { PlanId } from "@/lib/plans";
 
@@ -45,31 +49,38 @@ async function provisionGoogleOrganization(email: string, displayName?: string |
 
   const { firstName, lastName } = splitDisplayName(displayName);
 
-  return prisma.organization.create({
-    data: {
-      email,
-      firstName,
-      lastName,
-      agencyName: displayName?.trim() || email.split("@")[0] || "La mia agenzia",
-      // Dedotto dall'account Google, non dichiarato: la dashboard chiederà
-      // all'utente il vero nome dell'agenzia al primo accesso.
-      agencyNameConfirmed: false,
-      passwordHash: null,
-      subscription: { create: { status: "trial" } },
-      usageTracker: { create: {} },
-      // Chi apre l'agenzia ne è il titolare. `acceptedAt` è valorizzato subito:
-      // l'accesso Google è già la prova che quell'indirizzo gli appartiene.
-      users: {
-        create: {
-          email,
-          firstName,
-          lastName,
-          role: "OWNER",
-          acceptedAt: new Date(),
-        },
+  const organization = await createOrganizationWithReferralCode((referralCode) => ({
+    email,
+    firstName,
+    lastName,
+    agencyName: displayName?.trim() || email.split("@")[0] || "La mia agenzia",
+    // Dedotto dall'account Google, non dichiarato: la dashboard chiederà
+    // all'utente il vero nome dell'agenzia al primo accesso.
+    agencyNameConfirmed: false,
+    passwordHash: null,
+    referralCode,
+    subscription: { create: { status: "trial" } },
+    usageTracker: { create: {} },
+    // Chi apre l'agenzia ne è il titolare. `acceptedAt` è valorizzato subito:
+    // l'accesso Google è già la prova che quell'indirizzo gli appartiene.
+    users: {
+      create: {
+        email,
+        firstName,
+        lastName,
+        role: "OWNER",
+        acceptedAt: new Date(),
       },
     },
-  });
+  }));
+
+  // Il redirect OAuth di Google non lascia passare un campo di form: il
+  // codice referral, se c'era, viaggia nel cookie scritto da `/register`
+  // prima del clic su "Accedi con Google".
+  const cookieStore = await cookies();
+  await linkReferral(organization.id, cookieStore.get(REFERRAL_COOKIE_NAME)?.value);
+
+  return organization;
 }
 
 const providers: NextAuthConfig["providers"] = [

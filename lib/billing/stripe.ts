@@ -121,6 +121,58 @@ export async function getOrCreateRetentionCoupon(stripe: Stripe): Promise<string
 }
 
 /**
+ * Sconto del Programma Referral B2B: -30% a vita per ogni referral ACTIVE
+ * dell'agenzia invitante, fino a un tetto massimo.
+ *
+ * Il tetto non è un dettaglio implementativo: senza, un'agenzia che invitasse
+ * abbastanza colleghi potrebbe arrivare a pagare zero o — sommando sconti
+ * percentuali oltre il 100% — un importo che Stripe rifiuterebbe comunque.
+ * Con incrementi da 30, il tetto a 90 permette al massimo 3 referral attivi
+ * contati; oltre, l'agenzia continua a vederli nel proprio elenco ma non
+ * aumentano ulteriormente lo sconto.
+ *
+ * NOTA: questo sconto e quello di retention (`RETENTION_COUPON_ID`)
+ * condividono lo stesso meccanismo Stripe (`subscriptions.update` con
+ * `discounts: [...]`), che **sostituisce** qualsiasi sconto già presente
+ * sull'abbonamento invece di sommarsi ad esso. Un'agenzia che avesse
+ * entrambi attivi contemporaneamente vedrebbe applicato solo l'ultimo
+ * impostato — riconciliare più sconti simultanei sullo stesso abbonamento è
+ * fuori dallo scopo di questa modifica.
+ */
+export const REFERRAL_DISCOUNT_PERCENT_PER_REFERRAL = 30;
+export const MAX_REFERRAL_DISCOUNT_PERCENT = 90;
+
+function referralCouponId(percent: number): string {
+  return `referral-${percent}-forever`;
+}
+
+/** Come `getOrCreateRetentionCoupon`, ma un coupon per ciascuna delle poche
+ *  percentuali possibili (30/60/90): create on-demand, mai duplicati. */
+export async function getOrCreateReferralCoupon(stripe: Stripe, percent: number): Promise<string> {
+  const id = referralCouponId(percent);
+
+  try {
+    await stripe.coupons.retrieve(id);
+  } catch {
+    try {
+      await stripe.coupons.create({
+        id,
+        percent_off: percent,
+        duration: "forever",
+        name: `Programma Referral -${percent}%`,
+      });
+    } catch (createError) {
+      const alreadyExists =
+        createError instanceof Stripe.errors.StripeInvalidRequestError &&
+        createError.code === "resource_already_exists";
+      if (!alreadyExists) throw createError;
+    }
+  }
+
+  return id;
+}
+
+/**
  * Il motivo scelto nel questionario di disdetta viaggia anche verso Stripe:
  * compare nel Dashboard sull'abbonamento cancellato, senza dover incrociare
  * manualmente i dati con il nostro database.

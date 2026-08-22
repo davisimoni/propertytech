@@ -13,6 +13,18 @@ enum PlanId {
   enterprise
 }
 
+/// Stato di un invito nel Programma Referral B2B.
+/// PENDING: l'invitata si è registrata col codice, non ancora a pagamento.
+/// ACTIVE: l'invitata ha un abbonamento a pagamento attivo — lo sconto
+/// dell'invitante conta questo referral nel proprio totale.
+/// EXPIRED: l'invitata non è più a pagamento (disdetta, mancato rinnovo): il
+/// referral non contribuisce più allo sconto, ma resta in storico.
+enum ReferralStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+}
+
 /// Motivo scelto dall'agenzia nel questionario di disdetta (flusso di
 /// cancellazione, Modulo 2). "Altro" copre i casi non previsti, con il
 /// dettaglio libero nel campo `details` di CancellationFeedback.
@@ -250,6 +262,14 @@ model Organization {
   dpaAcceptedAt      DateTime?
   dpaAcceptedVersion String?
 
+  /// --- Programma Referral B2B ---
+  ///
+  /// Codice pubblico da condividere ("PROP-XXXXXX"), generato una sola volta
+  /// alla creazione dell'agenzia (lib/referrals/code.ts) e mai più cambiato:
+  /// un link di invito già condiviso da un'agenzia non deve smettere di
+  /// funzionare.
+  referralCode String @unique
+
   /// --- Integrazione con il gestionale / MLS dell'agenzia ---
   ///
   /// Endpoint a cui inoltrare il lead appena diventa QUALIFIED (Zapier, Make,
@@ -315,6 +335,43 @@ model Organization {
   agencyDocuments      AgencyDocument[]
   aiGenerations        AiGeneration[]
   cancellationFeedback CancellationFeedback[]
+  /// Referral in cui questa agenzia è l'invitante (può essere molti).
+  referralsSent        Referral[]              @relation("ReferralsSent")
+  /// Referral in cui questa agenzia è l'invitata (al massimo uno: non si può
+  /// essere invitati due volte).
+  referredBy           Referral?               @relation("ReferralsReceived")
+}
+
+/// Programma Referral B2B: un'agenzia (Referrer) invita un'altra (Referee) col
+/// proprio `referralCode`. Una riga per invito, non per rimando: se
+/// un'invitata disdice e si registra di nuovo, resta la stessa riga — non è
+/// un nuovo referral, `refereeId` è unico.
+model Referral {
+  id String @id @default(cuid())
+
+  status ReferralStatus @default(PENDING)
+
+  /// Percentuale che QUESTO referral contribuisce allo sconto totale
+  /// dell'invitante mentre è ACTIVE. Fissata alla creazione e non riletta da
+  /// una costante altrove: una futura modifica alla policy (es. 30% → 25%)
+  /// non deve alterare retroattivamente referral già attivi.
+  discountPercent Int @default(30)
+
+  /// Quando è diventato ACTIVE (primo pagamento dell'invitata) e quando è
+  /// tornato EXPIRED (disdetta/mancato rinnovo), se mai avvenuto.
+  activatedAt DateTime?
+  expiredAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  referrerId String
+  referrer   Organization @relation("ReferralsSent", fields: [referrerId], references: [id], onDelete: Cascade)
+
+  refereeId String       @unique
+  referee   Organization @relation("ReferralsReceived", fields: [refereeId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId, status])
 }
 
 model Subscription {

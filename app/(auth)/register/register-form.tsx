@@ -1,17 +1,32 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { ShieldCheck } from "lucide-react";
+import { Gift, ShieldCheck } from "lucide-react";
 import { FormField } from "@/components/auth/form-field";
 import { AuthDivider, GoogleButton } from "@/components/auth/google-button";
 import { registerSchema } from "@/lib/validation/auth";
+import { REFERRAL_COOKIE_NAME } from "@/lib/referrals/constants";
+
+/** Un'ora: basta a coprire form + eventuale giro su Google, non deve sopravvivere a lungo nel browser. */
+const REFERRAL_COOKIE_MAX_AGE_SECONDS = 60 * 60;
 
 export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const referralCode = searchParams.get("ref")?.trim().toUpperCase() || null;
+
+  // Il cookie porta il codice attraverso il redirect OAuth di Google, che non
+  // lascia passare un campo di form (auth.ts lo rilegge da lì). Per il form
+  // a credenziali basterebbe il body della POST, ma scriverlo comunque non
+  // costa nulla ed evita un secondo percorso da mantenere.
+  useEffect(() => {
+    if (!referralCode) return;
+    document.cookie = `${REFERRAL_COOKIE_NAME}=${referralCode}; path=/; max-age=${REFERRAL_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
+  }, [referralCode]);
+
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [agencyName, setAgencyName] = useState("");
@@ -32,6 +47,7 @@ export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
       email,
       password,
       acceptedTerms,
+      referralCode: referralCode ?? undefined,
     });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Dati non validi.");
@@ -88,6 +104,15 @@ export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
       <p className="mt-1 text-sm text-muted-foreground">
         Inizia gratis in 60 secondi. Nessun pagamento richiesto.
       </p>
+
+      {referralCode && (
+        <p className="mt-4 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-foreground">
+          <Gift className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+          Sei stato invitato con il codice <span className="font-medium">{referralCode}</span>:
+          appena la tua agenzia attiva un piano, chi ti ha invitato riceve uno sconto del 30% a
+          vita.
+        </p>
+      )}
 
       {googleEnabled && (
         <>

@@ -8,6 +8,7 @@ import { ScrollToHash } from "@/components/layout/scroll-to-hash";
 import { CheckoutOutcomeBanner } from "@/components/billing/checkout-outcome-banner";
 import { BrandingPanel } from "@/components/settings/branding-panel";
 import { IntegrationPanel } from "@/components/settings/integration-panel";
+import { ReferralPanel } from "@/components/settings/referral-panel";
 import { TeamPanel } from "@/components/settings/team-panel";
 import type { PlanId } from "@/lib/plans";
 
@@ -65,6 +66,8 @@ export default async function SettingsPage() {
       <TeamPanel currentRole={session?.user?.role ?? "AGENT"} />
 
       <IntegrationPanel />
+
+      <ReferralPanel />
 
       <section className="rounded-xl border border-border bg-card p-4">
         <div className="flex items-start gap-3">

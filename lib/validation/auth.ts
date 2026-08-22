@@ -28,6 +28,12 @@ export const registerSchema = z.object({
     message:
       "Per creare l'account devi accettare Termini, Privacy e Accordo sul trattamento dei dati.",
   }),
+  /**
+   * Codice del Programma Referral (`?ref=` in `/register`), facoltativo.
+   * Un codice non valido non blocca la registrazione: `linkReferral` lo
+   * verifica e, se non trova corrispondenza, semplicemente non collega nulla.
+   */
+  referralCode: z.string().trim().max(20).optional(),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
