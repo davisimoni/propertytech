@@ -29,7 +29,7 @@ export const socialContentSchema = z.object({
     body: z
       .string()
       .describe(
-        "Testo dell'annuncio per Immobiliare.it/Idealista: 150-250 parole, paragrafi brevi, ottimizzato per la ricerca locale (zona, quartiere, città, tipologia). Nessun markdown."
+        "Testo dell'annuncio per Immobiliare.it/Idealista: 150-250 parole, paragrafi brevi, ottimizzato per la ricerca locale (zona, quartiere, città, tipologia). Usa il gergo tecnico e catastale del settore (esposizione, riscaldamento, classe energetica, stato manutentivo) dove le note lo permettono. Nessun markdown, nessuna emoji."
       ),
     seoKeywords: z
       .array(z.string())
@@ -39,7 +39,7 @@ export const socialContentSchema = z.object({
     caption: z
       .string()
       .describe(
-        "Caption per Instagram/Facebook con emoji pertinenti, 60-120 parole, righe brevi e una call to action finale."
+        "Caption per Instagram/Facebook, 60-120 parole: frase d'apertura che cattura l'attenzione, poi un breve elenco puntato (3-5 righe) con le caratteristiche chiave, ciascuna con un'emoji contestuale pertinente, poi un paragrafo discorsivo di chiusura con call to action esplicita e immediata."
       ),
     hashtags: z
       .array(z.string())
@@ -48,7 +48,11 @@ export const socialContentSchema = z.object({
       ),
   }),
   reelScript: z.object({
-    hook: z.string().describe("Frase d'apertura di massimo 8 parole per i primi 3 secondi del video."),
+    hook: z
+      .string()
+      .describe(
+        "Gancio visivo per i primi 3 secondi del video, massimo 8 parole: deve suggerire cosa inquadrare per creare curiosità immediata, non una presentazione generica dell'immobile."
+      ),
     scenes: z
       .array(
         z.object({
@@ -60,7 +64,11 @@ export const socialContentSchema = z.object({
         })
       )
       .describe("Sequenza di scene che copre complessivamente circa 30 secondi."),
-    callToAction: z.string().describe("Invito all'azione finale da pronunciare o sovrimprimere."),
+    callToAction: z
+      .string()
+      .describe(
+        "Invito all'azione finale, da pronunciare o sovrimprimere: un'istruzione precisa e immediata (es. \"Scrivici in DM per prenotare la visita\"), mai un generico \"contattaci\"."
+      ),
   }),
 });
 

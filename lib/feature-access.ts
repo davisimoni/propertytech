@@ -2,6 +2,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { PLANS, type Plan, type PlanId } from "@/lib/plans";
+import { isDevPaywallBypassEnabled } from "@/lib/env";
 
 /**
  * Funzionalità sbloccate dal piano anziché consumate a crediti.
@@ -48,6 +49,11 @@ export async function checkFeatureAccess(
   organizationId: string,
   feature: GatedFeature
 ): Promise<NextResponse | null> {
+  if (isDevPaywallBypassEnabled()) {
+    console.warn("[feature-access] DEV_BYPASS_PAYWALL attivo: gate ignorato", { organizationId, feature });
+    return null;
+  }
+
   const planId = await getPlanId(organizationId);
 
   if (!PLANS[planId][feature]) {

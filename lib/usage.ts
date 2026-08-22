@@ -2,6 +2,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { PLANS, type PlanId } from "@/lib/plans";
+import { isDevPaywallBypassEnabled } from "@/lib/env";
 import type { UsageFeature, UsageMetric, UsageStatsResponse } from "@/lib/usage-types";
 
 const FEATURE_RESOURCE: Record<UsageFeature, string> = {
@@ -84,6 +85,11 @@ export async function checkUsageLimit(
   organizationId: string,
   featureType: UsageFeature
 ): Promise<NextResponse | null> {
+  if (isDevPaywallBypassEnabled()) {
+    console.warn("[usage] DEV_BYPASS_PAYWALL attivo: limite ignorato", { organizationId, featureType });
+    return null;
+  }
+
   const stats = await getUsageStats(organizationId);
   const metric = stats[featureType];
 

@@ -31,3 +31,22 @@ export function readSecret(name: string): string | undefined {
   const value = process.env[name];
   return isConfiguredSecret(value) ? value : undefined;
 }
+
+/**
+ * Bypass del paywall per collaudare i moduli end-to-end in locale, senza
+ * consumare crediti né sbattere contro i limiti di piano.
+ *
+ * Richiede ENTRAMBE le condizioni — variabile impostata E ambiente non di
+ * produzione — e il secondo controllo non è ridondante: è la rete di
+ * sicurezza che rende innocuo dimenticare la variabile impostata in un
+ * deploy. Senza, un valore rimasto per errore in produzione regalerebbe il
+ * prodotto a chiunque, non solo a chi sta testando in locale.
+ *
+ * Deliberatamente `DEV_BYPASS_PAYWALL`, non `NEXT_PUBLIC_...`: una variabile
+ * con quel prefisso finisce nel bundle JavaScript spedito al browser di ogni
+ * visitatore, leggibile da chiunque apra gli strumenti di sviluppo — l'esatto
+ * opposto di un interruttore privato per collaudi locali.
+ */
+export function isDevPaywallBypassEnabled(): boolean {
+  return process.env.NODE_ENV !== "production" && process.env.DEV_BYPASS_PAYWALL === "true";
+}
