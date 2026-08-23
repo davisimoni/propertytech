@@ -15,10 +15,11 @@ enum PlanId {
 
 /// Stato di un invito nel Programma Referral B2B.
 /// PENDING: l'invitata si è registrata col codice, non ancora a pagamento.
-/// ACTIVE: l'invitata ha un abbonamento a pagamento attivo — lo sconto
-/// dell'invitante conta questo referral nel proprio totale.
-/// EXPIRED: l'invitata non è più a pagamento (disdetta, mancato rinnovo): il
-/// referral non contribuisce più allo sconto, ma resta in storico.
+/// ACTIVE: l'invitata ha un abbonamento a pagamento attivo — sia lei sia
+/// l'invitante hanno lo sconto fisso del programma sull'abbonamento.
+/// EXPIRED: l'invitata non è più a pagamento (disdetta, mancato rinnovo): lo
+/// sconto di entrambe si spegne (salvo che l'invitante abbia altri referral
+/// ACTIVE), ma il referral resta in storico.
 enum ReferralStatus {
   PENDING
   ACTIVE
@@ -350,12 +351,6 @@ model Referral {
   id String @id @default(cuid())
 
   status ReferralStatus @default(PENDING)
-
-  /// Percentuale che QUESTO referral contribuisce allo sconto totale
-  /// dell'invitante mentre è ACTIVE. Fissata alla creazione e non riletta da
-  /// una costante altrove: una futura modifica alla policy (es. 30% → 25%)
-  /// non deve alterare retroattivamente referral già attivi.
-  discountPercent Int @default(30)
 
   /// Quando è diventato ACTIVE (primo pagamento dell'invitata) e quando è
   /// tornato EXPIRED (disdetta/mancato rinnovo), se mai avvenuto.

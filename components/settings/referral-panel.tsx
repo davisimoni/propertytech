@@ -22,8 +22,8 @@ const DATE_FORMAT = new Intl.DateTimeFormat("it-IT", { day: "numeric", month: "l
 /**
  * "Programma Referral" in /settings.
  *
- * Lo sconto mostrato qui è quello calcolato lato server da
- * `recomputeReferrerDiscount` — la stessa fonte di verità che aggiorna
+ * Lo stato mostrato qui (`hasActiveDiscount`) è quello calcolato lato server
+ * da `recomputeReferrerDiscount` — la stessa fonte di verità che aggiorna
  * davvero il coupon su Stripe, non una stima ricalcolata in pagina.
  */
 export function ReferralPanel() {
@@ -70,10 +70,10 @@ export function ReferralPanel() {
         <div>
           <h2 className="text-sm font-semibold text-foreground">Programma Referral</h2>
           <p className="text-sm text-muted-foreground">
-            Invita altre agenzie: quando attivano un piano, ottieni il {stats.discountPerReferral}%
-            di sconto a vita sul tuo abbonamento — per ogni agenzia attiva, fino al{" "}
-            {stats.maxDiscountPercent}%. Loro iniziano comunque con la prova gratuita, tu risparmi
-            appena diventano clienti: un vantaggio per entrambe.
+            Invita altre agenzie: quando una di loro attiva un piano, ottenete entrambe il{" "}
+            {stats.discountPercent}% di sconto ricorrente per sempre sul rispettivo abbonamento —
+            stessa percentuale per te e per lei, senza somme che crescono con più inviti. Un
+            vantaggio per entrambe, finché resta un&apos;agenzia cliente attiva.
           </p>
         </div>
       </div>
@@ -122,8 +122,15 @@ export function ReferralPanel() {
           <p className="mt-1 text-2xl font-semibold text-foreground">{stats.activeCount}</p>
         </div>
         <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
-          <p className="text-xs text-muted-foreground">Sconto accumulato</p>
-          <p className="mt-1 text-2xl font-semibold text-primary">-{stats.discountPercent}%</p>
+          <p className="text-xs text-muted-foreground">Il tuo sconto</p>
+          <p className="mt-1 text-2xl font-semibold text-primary">
+            {stats.hasActiveDiscount ? `-${stats.discountPercent}%` : "Non attivo"}
+          </p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            {stats.hasActiveDiscount
+              ? "Ricorrente per sempre, finché resta almeno un'agenzia attiva."
+              : `Si attiva alla prima agenzia invitata che diventa cliente.`}
+          </p>
         </div>
       </div>
 

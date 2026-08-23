@@ -5,8 +5,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Check, Clipboard, Gift, Loader2, X } from "lucide-react";
 import {
-  MAX_REFERRAL_DISCOUNT_PERCENT,
-  REFERRAL_DISCOUNT_PERCENT_PER_REFERRAL,
+  REFERRAL_DISCOUNT_PERCENT,
   REFERRAL_POPUP_DELAY_MS,
   REFERRAL_POPUP_INTERVAL_MS,
   REFERRAL_POPUP_OPEN_EVENT,
@@ -17,7 +16,7 @@ import {
  * Popup promozionale del Programma Referral.
  *
  * Compare da solo dopo `REFERRAL_POPUP_DELAY_MS` e non più di una volta ogni
- * sette giorni, oppure su richiesta esplicita dal link nel footer.
+ * quattro giorni, oppure su richiesta esplicita dal link nel footer.
  *
  * È **chiudibile in ogni modo** — X, Escape, clic fuori: è una promozione,
  * non il paywall. Il modale non chiudibile di CLAUDE.md §4 è riservato a chi
@@ -65,7 +64,7 @@ export function ReferralPromo() {
     writeLastSeen();
   }, []);
 
-  // --- Apertura automatica, non più di una volta ogni sette giorni ---
+  // --- Apertura automatica, non più di una volta ogni REFERRAL_POPUP_INTERVAL_MS ---
   useEffect(() => {
     // Si aspetta di sapere se c'è una sessione: aprire durante il "loading"
     // mostrerebbe l'invito a registrarsi a chi è già dentro.
@@ -86,7 +85,7 @@ export function ReferralPromo() {
 
   // --- Apertura su richiesta dal link nel footer ---
   useEffect(() => {
-    // L'apertura manuale ignora la finestra dei sette giorni: l'ha chiesta
+    // L'apertura manuale ignora la finestra dei quattro giorni: l'ha chiesta
     // l'utente, non è un'interruzione.
     function handleOpenRequest() {
       setIsOpen(true);
@@ -176,11 +175,11 @@ export function ReferralPromo() {
             <Gift className="h-5 w-5" aria-hidden="true" />
           </div>
           <h2 id="referral-promo-title" className="mt-3 text-lg font-semibold">
-            Invita un&apos;agenzia, risparmi il {REFERRAL_DISCOUNT_PERCENT_PER_REFERRAL}% a vita
+            Invita un&apos;agenzia, risparmiate entrambe il {REFERRAL_DISCOUNT_PERCENT}% per sempre
           </h2>
           <p className="mt-1 text-sm text-white/90">
-            Conosci un collega che perde ore dietro ai lead? Presentagli PropertyTech: ci
-            guadagnate entrambi.
+            Conosci un collega che perde ore dietro ai lead? Presentagli PropertyTech: stesso
+            sconto, ricorrente per sempre, per entrambe le agenzie.
           </p>
         </div>
 
@@ -189,11 +188,8 @@ export function ReferralPromo() {
             <div className="rounded-lg border border-border p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-primary">Per te</p>
               <p className="mt-1 text-sm text-foreground">
-                <span className="font-semibold">
-                  -{REFERRAL_DISCOUNT_PERCENT_PER_REFERRAL}% a vita
-                </span>{" "}
-                sul tuo abbonamento per ogni agenzia che attiva un piano, fino al{" "}
-                {MAX_REFERRAL_DISCOUNT_PERCENT}%.
+                <span className="font-semibold">-{REFERRAL_DISCOUNT_PERCENT}% ricorrente per sempre</span>{" "}
+                sul tuo abbonamento, appena l&apos;agenzia che inviti attiva un piano a pagamento.
               </p>
             </div>
             <div className="rounded-lg border border-border p-3">
@@ -201,8 +197,9 @@ export function ReferralPromo() {
                 Per l&apos;agenzia invitata
               </p>
               <p className="mt-1 text-sm text-foreground">
-                Inizia con la <span className="font-semibold">prova gratuita</span>, senza carta di
-                credito e senza vincoli.
+                Inizia con la <span className="font-semibold">prova gratuita</span>, poi lo stesso{" "}
+                <span className="font-semibold">-{REFERRAL_DISCOUNT_PERCENT}% per sempre</span> sul
+                suo abbonamento, dal primo pagamento.
               </p>
             </div>
           </div>
@@ -245,7 +242,7 @@ export function ReferralPromo() {
                 onClick={close}
                 className="mt-3 inline-block text-xs font-medium text-primary hover:underline"
               >
-                Vedi le agenzie invitate e lo sconto accumulato
+                Vedi le agenzie invitate e lo stato del tuo sconto
               </Link>
             </div>
           ) : (

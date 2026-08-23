@@ -3,7 +3,9 @@ import Stripe from "stripe";
 import type { CancellationReason } from "@prisma/client";
 import type { BillingInterval, PlanId } from "@/lib/plans";
 import { isConfiguredSecret, readSecret } from "@/lib/env";
+import { REFERRAL_DISCOUNT_PERCENT } from "@/lib/referrals/constants";
 export { isCancellationReason } from "@/lib/billing/cancellation";
+export { REFERRAL_DISCOUNT_PERCENT };
 
 /** Piani acquistabili: `trial` è gratuito e non ha un prezzo su Stripe. */
 export type PaidPlanId = Exclude<PlanId, "trial">;
@@ -121,15 +123,11 @@ export async function getOrCreateRetentionCoupon(stripe: Stripe): Promise<string
 }
 
 /**
- * Sconto del Programma Referral B2B: -30% a vita per ogni referral ACTIVE
- * dell'agenzia invitante, fino a un tetto massimo.
- *
- * Il tetto non è un dettaglio implementativo: senza, un'agenzia che invitasse
- * abbastanza colleghi potrebbe arrivare a pagare zero o — sommando sconti
- * percentuali oltre il 100% — un importo che Stripe rifiuterebbe comunque.
- * Con incrementi da 30, il tetto a 90 permette al massimo 3 referral attivi
- * contati; oltre, l'agenzia continua a vederli nel proprio elenco ma non
- * aumentano ulteriormente lo sconto.
+ * Sconto del Programma Referral B2B: percentuale fissa, ricorrente per
+ * sempre, identica per l'invitante e per l'agenzia invitata (Win-Win). Niente
+ * più somma per numero di referral attivi: un'agenzia con più referral vede
+ * comunque un solo sconto, non un multiplo — è per questo che qui serve un
+ * solo coupon, non uno per fascia come nella versione precedente.
  *
  * NOTA: questo sconto e quello di retention (`RETENTION_COUPON_ID`)
  * condividono lo stesso meccanismo Stripe (`subscriptions.update` con
@@ -139,29 +137,19 @@ export async function getOrCreateRetentionCoupon(stripe: Stripe): Promise<string
  * impostato — riconciliare più sconti simultanei sullo stesso abbonamento è
  * fuori dallo scopo di questa modifica.
  */
-export {
-  REFERRAL_DISCOUNT_PERCENT_PER_REFERRAL,
-  MAX_REFERRAL_DISCOUNT_PERCENT,
-} from "@/lib/referrals/constants";
+const REFERRAL_COUPON_ID = "referral-20-forever";
 
-function referralCouponId(percent: number): string {
-  return `referral-${percent}-forever`;
-}
-
-/** Come `getOrCreateRetentionCoupon`, ma un coupon per ciascuna delle poche
- *  percentuali possibili (30/60/90): create on-demand, mai duplicati. */
-export async function getOrCreateReferralCoupon(stripe: Stripe, percent: number): Promise<string> {
-  const id = referralCouponId(percent);
-
+/** Come `getOrCreateRetentionCoupon`: un solo coupon, create on-demand, mai duplicato. */
+export async function getOrCreateReferralCoupon(stripe: Stripe): Promise<string> {
   try {
-    await stripe.coupons.retrieve(id);
+    await stripe.coupons.retrieve(REFERRAL_COUPON_ID);
   } catch {
     try {
       await stripe.coupons.create({
-        id,
-        percent_off: percent,
+        id: REFERRAL_COUPON_ID,
+        percent_off: REFERRAL_DISCOUNT_PERCENT,
         duration: "forever",
-        name: `Programma Referral -${percent}%`,
+        name: `Programma Referral -${REFERRAL_DISCOUNT_PERCENT}%`,
       });
     } catch (createError) {
       const alreadyExists =
@@ -171,7 +159,7 @@ export async function getOrCreateReferralCoupon(stripe: Stripe, percent: number)
     }
   }
 
-  return id;
+  return REFERRAL_COUPON_ID;
 }
 
 /**
