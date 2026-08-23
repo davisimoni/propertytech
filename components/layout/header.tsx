@@ -23,7 +23,7 @@ export function Header() {
           // "Aggiorna piano" e non "Passa a Pro": il pulsante compare anche a
           // chi è già su Professional, a cui "Passa a Pro" non dice nulla.
           <Link
-            href="/settings#prezzi"
+            href="/settings?tab=billing"
             className="inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-xl bg-brand-gradient px-3 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 sm:px-4"
           >
             {/* "Aggiorna" da solo sul telefono: la frase intera andava a capo

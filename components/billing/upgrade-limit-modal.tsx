@@ -56,10 +56,10 @@ export function UpgradeLimitModal({
 
   function handleUpgrade() {
     onNavigateAway?.();
-    // Direttamente al listino in fondo alla pagina: chi arriva da un blocco ha
-    // già deciso di guardare i piani, e atterrare in cima alle impostazioni lo
+    // Direttamente alla scheda Piani & Fatturazione: chi arriva da un blocco
+    // ha già deciso di guardare i piani, e atterrare sulla prima scheda lo
     // costringerebbe a cercarli fra branding, collaboratori e integrazioni.
-    router.push("/settings#prezzi");
+    router.push("/settings?tab=billing");
   }
 
   const isLocked = reason === "not_in_plan";

@@ -137,7 +137,7 @@ export function DocumentVault({
           {requiredPlan ?? "Starter"} in su.
         </p>
         <Link
-          href="/settings#prezzi"
+          href="/settings?tab=billing"
           className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
         >
           Vedi i piani

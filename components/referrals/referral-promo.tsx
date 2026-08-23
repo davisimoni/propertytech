@@ -245,7 +245,7 @@ export function ReferralPromo() {
               )}
 
               <Link
-                href="/settings#referral"
+                href="/settings?tab=billing"
                 onClick={close}
                 className="mt-3 inline-block text-xs font-medium text-primary hover:underline"
               >
