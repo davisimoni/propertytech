@@ -7,6 +7,7 @@ import { BillingIntervalToggle } from "@/components/billing/billing-interval-tog
 import { UpgradeButton } from "@/components/billing/upgrade-button";
 import { CancelSubscriptionFlow } from "@/components/billing/cancel-subscription-flow";
 import {
+  formatCount,
   formatEur,
   getPlanPricing,
   PLANS,
@@ -88,8 +89,9 @@ export function PlanGrid({ currentPlanId }: { currentPlanId: PlanId }) {
 
               <ul className="mt-3 flex-1 space-y-2 text-sm text-muted-foreground">
                 <li>
-                  {plan.waConversationsLimit} conversazioni WA
+                  {formatCount(plan.waConversationsLimit)} conversazioni WA
                   {plan.id === "trial" ? " (totali)" : "/mese"}
+                  {plan.waConversationsOverageNote && ` (${plan.waConversationsOverageNote})`}
                 </li>
                 <li>OCR: {formatOcr(plan.ocrDocumentsLimit)}</li>
                 <li>

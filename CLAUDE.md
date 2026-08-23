@@ -123,7 +123,7 @@ Trascrive le note vocali registrate dall'agente subito dopo una visita immobilia
 | **Trial** | Gratuito | 15 (totali, non mensili) | 5 estratti | 1 | — | ❌ | ❌ | ❌ | ❌ |
 | **Starter** | 99 €/mese | 150 | Illimitato | 1 | 1 | ✅ | ❌ | ❌ | ❌ |
 | **Professional** | 279 €/mese | 500 | Illimitato | 5 | 3 | ✅ | ❌ | ❌ | ❌ |
-| **Enterprise** | 499 €/mese | 1.500 | Illimitato | 20 | Illimitate | ✅ | ✅ | ✅ | ✅ |
+| **Enterprise** | 499 €/mese | 2.500 (extra a 0,05€/chat) | Illimitato | 20 | Illimitate | ✅ | ✅ | ✅ | ✅ |
 
 - Il Trial non richiede carta di credito.
 - Il Social Multiplier (Modulo 3) e il Voice Seller-Reporting Engine (Modulo 4) sono **sbloccati esclusivamente** nel piano Enterprise.

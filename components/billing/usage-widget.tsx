@@ -2,8 +2,14 @@
 
 import { AlertTriangle } from "lucide-react";
 import { useUsageStats } from "@/hooks/use-usage-stats";
+import { formatCount } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 import type { UsageMetric } from "@/lib/usage-types";
+
+/** Come nel listino: "1.500" e non "1500", stessa cifra scritta allo stesso modo ovunque compaia. */
+function formatLimit(limit: number | null): string {
+  return limit === null ? "∞" : formatCount(limit);
+}
 
 function LimitBadge() {
   return (
@@ -27,7 +33,7 @@ function UsageBar({ label, metric }: { label: string; metric: UsageMetric }) {
             metric.isLimitReached ? "text-status-blocked" : "text-foreground"
           )}
         >
-          {metric.used}/{metric.limit ?? "∞"} usati
+          {formatCount(metric.used)}/{formatLimit(metric.limit)} usati
         </span>
       </div>
       <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -66,7 +72,8 @@ export function UsageWidget({ variant = "full" }: UsageWidgetProps) {
           <LimitBadge />
         ) : (
           <span className="hidden text-muted-foreground sm:inline">
-            — {data.whatsapp.used}/{data.whatsapp.limit ?? "∞"} conversazioni WA usate
+            — {formatCount(data.whatsapp.used)}/{formatLimit(data.whatsapp.limit)} conversazioni WA
+            usate
           </span>
         )}
       </div>

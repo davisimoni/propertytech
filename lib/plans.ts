@@ -14,6 +14,12 @@ export interface Plan {
   /** A quale dimensione di agenzia si rivolge il piano. Mostrato nel listino. */
   audience: string;
   waConversationsLimit: number;
+  /**
+   * Nota sui consumi oltre la soglia mensile, se il piano la prevede — solo
+   * informativa nel listino: non esiste (ancora) un billing a consumo che
+   * addebiti automaticamente le chat extra oltre `waConversationsLimit`.
+   */
+  waConversationsOverageNote: string | null;
   ocrDocumentsLimit: number | null;
   /**
    * Postazioni incluse: quante persone possono accedere per quell'agenzia.
@@ -42,6 +48,7 @@ export const PLANS: Record<PlanId, Plan> = {
     audience: "Per provare senza carta di credito",
     priceEurMonthly: null,
     waConversationsLimit: 15,
+    waConversationsOverageNote: null,
     ocrDocumentsLimit: 5,
     seatsLimit: 1,
     agendasLimit: 0,
@@ -57,6 +64,7 @@ export const PLANS: Record<PlanId, Plan> = {
     audience: "Per agenti singoli",
     priceEurMonthly: 99,
     waConversationsLimit: 150,
+    waConversationsOverageNote: null,
     ocrDocumentsLimit: null,
     seatsLimit: 1,
     agendasLimit: 1,
@@ -72,6 +80,7 @@ export const PLANS: Record<PlanId, Plan> = {
     audience: "Per agenzie strutturate, fino a 5 agenti",
     priceEurMonthly: 279,
     waConversationsLimit: 500,
+    waConversationsOverageNote: null,
     ocrDocumentsLimit: null,
     seatsLimit: 5,
     agendasLimit: 3,
@@ -86,7 +95,8 @@ export const PLANS: Record<PlanId, Plan> = {
     name: "Enterprise",
     audience: "Per network e agenzie pluri-sede",
     priceEurMonthly: 499,
-    waConversationsLimit: 1500,
+    waConversationsLimit: 2500,
+    waConversationsOverageNote: "extra a 0,05€/chat",
     ocrDocumentsLimit: null,
     seatsLimit: 20,
     agendasLimit: null,
