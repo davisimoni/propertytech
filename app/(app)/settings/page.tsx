@@ -77,9 +77,9 @@ export default async function SettingsPage() {
               <Suspense>
                 <PlanGrid currentPlanId={currentPlanId} />
               </Suspense>
-              <ReferralPanel />
             </>
           }
+          referral={<ReferralPanel />}
           integrations={<IntegrationPanel />}
           privacy={
             <section className="rounded-xl border border-border bg-card p-4">

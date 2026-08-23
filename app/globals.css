@@ -77,6 +77,21 @@ body {
   }
 }
 
+@layer utilities {
+  /* Barre di navigazione a scorrimento orizzontale su mobile (es. le schede
+     di /settings): lo swipe col dito resta lo scorrimento nativo del
+     browser, solo la sua scrollbar visibile viene nascosta — un dettaglio
+     desktop che su schermo touch non aggiunge informazione. */
+  .scrollbar-none {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* Edge legacy */
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none; /* Chrome, Safari */
+  }
+}
+
 /*
  * Animazioni della sola pagina pubblica.
  *

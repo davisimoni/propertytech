@@ -165,19 +165,21 @@ export function ReferralPromo() {
         aria-modal="true"
         aria-labelledby="referral-promo-title"
         onClick={(event) => event.stopPropagation()}
-        className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card shadow-lg"
+        className="relative w-full max-w-[90vw] overflow-hidden rounded-xl border border-border bg-card shadow-lg sm:max-w-md"
       >
         <button
           ref={closeRef}
           type="button"
           onClick={close}
           aria-label="Chiudi"
-          className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/15 hover:text-white"
+          // 44×44px: la X da sola misurerebbe 16px, troppo piccola per un
+          // tap preciso col pollice — l'area cliccabile va oltre l'icona.
+          className="absolute right-1 top-1 z-10 inline-flex h-11 w-11 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/15 hover:text-white"
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
 
-        <div className="bg-brand-gradient px-6 pb-6 pt-7 text-white">
+        <div className="bg-brand-gradient px-4 pb-5 pt-6 text-white sm:px-6 sm:pb-6 sm:pt-7">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/20">
             <Gift className="h-5 w-5" aria-hidden="true" />
           </div>
@@ -190,7 +192,7 @@ export function ReferralPromo() {
           </p>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-lg border border-border p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-primary">Per te</p>
@@ -245,7 +247,7 @@ export function ReferralPromo() {
               )}
 
               <Link
-                href="/settings?tab=billing"
+                href="/settings?tab=referral"
                 onClick={close}
                 className="mt-3 inline-block text-xs font-medium text-primary hover:underline"
               >

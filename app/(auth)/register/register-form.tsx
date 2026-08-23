@@ -121,7 +121,10 @@ export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
               </p>
             </div>
           </div>
-          <span className="inline-flex w-fit shrink-0 items-center rounded-lg border border-status-qualified/30 bg-card px-2.5 py-1 font-mono text-xs font-bold tracking-wide text-status-qualified">
+          {/* `max-w-full break-all`: il codice arriva da `?ref=` in query
+              string, non validato a questo punto — un valore anomalo e senza
+              spazi non deve poter spingere il badge fuori dallo schermo. */}
+          <span className="inline-flex w-fit max-w-full shrink-0 items-center break-all rounded-lg border border-status-qualified/30 bg-card px-2.5 py-1 font-mono text-xs font-bold tracking-wide text-status-qualified">
             {referralCode}
           </span>
         </div>
