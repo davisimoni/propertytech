@@ -8,11 +8,7 @@ import { Gift, ShieldCheck } from "lucide-react";
 import { FormField } from "@/components/auth/form-field";
 import { AuthDivider, GoogleButton } from "@/components/auth/google-button";
 import { registerSchema } from "@/lib/validation/auth";
-import {
-  REFEREE_WELCOME_DISCOUNT_PERCENT,
-  REFERRAL_COOKIE_NAME,
-  REFERRER_DISCOUNT_PERCENT,
-} from "@/lib/referrals/constants";
+import { REFEREE_WELCOME_DISCOUNT_PERCENT, REFERRAL_COOKIE_NAME } from "@/lib/referrals/constants";
 
 /** Un'ora: basta a coprire form + eventuale giro su Google, non deve sopravvivere a lungo nel browser. */
 const REFERRAL_COOKIE_MAX_AGE_SECONDS = 60 * 60;
@@ -110,13 +106,25 @@ export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
       </p>
 
       {referralCode && (
-        <p className="mt-4 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-foreground">
-          <Gift className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-          Sei stato invitato con il codice <span className="font-medium">{referralCode}</span>:
-          quando attivi un piano a pagamento, tu ricevi il {REFEREE_WELCOME_DISCOUNT_PERCENT}% di
-          sconto di benvenuto sul primo abbonamento, e chi ti ha invitato ottiene il{" "}
-          {REFERRER_DISCOUNT_PERCENT}% di sconto ricorrente per sempre sul proprio piano.
-        </p>
+        <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-status-qualified/30 bg-status-qualified/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-status-qualified/15 text-status-qualified">
+              <Gift className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">
+                🎉 Sconto di benvenuto del {REFEREE_WELCOME_DISCOUNT_PERCENT}% applicato!
+              </p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Registrandoti tramite questo link otterrai il {REFEREE_WELCOME_DISCOUNT_PERCENT}%
+                di sconto sul tuo primo abbonamento.
+              </p>
+            </div>
+          </div>
+          <span className="inline-flex w-fit shrink-0 items-center rounded-lg border border-status-qualified/30 bg-card px-2.5 py-1 font-mono text-xs font-bold tracking-wide text-status-qualified">
+            {referralCode}
+          </span>
+        </div>
       )}
 
       {googleEnabled && (
