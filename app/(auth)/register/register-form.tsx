@@ -8,7 +8,11 @@ import { Gift, ShieldCheck } from "lucide-react";
 import { FormField } from "@/components/auth/form-field";
 import { AuthDivider, GoogleButton } from "@/components/auth/google-button";
 import { registerSchema } from "@/lib/validation/auth";
-import { REFERRAL_COOKIE_NAME, REFERRAL_DISCOUNT_PERCENT } from "@/lib/referrals/constants";
+import {
+  REFEREE_WELCOME_DISCOUNT_PERCENT,
+  REFERRAL_COOKIE_NAME,
+  REFERRER_DISCOUNT_PERCENT,
+} from "@/lib/referrals/constants";
 
 /** Un'ora: basta a coprire form + eventuale giro su Google, non deve sopravvivere a lungo nel browser. */
 const REFERRAL_COOKIE_MAX_AGE_SECONDS = 60 * 60;
@@ -109,9 +113,9 @@ export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
         <p className="mt-4 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-foreground">
           <Gift className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
           Sei stato invitato con il codice <span className="font-medium">{referralCode}</span>:
-          registrandoti, chi ti ha invitato ottiene il {REFERRAL_DISCOUNT_PERCENT}% di sconto
-          ricorrente per sempre sul proprio piano. Per te nessun costo aggiuntivo: prezzi di
-          listino, come per chiunque altro.
+          quando attivi un piano a pagamento, tu ricevi il {REFEREE_WELCOME_DISCOUNT_PERCENT}% di
+          sconto di benvenuto sul primo abbonamento, e chi ti ha invitato ottiene il{" "}
+          {REFERRER_DISCOUNT_PERCENT}% di sconto ricorrente per sempre sul proprio piano.
         </p>
       )}
 

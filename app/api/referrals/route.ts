@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { SITE_URL } from "@/lib/seo";
-import { REFERRAL_DISCOUNT_PERCENT } from "@/lib/billing/stripe";
+import { REFEREE_WELCOME_DISCOUNT_PERCENT, REFERRER_DISCOUNT_PERCENT } from "@/lib/billing/stripe";
 
 export interface ReferralView {
   agencyName: string;
@@ -16,9 +16,13 @@ export interface ReferralStatsResponse {
   referralLink: string;
   totalInvited: number;
   activeCount: number;
-  /** Percentuale fissa del programma. Spetta solo a questa agenzia in quanto
-   *  invitante: l'agenzia invitata non riceve mai alcuno sconto. */
-  discountPercent: number;
+  /** Percentuale ricorrente per sempre spettante a questa agenzia in quanto
+   *  invitante, non appena un'invitata attiva un piano a pagamento. */
+  referrerDiscountPercent: number;
+  /** Percentuale di benvenuto, una tantum, che l'agenzia invitata riceve sul
+   *  suo primo abbonamento — informativa qui, per il testo da mostrare a chi
+   *  invita: non riguarda lo sconto di questa agenzia. */
+  refereeDiscountPercent: number;
   /** Vero se questa agenzia ha almeno un referral ACTIVE: lo sconto è
    *  binario, non cresce con più referral. */
   hasActiveDiscount: boolean;
@@ -54,7 +58,8 @@ export async function GET() {
     referralLink: `${SITE_URL}/register?ref=${organization.referralCode}`,
     totalInvited: organization.referralsSent.length,
     activeCount,
-    discountPercent: REFERRAL_DISCOUNT_PERCENT,
+    referrerDiscountPercent: REFERRER_DISCOUNT_PERCENT,
+    refereeDiscountPercent: REFEREE_WELCOME_DISCOUNT_PERCENT,
     hasActiveDiscount: activeCount > 0,
     referrals: organization.referralsSent.map((r) => ({
       agencyName: r.referee.agencyName,

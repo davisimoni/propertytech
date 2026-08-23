@@ -3,9 +3,9 @@ import Stripe from "stripe";
 import type { CancellationReason } from "@prisma/client";
 import type { BillingInterval, PlanId } from "@/lib/plans";
 import { isConfiguredSecret, readSecret } from "@/lib/env";
-import { REFERRAL_DISCOUNT_PERCENT } from "@/lib/referrals/constants";
+import { REFEREE_WELCOME_DISCOUNT_PERCENT, REFERRER_DISCOUNT_PERCENT } from "@/lib/referrals/constants";
 export { isCancellationReason } from "@/lib/billing/cancellation";
-export { REFERRAL_DISCOUNT_PERCENT };
+export { REFERRER_DISCOUNT_PERCENT, REFEREE_WELCOME_DISCOUNT_PERCENT };
 
 /** Piani acquistabili: `trial` è gratuito e non ha un prezzo su Stripe. */
 export type PaidPlanId = Exclude<PlanId, "trial">;
@@ -123,11 +123,11 @@ export async function getOrCreateRetentionCoupon(stripe: Stripe): Promise<string
 }
 
 /**
- * Sconto del Programma Referral B2B: percentuale fissa, ricorrente per
- * sempre, applicata solo alla sottoscrizione dell'agenzia invitante — mai a
- * quella dell'invitata. Niente somma per numero di referral attivi:
- * un'agenzia con più referral vede comunque un solo sconto, non un multiplo —
- * è per questo che qui serve un solo coupon, non uno per fascia.
+ * Sconto del Programma Referral B2B per l'agenzia invitante (Referrer):
+ * percentuale fissa, ricorrente per sempre, applicata solo alla sua
+ * sottoscrizione. Niente somma per numero di referral attivi: un'agenzia con
+ * più referral vede comunque un solo sconto, non un multiplo — è per questo
+ * che qui serve un solo coupon, non uno per fascia.
  *
  * NOTA: questo sconto e quello di retention (`RETENTION_COUPON_ID`)
  * condividono lo stesso meccanismo Stripe (`subscriptions.update` con
@@ -137,19 +137,19 @@ export async function getOrCreateRetentionCoupon(stripe: Stripe): Promise<string
  * impostato — riconciliare più sconti simultanei sullo stesso abbonamento è
  * fuori dallo scopo di questa modifica.
  */
-const REFERRAL_COUPON_ID = "referral-20-forever";
+const REFERRER_COUPON_ID = "referral-referrer-20-forever";
 
 /** Come `getOrCreateRetentionCoupon`: un solo coupon, create on-demand, mai duplicato. */
-export async function getOrCreateReferralCoupon(stripe: Stripe): Promise<string> {
+export async function getOrCreateReferrerCoupon(stripe: Stripe): Promise<string> {
   try {
-    await stripe.coupons.retrieve(REFERRAL_COUPON_ID);
+    await stripe.coupons.retrieve(REFERRER_COUPON_ID);
   } catch {
     try {
       await stripe.coupons.create({
-        id: REFERRAL_COUPON_ID,
-        percent_off: REFERRAL_DISCOUNT_PERCENT,
+        id: REFERRER_COUPON_ID,
+        percent_off: REFERRER_DISCOUNT_PERCENT,
         duration: "forever",
-        name: `Programma Referral -${REFERRAL_DISCOUNT_PERCENT}%`,
+        name: `Programma Referral — Invitante -${REFERRER_DISCOUNT_PERCENT}%`,
       });
     } catch (createError) {
       const alreadyExists =
@@ -159,7 +159,40 @@ export async function getOrCreateReferralCoupon(stripe: Stripe): Promise<string>
     }
   }
 
-  return REFERRAL_COUPON_ID;
+  return REFERRER_COUPON_ID;
+}
+
+/**
+ * Sconto di benvenuto del Programma Referral per l'agenzia invitata
+ * (Referee): percentuale fissa, applicata **una sola volta**
+ * (`duration: "once"`) alla sessione di Checkout del suo primo abbonamento a
+ * pagamento — non un coupon ricorrente come quello dell'invitante, e non
+ * applicato via `subscriptions.update` ma direttamente nei `discounts` della
+ * Checkout Session (`app/api/stripe/checkout/route.ts`), l'unico punto in cui
+ * esiste ancora un "primo" abbonamento da scontare.
+ */
+const REFEREE_COUPON_ID = "referral-referee-10-once";
+
+export async function getOrCreateRefereeCoupon(stripe: Stripe): Promise<string> {
+  try {
+    await stripe.coupons.retrieve(REFEREE_COUPON_ID);
+  } catch {
+    try {
+      await stripe.coupons.create({
+        id: REFEREE_COUPON_ID,
+        percent_off: REFEREE_WELCOME_DISCOUNT_PERCENT,
+        duration: "once",
+        name: `Programma Referral — Benvenuto -${REFEREE_WELCOME_DISCOUNT_PERCENT}%`,
+      });
+    } catch (createError) {
+      const alreadyExists =
+        createError instanceof Stripe.errors.StripeInvalidRequestError &&
+        createError.code === "resource_already_exists";
+      if (!alreadyExists) throw createError;
+    }
+  }
+
+  return REFEREE_COUPON_ID;
 }
 
 /**

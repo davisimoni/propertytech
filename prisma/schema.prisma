@@ -13,15 +13,15 @@ enum PlanId {
   enterprise
 }
 
-/// Stato di un invito nel Programma Referral B2B.
-/// ACTIVE: l'invitata si è registrata col codice — anche sul piano gratuito,
-/// senza bisogno che si abboni — e l'invitante ha lo sconto fisso del
-/// programma sul proprio abbonamento. È lo stato con cui ogni referral nasce
-/// (lib/referrals/link.ts) e in cui resta per sempre: l'invitata non riceve
-/// mai alcuno sconto, e nulla in seguito lo revoca all'invitante.
-/// PENDING / EXPIRED: non più raggiunti da alcun percorso applicativo dopo
-/// il passaggio allo sconto asimmetrico — restano nell'enum solo per
-/// compatibilità con eventuali righe storiche.
+/// Stato di un invito nel Programma Referral B2B — riguarda solo lo sconto
+/// dell'invitante (ricorrente per sempre), non quello dell'invitata (una
+/// tantum, tracciato a parte da `Referral.refereeWelcomeDiscountAppliedAt`).
+/// PENDING: l'invitata si è registrata col codice, non ancora a pagamento.
+/// ACTIVE: l'invitata ha un abbonamento a pagamento attivo — l'invitante ha
+/// lo sconto fisso del programma sul proprio abbonamento.
+/// EXPIRED: l'invitata non è più a pagamento (disdetta, mancato rinnovo): lo
+/// sconto dell'invitante si spegne (salvo che abbia altri referral ACTIVE),
+/// ma il referral resta in storico.
 enum ReferralStatus {
   PENDING
   ACTIVE
@@ -352,13 +352,20 @@ model Organization {
 model Referral {
   id String @id @default(cuid())
 
-  status ReferralStatus @default(ACTIVE)
+  status ReferralStatus @default(PENDING)
 
-  /// Quando si è registrata l'invitata (coincide con `createdAt`).
-  /// `expiredAt` non è più scritto da alcun percorso applicativo: resta solo
-  /// per compatibilità con eventuali righe storiche della versione precedente.
+  /// Quando è diventato ACTIVE (primo pagamento dell'invitata) e quando è
+  /// tornato EXPIRED (disdetta/mancato rinnovo), se mai avvenuto.
   activatedAt DateTime?
   expiredAt   DateTime?
+
+  /// Quando è stato applicato lo sconto di benvenuto del 10% all'invitata, al
+  /// checkout del suo primo abbonamento a pagamento. `null` finché non paga;
+  /// una volta impostato resta tale per sempre — è una tantum, non revocato
+  /// da un'eventuale disdetta successiva, e non riapplicato a un nuovo
+  /// abbonamento (altrimenti disdire e riabbonarsi lo farebbe scattare di
+  /// nuovo). Indipendente da `status`, che riguarda solo l'invitante.
+  refereeWelcomeDiscountAppliedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

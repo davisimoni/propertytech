@@ -17,14 +17,25 @@
 export const REFERRAL_COOKIE_NAME = "propertytech_ref";
 
 /**
- * Sconto fisso, ricorrente per sempre, del Programma Referral.
- *
- * Asimmetrico: spetta solo a chi invita (il referrer), mai all'agenzia
- * invitata, che si registra e si abbona a prezzo di listino pieno. Si attiva
- * non appena l'invitata completa la registrazione — anche sul piano
- * gratuito, senza bisogno che si abboni — vedi `lib/referrals/link.ts`.
+ * Programma Referral B2B, modello Win-Win: due sconti distinti, non uguali
+ * fra loro, ciascuno con un proprio meccanismo Stripe.
  */
-export const REFERRAL_DISCOUNT_PERCENT = 20;
+
+/**
+ * Sconto dell'invitante (Referrer): ricorrente per sempre sul proprio
+ * abbonamento, si attiva non appena l'agenzia invitata attiva un piano a
+ * pagamento — vedi `lib/referrals/lifecycle.ts` (coupon Stripe con
+ * `duration: "forever"`, applicato via webhook).
+ */
+export const REFERRER_DISCOUNT_PERCENT = 20;
+
+/**
+ * Sconto di benvenuto dell'invitata (Referee): una tantum, solo sul primo
+ * abbonamento a pagamento sottoscritto tramite il link di invito — vedi
+ * `getOrCreateRefereeCoupon` in `lib/billing/stripe.ts` (coupon Stripe con
+ * `duration: "once"`, applicato al Checkout, non ricorrente).
+ */
+export const REFEREE_WELCOME_DISCOUNT_PERCENT = 10;
 
 /**
  * Chiave `localStorage` con l'istante dell'ultima apparizione automatica del

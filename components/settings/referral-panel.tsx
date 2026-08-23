@@ -6,7 +6,7 @@ import type { ReferralStatsResponse } from "@/app/api/referrals/route";
 import { cn } from "@/lib/utils";
 
 const STATUS_LABELS: Record<ReferralStatsResponse["referrals"][number]["status"], string> = {
-  PENDING: "In attesa",
+  PENDING: "In attesa del primo pagamento",
   ACTIVE: "Attivo",
   EXPIRED: "Terminato",
 };
@@ -70,10 +70,10 @@ export function ReferralPanel() {
         <div>
           <h2 className="text-sm font-semibold text-foreground">Programma Referral</h2>
           <p className="text-sm text-muted-foreground">
-            Invita un&apos;agenzia: quando si registra su PropertyTech, anche con il piano
-            gratuito, ottieni subito il {stats.discountPercent}% di sconto ricorrente per sempre
-            sul tuo abbonamento. Lo sconto è solo tuo: l&apos;agenzia che inviti si registra e si
-            abbona a prezzo di listino pieno, senza riduzioni.
+            Invita un&apos;agenzia: non appena attiva un piano a pagamento con il tuo link,
+            ottieni il {stats.referrerDiscountPercent}% di sconto ricorrente per sempre sul tuo
+            abbonamento. Lei riceve il {stats.refereeDiscountPercent}% di sconto di benvenuto sul
+            suo primo abbonamento — un vantaggio per entrambe.
           </p>
         </div>
       </div>
@@ -124,12 +124,12 @@ export function ReferralPanel() {
         <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
           <p className="text-xs text-muted-foreground">Il tuo sconto</p>
           <p className="mt-1 text-2xl font-semibold text-primary">
-            {stats.hasActiveDiscount ? `-${stats.discountPercent}%` : "Non attivo"}
+            {stats.hasActiveDiscount ? `-${stats.referrerDiscountPercent}%` : "Non attivo"}
           </p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
             {stats.hasActiveDiscount
               ? "Ricorrente per sempre sul tuo abbonamento."
-              : "Si attiva non appena la prima agenzia che inviti si registra."}
+              : "Si attiva alla prima agenzia invitata che attiva un piano a pagamento."}
           </p>
         </div>
       </div>

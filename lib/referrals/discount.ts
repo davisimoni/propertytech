@@ -1,16 +1,17 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { getOrCreateReferralCoupon, getStripe, isStripeEnabled } from "@/lib/billing/stripe";
+import { getOrCreateReferrerCoupon, getStripe, isStripeEnabled } from "@/lib/billing/stripe";
 
 /**
- * Applica o rimuove lo sconto fisso del Programma Referral sull'abbonamento
- * Stripe di un'organizzazione. Chiamata solo per l'invitante: l'agenzia
- * invitata non ha mai diritto a questo sconto, vedi `REFERRAL_DISCOUNT_PERCENT`
- * in `lib/referrals/constants.ts`.
+ * Applica o rimuove lo sconto ricorrente dell'invitante sul suo abbonamento
+ * Stripe. Riguarda solo il lato Referrer del Programma Referral: lo sconto
+ * di benvenuto dell'invitata è un'altra cosa — una tantum, applicato al
+ * Checkout, non a questo abbonamento (vedi `REFEREE_WELCOME_DISCOUNT_PERCENT`
+ * in `lib/referrals/constants.ts` e `getOrCreateRefereeCoupon`).
  *
  * Non lancia mai: un problema nell'applicare lo sconto non deve far fallire
- * l'evento che l'ha innescato (la registrazione dell'invitata resta valida
- * comunque).
+ * l'evento che l'ha innescato (l'attivazione del piano dell'invitata resta
+ * valida comunque).
  */
 async function setReferralDiscount(organizationId: string, active: boolean): Promise<void> {
   try {
@@ -38,7 +39,7 @@ async function setReferralDiscount(organizationId: string, active: boolean): Pro
       return;
     }
 
-    const couponId = await getOrCreateReferralCoupon(stripe);
+    const couponId = await getOrCreateReferrerCoupon(stripe);
     await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
       discounts: [{ coupon: couponId }],
     });
@@ -52,11 +53,10 @@ async function setReferralDiscount(organizationId: string, active: boolean): Pro
  * referral ACTIVE, spento altrimenti. Binario e non a somma — più referral
  * attivi non aumentano lo sconto oltre la percentuale fissa.
  *
- * Chiamata da `linkReferral` non appena un'agenzia si registra con il codice
- * di questo invitante: con l'attivazione asimmetrica ogni referral creato è
- * già ACTIVE, quindi in pratica il conteggio non può che crescere — resta
- * comunque un ricalcolo (e non un semplice incremento) perché più affidabile
- * e a prova di doppie chiamate.
+ * Chiamata da `lib/referrals/lifecycle.ts` quando un referral diventa ACTIVE
+ * (primo pagamento dell'invitata) o torna EXPIRED (disdetta): in entrambi i
+ * casi il conteggio può essere cambiato, e ricalcolarlo da zero è più
+ * affidabile che tenere un contatore separato.
  */
 export async function recomputeReferrerDiscount(referrerOrganizationId: string): Promise<void> {
   const activeCount = await prisma.referral.count({

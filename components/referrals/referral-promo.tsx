@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Check, Clipboard, Gift, Loader2, X } from "lucide-react";
 import {
-  REFERRAL_DISCOUNT_PERCENT,
+  REFEREE_WELCOME_DISCOUNT_PERCENT,
+  REFERRER_DISCOUNT_PERCENT,
   REFERRAL_POPUP_DELAY_MS,
   REFERRAL_POPUP_INTERVAL_MS,
   REFERRAL_POPUP_OPEN_EVENT,
@@ -181,11 +182,11 @@ export function ReferralPromo() {
             <Gift className="h-5 w-5" aria-hidden="true" />
           </div>
           <h2 id="referral-promo-title" className="mt-3 text-lg font-semibold">
-            Invita un&apos;agenzia: ottieni il {REFERRAL_DISCOUNT_PERCENT}% di sconto per sempre
+            Invita un&apos;agenzia, vincete entrambe
           </h2>
           <p className="mt-1 text-sm text-white/90">
-            Conosci un collega che perde ore dietro ai lead? Presentagli PropertyTech: appena si
-            registra, il tuo sconto parte subito.
+            Conosci un collega che perde ore dietro ai lead? Presentagli PropertyTech: tu ottieni
+            uno sconto ricorrente, lei uno sconto di benvenuto.
           </p>
         </div>
 
@@ -194,9 +195,9 @@ export function ReferralPromo() {
             <div className="rounded-lg border border-border p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-primary">Per te</p>
               <p className="mt-1 text-sm text-foreground">
-                <span className="font-semibold">-{REFERRAL_DISCOUNT_PERCENT}% ricorrente per sempre</span>{" "}
-                sul tuo abbonamento, non appena l&apos;agenzia che inviti si registra — anche sul
-                piano gratuito, senza bisogno che si abboni.
+                <span className="font-semibold">-{REFERRER_DISCOUNT_PERCENT}% ricorrente per sempre</span>{" "}
+                sul tuo abbonamento, non appena l&apos;agenzia che inviti attiva un piano a
+                pagamento.
               </p>
             </div>
             <div className="rounded-lg border border-border p-3">
@@ -204,8 +205,8 @@ export function ReferralPromo() {
                 Per l&apos;agenzia invitata
               </p>
               <p className="mt-1 text-sm text-foreground">
-                Nessuno sconto: si registra e, se sceglie di abbonarsi, paga il prezzo di listino
-                pieno. Il vantaggio di questo invito è solo tuo.
+                <span className="font-semibold">-{REFEREE_WELCOME_DISCOUNT_PERCENT}% di benvenuto</span>{" "}
+                sul suo primo abbonamento, se si iscrive con il tuo link.
               </p>
             </div>
           </div>

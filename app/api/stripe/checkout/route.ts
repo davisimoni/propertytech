@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { PLANS } from "@/lib/plans";
 import {
+  getOrCreateRefereeCoupon,
   getPriceId,
   getStripe,
   isBillingInterval,
@@ -88,6 +89,19 @@ export async function POST(request: Request) {
       });
     }
 
+    // Sconto di benvenuto del Programma Referral: solo se questa
+    // organizzazione è un'invitata e non l'ha già consumato (una tantum, per
+    // sempre — vedi `Referral.refereeWelcomeDiscountAppliedAt`). Applicato
+    // qui e non con `subscriptions.update` dopo il webhook perché è l'unico
+    // punto in cui esiste ancora un "primo" abbonamento da scontare: il
+    // coupon Stripe ha `duration: "once"`, quindi vale solo per la prima
+    // fattura di questo abbonamento.
+    const referral = await prisma.referral.findUnique({
+      where: { refereeId: organizationId },
+      select: { refereeWelcomeDiscountAppliedAt: true },
+    });
+    const eligibleForWelcomeDiscount = referral !== null && !referral.refereeWelcomeDiscountAppliedAt;
+
     const checkoutSession = await stripe.checkout.sessions.create(
       {
         mode: "subscription",
@@ -100,6 +114,9 @@ export async function POST(request: Request) {
         success_url: `${SITE_URL}/settings?checkout=success`,
         cancel_url: `${SITE_URL}/settings?checkout=cancelled`,
         locale: "it",
+        ...(eligibleForWelcomeDiscount && {
+          discounts: [{ coupon: await getOrCreateRefereeCoupon(stripe) }],
+        }),
       },
       // Evita doppi addebiti se l'utente fa doppio clic o la rete ritenta.
       { idempotencyKey: `checkout_${organizationId}_${plan}_${interval}_${Date.now()}` }
