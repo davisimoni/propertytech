@@ -109,8 +109,9 @@ export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
         <p className="mt-4 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-foreground">
           <Gift className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
           Sei stato invitato con il codice <span className="font-medium">{referralCode}</span>:
-          appena la tua agenzia attiva un piano, tu e chi ti ha invitato ottenete entrambi il{" "}
-          {REFERRAL_DISCOUNT_PERCENT}% di sconto ricorrente per sempre.
+          registrandoti, chi ti ha invitato ottiene il {REFERRAL_DISCOUNT_PERCENT}% di sconto
+          ricorrente per sempre sul proprio piano. Per te nessun costo aggiuntivo: prezzi di
+          listino, come per chiunque altro.
         </p>
       )}
 

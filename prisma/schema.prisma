@@ -14,12 +14,14 @@ enum PlanId {
 }
 
 /// Stato di un invito nel Programma Referral B2B.
-/// PENDING: l'invitata si è registrata col codice, non ancora a pagamento.
-/// ACTIVE: l'invitata ha un abbonamento a pagamento attivo — sia lei sia
-/// l'invitante hanno lo sconto fisso del programma sull'abbonamento.
-/// EXPIRED: l'invitata non è più a pagamento (disdetta, mancato rinnovo): lo
-/// sconto di entrambe si spegne (salvo che l'invitante abbia altri referral
-/// ACTIVE), ma il referral resta in storico.
+/// ACTIVE: l'invitata si è registrata col codice — anche sul piano gratuito,
+/// senza bisogno che si abboni — e l'invitante ha lo sconto fisso del
+/// programma sul proprio abbonamento. È lo stato con cui ogni referral nasce
+/// (lib/referrals/link.ts) e in cui resta per sempre: l'invitata non riceve
+/// mai alcuno sconto, e nulla in seguito lo revoca all'invitante.
+/// PENDING / EXPIRED: non più raggiunti da alcun percorso applicativo dopo
+/// il passaggio allo sconto asimmetrico — restano nell'enum solo per
+/// compatibilità con eventuali righe storiche.
 enum ReferralStatus {
   PENDING
   ACTIVE
@@ -350,10 +352,11 @@ model Organization {
 model Referral {
   id String @id @default(cuid())
 
-  status ReferralStatus @default(PENDING)
+  status ReferralStatus @default(ACTIVE)
 
-  /// Quando è diventato ACTIVE (primo pagamento dell'invitata) e quando è
-  /// tornato EXPIRED (disdetta/mancato rinnovo), se mai avvenuto.
+  /// Quando si è registrata l'invitata (coincide con `createdAt`).
+  /// `expiredAt` non è più scritto da alcun percorso applicativo: resta solo
+  /// per compatibilità con eventuali righe storiche della versione precedente.
   activatedAt DateTime?
   expiredAt   DateTime?
 

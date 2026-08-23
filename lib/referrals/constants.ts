@@ -17,10 +17,12 @@
 export const REFERRAL_COOKIE_NAME = "propertytech_ref";
 
 /**
- * Sconto fisso, ricorrente per sempre, dello stesso Programma Referral:
- * niente più somma per numero di referral attivi. Vale identico per
- * l'invitante e per l'agenzia invitata (Win-Win) — un solo numero, non due
- * costanti da tenere in sincronia come nella versione precedente.
+ * Sconto fisso, ricorrente per sempre, del Programma Referral.
+ *
+ * Asimmetrico: spetta solo a chi invita (il referrer), mai all'agenzia
+ * invitata, che si registra e si abbona a prezzo di listino pieno. Si attiva
+ * non appena l'invitata completa la registrazione — anche sul piano
+ * gratuito, senza bisogno che si abboni — vedi `lib/referrals/link.ts`.
  */
 export const REFERRAL_DISCOUNT_PERCENT = 20;
 

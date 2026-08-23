@@ -16,7 +16,8 @@ export interface ReferralStatsResponse {
   referralLink: string;
   totalInvited: number;
   activeCount: number;
-  /** Percentuale fissa del programma, uguale per invitante e invitata. */
+  /** Percentuale fissa del programma. Spetta solo a questa agenzia in quanto
+   *  invitante: l'agenzia invitata non riceve mai alcuno sconto. */
   discountPercent: number;
   /** Vero se questa agenzia ha almeno un referral ACTIVE: lo sconto è
    *  binario, non cresce con più referral. */

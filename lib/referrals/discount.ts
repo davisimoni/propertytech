@@ -4,12 +4,13 @@ import { getOrCreateReferralCoupon, getStripe, isStripeEnabled } from "@/lib/bil
 
 /**
  * Applica o rimuove lo sconto fisso del Programma Referral sull'abbonamento
- * Stripe di un'organizzazione — usata sia per l'invitante sia per l'invitata,
- * che ricevono esattamente lo stesso trattamento (Win-Win, niente somma).
+ * Stripe di un'organizzazione. Chiamata solo per l'invitante: l'agenzia
+ * invitata non ha mai diritto a questo sconto, vedi `REFERRAL_DISCOUNT_PERCENT`
+ * in `lib/referrals/constants.ts`.
  *
  * Non lancia mai: un problema nell'applicare lo sconto non deve far fallire
- * l'evento webhook che l'ha innescato (l'attivazione del piano dell'invitata
- * resta valida comunque).
+ * l'evento che l'ha innescato (la registrazione dell'invitata resta valida
+ * comunque).
  */
 async function setReferralDiscount(organizationId: string, active: boolean): Promise<void> {
   try {
@@ -48,12 +49,14 @@ async function setReferralDiscount(organizationId: string, active: boolean): Pro
 
 /**
  * Ricalcola lo sconto dell'agenzia invitante: attivo se ha almeno un
- * referral ACTIVE, spento altrimenti. Binario e non più a somma — più
- * referral attivi non aumentano lo sconto oltre la percentuale fissa.
+ * referral ACTIVE, spento altrimenti. Binario e non a somma — più referral
+ * attivi non aumentano lo sconto oltre la percentuale fissa.
  *
- * Chiamata sia quando un referral diventa ACTIVE sia quando torna EXPIRED:
- * in entrambi i casi il conteggio può essere cambiato, e ricalcolarlo da zero
- * è più affidabile che tenere un contatore separato.
+ * Chiamata da `linkReferral` non appena un'agenzia si registra con il codice
+ * di questo invitante: con l'attivazione asimmetrica ogni referral creato è
+ * già ACTIVE, quindi in pratica il conteggio non può che crescere — resta
+ * comunque un ricalcolo (e non un semplice incremento) perché più affidabile
+ * e a prova di doppie chiamate.
  */
 export async function recomputeReferrerDiscount(referrerOrganizationId: string): Promise<void> {
   const activeCount = await prisma.referral.count({
@@ -61,14 +64,4 @@ export async function recomputeReferrerDiscount(referrerOrganizationId: string):
   });
 
   await setReferralDiscount(referrerOrganizationId, activeCount > 0);
-}
-
-/**
- * Applica o rimuove lo sconto dell'agenzia invitata, seguendo lo stato del
- * proprio referral. A differenza dell'invitante non serve un conteggio: ogni
- * organizzazione può essere invitata una sola volta (`refereeId` è unico),
- * quindi lo stato è direttamente attivo/spento.
- */
-export async function setRefereeDiscount(refereeOrganizationId: string, active: boolean): Promise<void> {
-  await setReferralDiscount(refereeOrganizationId, active);
 }

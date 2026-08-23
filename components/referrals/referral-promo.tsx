@@ -64,12 +64,18 @@ export function ReferralPromo() {
     writeLastSeen();
   }, []);
 
-  // --- Apertura automatica, non più di una volta ogni REFERRAL_POPUP_INTERVAL_MS ---
+  // --- Apertura automatica, esattamente REFERRAL_POPUP_DELAY_MS dopo il
+  //     montaggio (l'ingresso nel sito), non più di una volta ogni
+  //     REFERRAL_POPUP_INTERVAL_MS ---
+  //
+  // Il timer parte subito al mount e non dipende da `status`: aspettare che
+  // la sessione smetta di essere "loading" prima di avviarlo aggiungerebbe
+  // alla soglia richiesta la latenza, variabile, della chiamata di
+  // NextAuth — il popup non apparirebbe più a un tempo fisso. Il contenuto
+  // mostrato resta comunque corretto perché il ramo autenticato/anonimo si
+  // decide al render, con lo stato di sessione più aggiornato disponibile in
+  // quel momento.
   useEffect(() => {
-    // Si aspetta di sapere se c'è una sessione: aprire durante il "loading"
-    // mostrerebbe l'invito a registrarsi a chi è già dentro.
-    if (status === "loading") return;
-
     const lastSeen = readLastSeen();
     if (lastSeen !== null && Date.now() - lastSeen < REFERRAL_POPUP_INTERVAL_MS) return;
 
@@ -81,7 +87,7 @@ export function ReferralPromo() {
     }, REFERRAL_POPUP_DELAY_MS);
 
     return () => clearTimeout(timer);
-  }, [status]);
+  }, []);
 
   // --- Apertura su richiesta dal link nel footer ---
   useEffect(() => {
@@ -175,11 +181,11 @@ export function ReferralPromo() {
             <Gift className="h-5 w-5" aria-hidden="true" />
           </div>
           <h2 id="referral-promo-title" className="mt-3 text-lg font-semibold">
-            Invita un&apos;agenzia, risparmiate entrambe il {REFERRAL_DISCOUNT_PERCENT}% per sempre
+            Invita un&apos;agenzia: ottieni il {REFERRAL_DISCOUNT_PERCENT}% di sconto per sempre
           </h2>
           <p className="mt-1 text-sm text-white/90">
-            Conosci un collega che perde ore dietro ai lead? Presentagli PropertyTech: stesso
-            sconto, ricorrente per sempre, per entrambe le agenzie.
+            Conosci un collega che perde ore dietro ai lead? Presentagli PropertyTech: appena si
+            registra, il tuo sconto parte subito.
           </p>
         </div>
 
@@ -189,7 +195,8 @@ export function ReferralPromo() {
               <p className="text-xs font-semibold uppercase tracking-wide text-primary">Per te</p>
               <p className="mt-1 text-sm text-foreground">
                 <span className="font-semibold">-{REFERRAL_DISCOUNT_PERCENT}% ricorrente per sempre</span>{" "}
-                sul tuo abbonamento, appena l&apos;agenzia che inviti attiva un piano a pagamento.
+                sul tuo abbonamento, non appena l&apos;agenzia che inviti si registra — anche sul
+                piano gratuito, senza bisogno che si abboni.
               </p>
             </div>
             <div className="rounded-lg border border-border p-3">
@@ -197,9 +204,8 @@ export function ReferralPromo() {
                 Per l&apos;agenzia invitata
               </p>
               <p className="mt-1 text-sm text-foreground">
-                Inizia con la <span className="font-semibold">prova gratuita</span>, poi lo stesso{" "}
-                <span className="font-semibold">-{REFERRAL_DISCOUNT_PERCENT}% per sempre</span> sul
-                suo abbonamento, dal primo pagamento.
+                Nessuno sconto: si registra e, se sceglie di abbonarsi, paga il prezzo di listino
+                pieno. Il vantaggio di questo invito è solo tuo.
               </p>
             </div>
           </div>

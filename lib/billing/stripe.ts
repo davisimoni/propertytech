@@ -124,10 +124,10 @@ export async function getOrCreateRetentionCoupon(stripe: Stripe): Promise<string
 
 /**
  * Sconto del Programma Referral B2B: percentuale fissa, ricorrente per
- * sempre, identica per l'invitante e per l'agenzia invitata (Win-Win). Niente
- * più somma per numero di referral attivi: un'agenzia con più referral vede
- * comunque un solo sconto, non un multiplo — è per questo che qui serve un
- * solo coupon, non uno per fascia come nella versione precedente.
+ * sempre, applicata solo alla sottoscrizione dell'agenzia invitante — mai a
+ * quella dell'invitata. Niente somma per numero di referral attivi:
+ * un'agenzia con più referral vede comunque un solo sconto, non un multiplo —
+ * è per questo che qui serve un solo coupon, non uno per fascia.
  *
  * NOTA: questo sconto e quello di retention (`RETENTION_COUPON_ID`)
  * condividono lo stesso meccanismo Stripe (`subscriptions.update` con

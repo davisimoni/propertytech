@@ -3,7 +3,6 @@ import type Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { getStripe, isStripeEnabled, readPlanFromMetadata } from "@/lib/billing/stripe";
 import { readSecret } from "@/lib/env";
-import { activateRefereeReferral, expireRefereeReferral } from "@/lib/referrals/lifecycle";
 
 /**
  * Attiva il piano acquistato e azzera i contatori di consumo.
@@ -33,12 +32,6 @@ async function activatePlan(
       data: { whatsappCreditsUsed: 0, docCreditsUsed: 0, voiceCreditsUsed: 0 },
     }),
   ]);
-
-  // Se questa organizzazione è un'invitata del Programma Referral, il primo
-  // pagamento a buon fine è il momento in cui il referral diventa ACTIVE e lo
-  // sconto dell'invitante va applicato. Fuori dalla transazione: non deve far
-  // fallire l'attivazione del piano se qualcosa va storto qui.
-  await activateRefereeReferral(organizationId);
 }
 
 /** Riporta l'organizzazione al piano Trial quando l'abbonamento cessa. */
@@ -55,11 +48,6 @@ async function downgradeToTrial(stripeSubscriptionId: string) {
     // La disdetta, se c'era, ha appena avuto effetto: non è più "in corso".
     data: { status: "trial", cancelAtPeriodEnd: false, currentPeriodEnd: null },
   });
-
-  // Simmetrico ad `activatePlan`: se questa organizzazione era un'invitata
-  // con un referral ACTIVE, non è più un'agenzia a pagamento e il referral
-  // scade — lo sconto dell'invitante va ricalcolato di conseguenza.
-  await expireRefereeReferral(subscription.organizationId);
 }
 
 /**

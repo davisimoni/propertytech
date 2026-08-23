@@ -6,7 +6,7 @@ import type { ReferralStatsResponse } from "@/app/api/referrals/route";
 import { cn } from "@/lib/utils";
 
 const STATUS_LABELS: Record<ReferralStatsResponse["referrals"][number]["status"], string> = {
-  PENDING: "In attesa del primo pagamento",
+  PENDING: "In attesa",
   ACTIVE: "Attivo",
   EXPIRED: "Terminato",
 };
@@ -70,10 +70,10 @@ export function ReferralPanel() {
         <div>
           <h2 className="text-sm font-semibold text-foreground">Programma Referral</h2>
           <p className="text-sm text-muted-foreground">
-            Invita altre agenzie: quando una di loro attiva un piano, ottenete entrambe il{" "}
-            {stats.discountPercent}% di sconto ricorrente per sempre sul rispettivo abbonamento —
-            stessa percentuale per te e per lei, senza somme che crescono con più inviti. Un
-            vantaggio per entrambe, finché resta un&apos;agenzia cliente attiva.
+            Invita un&apos;agenzia: quando si registra su PropertyTech, anche con il piano
+            gratuito, ottieni subito il {stats.discountPercent}% di sconto ricorrente per sempre
+            sul tuo abbonamento. Lo sconto è solo tuo: l&apos;agenzia che inviti si registra e si
+            abbona a prezzo di listino pieno, senza riduzioni.
           </p>
         </div>
       </div>
@@ -128,8 +128,8 @@ export function ReferralPanel() {
           </p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
             {stats.hasActiveDiscount
-              ? "Ricorrente per sempre, finché resta almeno un'agenzia attiva."
-              : `Si attiva alla prima agenzia invitata che diventa cliente.`}
+              ? "Ricorrente per sempre sul tuo abbonamento."
+              : "Si attiva non appena la prima agenzia che inviti si registra."}
           </p>
         </div>
       </div>
