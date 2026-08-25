@@ -100,6 +100,16 @@ const OUTCOME_MESSAGES: Record<string, { tone: "ok" | "error"; text: string }> =
     text:
       "Integrazione non ancora attiva: le credenziali di questo calendario non sono configurate sul server. Il collegamento sarà disponibile appena vengono aggiunte.",
   },
+  MissingGoogleCredentials: {
+    tone: "error",
+    text:
+      "Google Calendar non è ancora attivabile: mancano GOOGLE_CALENDAR_CLIENT_ID / GOOGLE_CLIENT_ID (e il rispettivo secret) sul server.",
+  },
+  MissingOutlookCredentials: {
+    tone: "error",
+    text:
+      "Microsoft Outlook non è ancora attivabile: mancano MICROSOFT_CLIENT_ID e MICROSOFT_CLIENT_SECRET sul server.",
+  },
   encryption_unavailable: {
     tone: "error",
     text:
@@ -126,7 +136,11 @@ export function ExternalCalendarSync() {
   const [isLoading, setIsLoading] = useState(true);
   const [pending, setPending] = useState<string | null>(null);
 
-  const outcome = searchParams.get("calendar");
+  // Due parametri con due significati distinti: `?calendar=` è l'esito del
+  // flusso OAuth (connesso, annullato, stato scaduto), `?error=` dice che il
+  // fornitore non è attivabile e *quale* credenziale manca. Entrambi finiscono
+  // nello stesso avviso in cima alla scheda.
+  const outcome = searchParams.get("calendar") ?? searchParams.get("error");
   const outcomeMessage = outcome ? OUTCOME_MESSAGES[outcome] : undefined;
 
   const load = useCallback(async () => {

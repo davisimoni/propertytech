@@ -37,6 +37,29 @@ function settingsRedirect(outcome: string): NextResponse {
 }
 
 /**
+ * Credenziali del fornitore assenti sul server: si torna in pagina dicendo
+ * *quale* manca, non un generico "non configurato".
+ */
+function missingCredentialsRedirect(provider: CalendarOAuthProviderId): NextResponse {
+  const marker = provider === "google" ? "MissingGoogleCredentials" : "MissingOutlookCredentials";
+  return NextResponse.redirect(`${SITE_URL}/settings/calendar?error=${marker}`);
+}
+
+/**
+ * Sessione assente su un endpoint raggiunto da un clic.
+ *
+ * Qui un 401 JSON è la risposta sbagliata al problema giusto: chi ha
+ * cliccato "Connetti" si troverebbe `{"error":"unauthorized"}` in finestra,
+ * senza capire che deve semplicemente rifare l'accesso. `callbackUrl` lo
+ * riporta esattamente dov'era dopo il login.
+ */
+function loginRedirect(): NextResponse {
+  return NextResponse.redirect(
+    `${SITE_URL}/login?callbackUrl=${encodeURIComponent("/settings/calendar")}`
+  );
+}
+
+/**
  * Avvia il consenso: genera lo stato anti-CSRF, lo deposita in un cookie
  * `httpOnly` e reindirizza al fornitore.
  *
@@ -48,17 +71,19 @@ function settingsRedirect(outcome: string): NextResponse {
 export async function handleCalendarConnect(
   provider: CalendarOAuthProviderId
 ): Promise<NextResponse> {
+  // `session.user.userId`, non `session.user.id`: il tipo di NextAuth espone
+  // anche `id`, ma questo progetto popola **solo** `userId` nel callback di
+  // sessione (auth.config.ts). Usare `id` compilava senza un errore e valeva
+  // `undefined` a ogni richiesta, quindi la rotta rispondeva "unauthorized"
+  // anche agli agenti regolarmente autenticati — un bug che nessun controllo
+  // statico poteva intercettare.
   const session = await auth();
-  if (!session?.user?.organizationId || !session.user.id) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!session?.user?.organizationId || !session.user.userId) {
+    return loginRedirect();
   }
 
-  // Rimanda in pagina con l'esito invece di rispondere JSON: questo endpoint
-  // è il bersaglio di un clic su un pulsante, non una chiamata XHR, e un
-  // corpo JSON grezzo in finestra sarebbe una schermata incomprensibile per
-  // l'agente che voleva solo collegare l'agenda.
   if (!isCalendarProviderConfigured(provider)) {
-    return settingsRedirect("not_configured");
+    return missingCredentialsRedirect(provider);
   }
 
   // Verificata *prima* di mandare l'agente dal fornitore: completare il
@@ -110,9 +135,12 @@ export async function handleCalendarCallback(
   provider: CalendarOAuthProviderId,
   request: Request
 ): Promise<NextResponse> {
+  // Stesso motivo del connect: qui si arriva per redirect dal fornitore, non
+  // via XHR. Un JSON in finestra a fine consenso sarebbe il peggior momento
+  // possibile per mostrarlo.
   const session = await auth();
-  if (!session?.user?.organizationId || !session.user.id) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!session?.user?.organizationId || !session.user.userId) {
+    return loginRedirect();
   }
 
   const url = new URL(request.url);
@@ -131,7 +159,7 @@ export async function handleCalendarCallback(
     return settingsRedirect("invalid_state");
   }
 
-  if (!isCalendarProviderConfigured(provider)) return settingsRedirect("not_configured");
+  if (!isCalendarProviderConfigured(provider)) return missingCredentialsRedirect(provider);
 
   const config = CALENDAR_OAUTH_PROVIDERS[provider];
 
@@ -179,7 +207,7 @@ export async function handleCalendarCallback(
 
     await saveCalendarConnection({
       organizationId: session.user.organizationId,
-      userId: session.user.id,
+      userId: session.user.userId,
       provider,
       accountEmail,
       tokens: {
