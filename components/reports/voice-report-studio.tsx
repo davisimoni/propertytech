@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type DragEvent } from "react";
-import { Check, FileAudio, Loader2, Printer, Send, Sparkles, X } from "lucide-react";
+import { Check, ClipboardList, FileAudio, Loader2, Printer, Send, Sparkles, X } from "lucide-react";
 import { UpgradeLimitModal } from "@/components/billing/upgrade-limit-modal";
 import { ShareActions } from "@/components/shared/share-actions";
 import { AiDisclaimer } from "@/components/shared/ai-disclaimer";
@@ -40,7 +40,20 @@ export function VoiceReportStudio() {
   const [sellerName, setSellerName] = useState("");
   const [sellerPhone, setSellerPhone] = useState("");
   const [notes, setNotes] = useState("");
-  const [audioFile, setAudioFile] = useState<File | null>(null);
+  /**
+   * Sorgente audio unica, con la sua provenienza.
+   *
+   * Registratore e caricamento file scrivevano entrambi su un solo `File`
+   * senza sapere l'uno dell'altro: chi registrava e poi caricava (o
+   * viceversa) si ritrovava **due anteprime a schermo** — il player della
+   * registrazione e la riga col nome del file — mentre ne partiva una sola,
+   * l'ultima scritta. Da lì l'impressione che servissero entrambe. Tenendo
+   * accanto al file la sua origine, scegliere una sorgente azzera visibilmente
+   * l'altra e a schermo resta sempre esattamente ciò che verrà inviato.
+   */
+  const [audio, setAudio] = useState<{ file: File; origin: "recording" | "upload" } | null>(null);
+  /** Cambiando, rimonta il registratore e ne azzera anteprima e cronometro. */
+  const [recorderKey, setRecorderKey] = useState(0);
   const [isDragActive, setIsDragActive] = useState(false);
 
   const [report, setReport] = useState<VoiceReportContent | null>(null);
@@ -50,17 +63,29 @@ export function VoiceReportStudio() {
   const [isSending, setIsSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [locked, setLocked] = useState(false);
+  /**
+   * Le due 402 non dicono la stessa cosa e non vanno mostrate uguali: a un
+   * utente Starter serve sapere che il modulo è di Enterprise, a uno in prova
+   * che ha finito i tre report inclusi. Il campo `error` della risposta le
+   * distingue (CLAUDE.md §4).
+   */
+  const [locked, setLocked] = useState<{
+    reason: "limit_reached" | "not_in_plan";
+    requiredPlan?: string;
+  } | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
+  /** Caricamento da dispositivo: sostituisce l'eventuale registrazione. */
   function acceptAudio(file: File) {
     if (file.size > MAX_AUDIO_BYTES) {
       setError("Il file audio supera i 25MB.");
       return;
     }
     setError(null);
-    setAudioFile(file);
+    setAudio({ file, origin: "upload" });
+    // Il registratore aveva un'anteprima? Va via: da qui in poi parte il file.
+    setRecorderKey((key) => key + 1);
   }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
@@ -77,10 +102,10 @@ export function VoiceReportStudio() {
 
     try {
       const response =
-        mode === "audio" && audioFile
+        mode === "audio" && audio
           ? await (() => {
               const formData = new FormData();
-              formData.append("audio", audioFile);
+              formData.append("audio", audio.file);
               formData.append("propertyRef", propertyRef);
               formData.append("sellerName", sellerName);
               formData.append("sellerPhone", sellerPhone);
@@ -98,7 +123,12 @@ export function VoiceReportStudio() {
             });
 
       if (response.status === 402) {
-        setLocked(true);
+        const body = await response.json().catch(() => null);
+        setLocked(
+          body?.error === "feature_not_in_plan"
+            ? { reason: "not_in_plan", requiredPlan: body.requiredPlan }
+            : { reason: "limit_reached" }
+        );
         return;
       }
 
@@ -155,7 +185,9 @@ export function VoiceReportStudio() {
 
   const canGenerate =
     propertyRef.trim().length >= 3 &&
-    (mode === "audio" ? Boolean(audioFile) : notes.trim().length >= 20);
+    // Basta UNA sorgente audio, registrata o caricata: `audio` ne contiene una
+    // sola per costruzione, quindi non c'è modo di richiederle entrambe.
+    (mode === "audio" ? Boolean(audio) : notes.trim().length >= 20);
 
   return (
     <div className="space-y-6">
@@ -233,11 +265,19 @@ export function VoiceReportStudio() {
         {mode === "audio" ? (
           <div className="mt-3 space-y-3">
             <AudioRecorder
+              key={recorderKey}
               onRecorded={(file) => {
-                setAudioFile(file);
+                // Registrare sostituisce un file caricato in precedenza: la
+                // riga col nome del file sparisce da sé, perché dipende da
+                // `audio.origin`.
+                setAudio({ file, origin: "recording" });
                 setError(null);
               }}
-              onCleared={() => setAudioFile(null)}
+              onCleared={() =>
+                // Il cestino del registratore cancella solo la registrazione,
+                // non un file caricato che non gli appartiene.
+                setAudio((current) => (current?.origin === "recording" ? null : current))
+              }
               disabled={isGenerating}
             />
 
@@ -276,12 +316,15 @@ export function VoiceReportStudio() {
               <p className="text-xs text-muted-foreground">Massimo 25MB</p>
             </div>
 
-            {audioFile && (
+            {/* Solo per il file caricato: la registrazione ha già il suo
+                player dentro AudioRecorder, e mostrarla due volte era
+                esattamente ciò che faceva sembrare necessarie entrambe. */}
+            {audio?.origin === "upload" && (
               <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2">
-                <span className="truncate text-sm text-foreground">{audioFile.name}</span>
+                <span className="truncate text-sm text-foreground">{audio.file.name}</span>
                 <button
                   type="button"
-                  onClick={() => setAudioFile(null)}
+                  onClick={() => setAudio(null)}
                   aria-label="Rimuovi file audio"
                   className="shrink-0 text-muted-foreground hover:text-status-blocked"
                 >
@@ -466,11 +509,108 @@ export function VoiceReportStudio() {
         </section>
       )}
 
+      {/* --- Sintesi interna per l'agente e il team ---
+          `print:hidden` non è un dettaglio estetico: il pulsante Stampa serve
+          a produrre il documento per il proprietario, e qui dentro ci sono le
+          obiezioni riportate senza addolcirle. Fuori dalla sezione
+          `#seller-report` anche nel DOM, così non può finire in una stampa
+          parziale di quel blocco. */}
+      {report && (
+        <section className="rounded-xl border border-dashed border-border bg-muted/20 p-4 md:p-5 print:hidden">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <ClipboardList className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-foreground">Sintesi interna per il team</h2>
+              <p className="text-xs text-muted-foreground">
+                Solo per te e i tuoi collaboratori: non entra nel PDF, nella stampa né nel
+                messaggio inviato al proprietario.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Punti chiave
+              </h3>
+              <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-foreground">
+                {report.agentSummary.keyPoints.map((point, index) => (
+                  <li key={index}>{point}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Obiezioni del cliente
+              </h3>
+              {report.agentSummary.objections.length > 0 ? (
+                <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-foreground">
+                  {report.agentSummary.objections.map((objection, index) => (
+                    <li key={index}>{objection}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Nessuna obiezione emersa dalla nota.
+                </p>
+              )}
+            </div>
+
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Feedback tecnico
+              </h3>
+              {report.agentSummary.technicalFeedback.length > 0 ? (
+                <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-foreground">
+                  {report.agentSummary.technicalFeedback.map((item, index) => (
+                    <li key={index}>{item}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Nessun rilievo tecnico nella nota.
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-primary">
+                Prossima azione
+              </h3>
+              <p className="mt-1 text-sm text-foreground">{report.agentSummary.nextAction}</p>
+            </div>
+          </div>
+
+          <ShareActions
+            text={[
+              `Sintesi interna — ${propertyRef}`,
+              "",
+              "Punti chiave:",
+              ...report.agentSummary.keyPoints.map((point) => `- ${point}`),
+              ...(report.agentSummary.objections.length > 0
+                ? ["", "Obiezioni:", ...report.agentSummary.objections.map((item) => `- ${item}`)]
+                : []),
+              ...(report.agentSummary.technicalFeedback.length > 0
+                ? ["", "Feedback tecnico:", ...report.agentSummary.technicalFeedback.map((item) => `- ${item}`)]
+                : []),
+              "",
+              `Prossima azione: ${report.agentSummary.nextAction}`,
+            ].join("\n")}
+            copyLabel="Copia sintesi"
+            className="mt-4"
+          />
+        </section>
+      )}
+
       {locked && (
         <UpgradeLimitModal
           feature="voice-reports"
-          reason="not_in_plan"
-          onNavigateAway={() => setLocked(false)}
+          reason={locked.reason}
+          requiredPlan={locked.requiredPlan}
+          onNavigateAway={() => setLocked(null)}
         />
       )}
     </div>

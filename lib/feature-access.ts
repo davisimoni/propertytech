@@ -18,15 +18,21 @@ const FEATURE_RESOURCE: Record<GatedFeature, string> = {
 };
 
 /**
- * Piano più economico che include la funzionalità.
+ * Piano più economico **acquistabile** che include la funzionalità.
  *
  * Calcolato anziché scritto a mano: il fascicolo documentale parte da Starter,
  * il Social Multiplier da Enterprise, e un valore fisso manderebbe metà degli
  * utenti al piano sbagliato. `PLANS` è dichiarato dal più economico al più
  * caro, quindi il primo che soddisfa la condizione è anche il meno costoso.
+ *
+ * Il Trial è escluso di proposito: non è una destinazione di upgrade ma il
+ * punto di partenza. Da quando concede un assaggio a crediti del
+ * Voice Seller-Reporting — funzione che su Starter e Professional torna
+ * chiusa — includerlo qui direbbe a un cliente pagante di "passare al piano
+ * Free Trial", cioè di retrocedere.
  */
 function cheapestPlanWith(feature: GatedFeature): Plan {
-  return Object.values(PLANS).find((plan) => plan[feature]) ?? PLANS.enterprise;
+  return Object.values(PLANS).find((plan) => plan.id !== "trial" && plan[feature]) ?? PLANS.enterprise;
 }
 
 export async function getPlanId(organizationId: string): Promise<PlanId> {

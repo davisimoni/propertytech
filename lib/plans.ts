@@ -52,10 +52,21 @@ export const PLANS: Record<PlanId, Plan> = {
     ocrDocumentsLimit: 5,
     seatsLimit: 1,
     agendasLimit: 0,
-    voiceReportsLimit: 0,
+    /**
+     * Assaggio del Voice Seller-Reporting: tre report, poi il gate a crediti
+     * si chiude. È l'unica funzione Enterprise concessa in prova, e a
+     * differenza delle altre non è illimitata — un modulo che si può provare
+     * ma non usare a regime è ciò che rende evidente il valore del piano
+     * Enterprise, mentre lasciarlo chiuso lo rende invisibile.
+     *
+     * Il flag resta `false` su Starter e Professional: lì la funzione non è
+     * inclusa davvero, e il gate risponde "non nel tuo piano" indirizzando a
+     * Enterprise (vedi `cheapestPlanWith` in lib/feature-access.ts).
+     */
+    voiceReportsLimit: 3,
     documentVault: false,
     socialMultiplier: false,
-    voiceSellerReporting: false,
+    voiceSellerReporting: true,
     advancedReporting: false,
   },
   starter: {

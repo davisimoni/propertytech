@@ -12,7 +12,16 @@ const INTEREST_LABELS: Record<VoiceReportContent["interestLevel"], string> = {
   basso: "Interesse basso",
 };
 
-/** Report post-visita destinato al proprietario dell'immobile. */
+/**
+ * Report post-visita destinato al proprietario dell'immobile.
+ *
+ * `report.agentSummary` è omesso **di proposito**: contiene le obiezioni non
+ * riformulate e i rilievi interni del team, scritti nel registro schietto
+ * della nota originale. Questo PDF è il documento che esce dall'agenzia e
+ * finisce in mano al venditore — i campi sono elencati uno per uno proprio
+ * perché aggiungerne uno resti una scelta esplicita e mai un effetto
+ * collaterale di un nuovo campo nello schema.
+ */
 export function SellerReportDocument({
   branding,
   report,

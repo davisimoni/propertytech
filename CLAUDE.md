@@ -120,13 +120,15 @@ Trascrive le note vocali registrate dall'agente subito dopo una visita immobilia
 
 | Piano | Prezzo | Conversazioni WA/mese | OCR Documenti | Postazioni | Agende | Fascicolo documentale | Social Multiplier | Voice Seller-Reporting | Reportistica avanzata |
 |---|---|---|---|---|---|---|---|---|---|
-| **Trial** | Gratuito | 15 (totali, non mensili) | 5 estratti | 1 | — | ❌ | ❌ | ❌ | ❌ |
+| **Trial** | Gratuito | 15 (totali, non mensili) | 5 estratti | 1 | — | ❌ | ❌ | 3 report (assaggio) | ❌ |
 | **Starter** | 99 €/mese | 150 | Illimitato | 1 | 1 | ✅ | ❌ | ❌ | ❌ |
 | **Professional** | 279 €/mese | 500 | Illimitato | 5 | 3 | ✅ | ❌ | ❌ | ❌ |
 | **Enterprise** | 499 €/mese | 2.500 (extra a 0,05€/chat) | Illimitato | 20 | Illimitate | ✅ | ✅ | ✅ | ✅ |
 
 - Il Trial non richiede carta di credito.
-- Il Social Multiplier (Modulo 3) e il Voice Seller-Reporting Engine (Modulo 4) sono **sbloccati esclusivamente** nel piano Enterprise.
+- Il Social Multiplier (Modulo 3) è **sbloccato esclusivamente** nel piano Enterprise.
+- Il **Voice Seller-Reporting Engine (Modulo 4)** è incluso a regime solo in Enterprise, ma il Trial ne concede **3 report di assaggio** a crediti (`voiceReportsLimit: 3`, `voiceSellerReporting: true` in `lib/plans.ts`). È l'unica funzione Enterprise provabile in prova: un modulo che non si può nemmeno vedere è un modulo che non si compra. Su **Starter e Professional resta chiuso** — il flag è `false` — quindi la scala non è monotòna e `cheapestPlanWith()` in `lib/feature-access.ts` **esclude il Trial** dal calcolo del piano da consigliare, altrimenti a un cliente Starter verrebbe suggerito di "passare al Free Trial".
+- Il Modulo 4 attraversa **due gate in sequenza** (`app/api/reports/voice-to-report/route.ts`): prima `checkFeatureAccess` (piano), poi `checkUsageLimit` (crediti). Entrambi rispondono 402 e la UI li distingue dal campo `error` per mostrare "non nel tuo piano" oppure "prove esaurite".
 - Le **postazioni** (`seatsLimit` in `lib/plans.ts`) sono le persone che possono accedere per quell'agenzia. Il controllo è in `POST /api/team` e conta **anche gli inviti non ancora accettati**: altrimenti basterebbe generarne dieci di fila per superare il limite. Verificato prima di creare l'invito, non dopo. Il piano da suggerire è calcolato — Starter ha una postazione come il Trial, quindi il salto utile è Professional.
 - Il **Fascicolo documentale** è escluso dal Trial: promettere una conservazione decennale su un account di prova che può sparire in due settimane non ha senso.
 

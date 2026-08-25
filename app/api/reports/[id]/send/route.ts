@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { checkFeatureAccess } from "@/lib/feature-access";
 import { sendWhatsAppMessage, WhatsAppSendError } from "@/lib/whatsapp/client";
-import { voiceReportSchema } from "@/lib/ai/report-schema";
+import { storedReportForSendingSchema } from "@/lib/ai/report-schema";
 import { AI_DISCLAIMER_SHORT } from "@/lib/compliance";
 import { decryptAccessToken } from "@/lib/whatsapp/credentials";
 
@@ -57,7 +57,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "whatsapp_not_connected" }, { status: 409 });
   }
 
-  const content = voiceReportSchema.safeParse(report.report);
+  // Solo il campo che serve davvero all'invio: un report salvato prima
+  // dell'introduzione di `agentSummary` resta inviabile.
+  const content = storedReportForSendingSchema.safeParse(report.report);
   if (!content.success) {
     console.error("[api/reports/send] Stored report failed schema validation", { reportId: id });
     return NextResponse.json({ error: "invalid_report" }, { status: 422 });

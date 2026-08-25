@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { checkFeatureAccess } from "@/lib/feature-access";
-import { incrementUsage } from "@/lib/usage";
+import { checkUsageLimit, incrementUsage } from "@/lib/usage";
 import { reportRequestSchema } from "@/lib/ai/report-schema";
 import { generateSellerReport, ReportGenerationError } from "@/lib/ai/report-generator";
 import {
@@ -28,9 +28,21 @@ export async function POST(request: Request) {
 
   const organizationId = session.user.organizationId;
 
+  // Due gate in sequenza, con significati diversi (CLAUDE.md §4):
+  // il primo dice "questa funzione non è nel tuo piano" (Starter,
+  // Professional), il secondo "hai finito i report di prova" (Trial, tre
+  // crediti). Entrambi rispondono 402 e la UI li distingue dal campo `error`.
   const accessResponse = await checkFeatureAccess(organizationId, "voiceSellerReporting");
   if (accessResponse) {
     return accessResponse;
+  }
+
+  // Verificato PRIMA della trascrizione e della generazione, non dopo: sono
+  // le due operazioni che costano, e un controllo a valle lascerebbe superare
+  // il limite del piano di una unità a ogni richiesta (fail-closed).
+  const usageResponse = await checkUsageLimit(organizationId, "voice");
+  if (usageResponse) {
+    return usageResponse;
   }
 
   const contentType = request.headers.get("content-type") ?? "";

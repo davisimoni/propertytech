@@ -62,9 +62,57 @@ export const voiceReportSchema = z.object({
     .describe(
       "Messaggio breve (max 700 caratteri) pronto per l'invio via WhatsApp al proprietario: cortese, professionale, sintetizza esito e prossimi passi."
     ),
+  /**
+   * Sintesi interna per l'agente e il team.
+   *
+   * Vive nello stesso oggetto ma **non esce mai dall'agenzia**: non entra nel
+   * PDF consegnato al proprietario (`lib/pdf/seller-report-document.tsx`
+   * elenca i campi uno per uno) né nel messaggio WhatsApp inviato al
+   * venditore. È l'unico punto del report dove il linguaggio resta quello
+   * schietto della nota originale, senza la riformulazione di cortesia.
+   */
+  agentSummary: z
+    .object({
+      keyPoints: z
+        .array(z.string())
+        .describe(
+          "2-4 punti chiave della visita per il team, in linguaggio interno e diretto: cosa è successo davvero."
+        ),
+      technicalFeedback: z
+        .array(z.string())
+        .describe(
+          "Rilievi tecnici e operativi utili all'agenzia (stato dell'immobile, lavori necessari, criticità di visita, elementi che rallentano la vendita). Vuoto se la nota non ne contiene."
+        ),
+      objections: z
+        .array(z.string())
+        .describe(
+          "Obiezioni sollevate dal potenziale acquirente, riportate senza addolcirle: servono a preparare la trattativa. Vuoto se non ne sono emerse."
+        ),
+      nextAction: z
+        .string()
+        .describe(
+          "La singola azione più utile che l'agente dovrebbe compiere adesso, concreta e derivata dalla nota (es. 'richiamare i Rossi entro 48h con una controproposta a 235.000€')."
+        ),
+    })
+    .describe("Sintesi interna per l'agente e il team. Non destinata al proprietario."),
 });
 
 export type VoiceReportContent = z.infer<typeof voiceReportSchema>;
+
+/**
+ * Forma minima per **rileggere** un report già salvato e inviarlo al
+ * proprietario.
+ *
+ * Deliberatamente separata da `voiceReportSchema`, che descrive ciò che il
+ * modello deve produrre *oggi*: i report generati prima dell'introduzione di
+ * `agentSummary` non hanno quel campo, e validarli contro lo schema completo
+ * li dichiarerebbe tutti non validi — l'agenzia si ritroverebbe di colpo
+ * impossibilitata a inviare report perfettamente buoni, generati la settimana
+ * prima. Chi invia ha bisogno di un solo campo: si valida quello.
+ */
+export const storedReportForSendingSchema = z.object({
+  sellerMessage: z.string().min(1),
+});
 
 /** Payload accettato da /api/reports/voice-to-report nella variante testuale. */
 export const reportRequestSchema = z.object({
