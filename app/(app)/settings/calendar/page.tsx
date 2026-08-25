@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { SlotManager } from "@/components/calendar/slot-manager";
+import { ExternalCalendarSync } from "@/components/calendar/external-calendar-sync";
 
 export default function CalendarSettingsPage() {
   return (
@@ -19,6 +21,14 @@ export default function CalendarSettingsPage() {
           proposti automaticamente dall&apos;assistente WhatsApp ai lead qualificati.
         </p>
       </div>
+
+      {/* Sopra le disponibilità manuali: chi arriva qui per collegare
+          l'agenda non deve scorrere oltre il modulo degli slot per trovarla.
+          `Suspense` perché legge `?calendar=` per mostrare l'esito del
+          ritorno da OAuth. */}
+      <Suspense>
+        <ExternalCalendarSync />
+      </Suspense>
 
       <SlotManager />
     </div>

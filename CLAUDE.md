@@ -50,6 +50,14 @@ Intercetta i lead in tempo reale dai portali immobiliari (Immobiliare.it, Ideali
 
 Al termine della qualificazione, fissa un appuntamento direttamente in agenda.
 
+**Sincronizzazione calendari esterni (Google / Outlook).** L'agenda interna (`CalendarSlot`, gestita da `/settings/calendar`) resta la **fonte di verità** dell'agenzia: dice *cosa* si può proporre. Il calendario esterno serve a due cose soltanto — togliere dagli slot proponibili quelli che si sovrappongono a un impegno reale (`getAgentFreeSlots` in `lib/calendar/sync.ts`) e far comparire in agenda la visita fissata dall'AI (`createCalendarEvent`, titolo `Visita Immobiliare - [Nome Lead]`).
+
+Il collegamento è **per agente, non per agenzia** (`CalendarConnection`, unico su `[userId, provider]`): il calendario è quello personale di chi lo collega. Gli slot generici (`assignedToId: null`) non vengono scritti su nessun calendario — senza un agente, scegliere d'ufficio quello di un collaboratore riempirebbe l'agenda della persona sbagliata.
+
+I token OAuth (accesso **e** refresh) sono cifrati con lo schema di `lib/crypto/secrets.ts`, e il confine di cifratura sta tutto in `lib/calendar/connections.ts`, che gestisce anche il rinnovo: chi ottiene un access token da lì non deve chiedersi se è ancora valido. Un refresh token in chiaro varrebbe più dell'access token — non scade, e da solo dà accesso a tempo indeterminato all'agenda dell'agente. Il flusso OAuth valida sempre lo `state` (cookie `httpOnly`, confronto a tempo costante): senza, un link costruito ad arte collegherebbe all'agenzia il calendario di un attaccante.
+
+**Niente di tutto questo è bloccante**: calendario non collegato, token revocato o fornitore irraggiungibile fanno degradare sull'agenda interna senza mai far fallire una conversazione o una prenotazione — stesso principio di `deliverLeadToCrm`.
+
 **Lead Intelligence & Portafoglio Venditore.** Ogni lead porta con sé una stima del proprio portafoglio immobili (`Lead.ownedPropertiesCount`), da cui si deriva la categoria commerciale `SellerCategory`: `BUYER_ONLY` (Acquirente Puro), `SINGLE_SELLER` (Venditore Singolo), `MULTI_OWNER` (Investitore / Multi-Proprietario, da 2 immobili in su → "Alta Priorità / Lead Oro"). Il dato si popola da tre sorgenti, tutte accessorie al flusso principale:
 
 1. **Conversazione** — riusa `mustSellFirst`, già estratto dalle 3 domande esistenti. **Il prompt e lo schema dell'agente AI non vanno modificati per questo**: la funzione legge un dato che passava di lì e andava perso, non ne chiede di nuovi.

@@ -211,10 +211,11 @@ model User {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  assignedLeads     Lead[]
-  assignedSlots     CalendarSlot[]
-  uploadedDocuments AgencyDocument[]
-  aiGenerations     AiGeneration[]
+  assignedLeads       Lead[]
+  assignedSlots       CalendarSlot[]
+  uploadedDocuments   AgencyDocument[]
+  aiGenerations       AiGeneration[]
+  calendarConnections CalendarConnection[]
 
   @@index([organizationId, role])
 }
@@ -331,6 +332,7 @@ model Organization {
   whatsAppConfig       WhatsAppConfig?
   leads                Lead[]
   calendarSlots        CalendarSlot[]
+  calendarConnections  CalendarConnection[]
   voiceReports         VoiceReport[]
   portfolioMatches     PortfolioMatch[]
   properties           Property[]
@@ -912,6 +914,54 @@ model CalendarSlot {
 
   @@index([organizationId, isBooked, startTime])
   @@index([organizationId, assignedToId])
+}
+
+/// Calendario esterno (Google / Outlook) collegato da un agente via OAuth.
+///
+/// Legato all'**utente**, non solo all'agenzia: il calendario è quello
+/// personale dell'agente, e due collaboratori della stessa agenzia collegano
+/// due account distinti. `organizationId` resta comunque obbligatorio perché
+/// ogni query filtra sul tenant (CLAUDE.md §5) — senza, un id di connessione
+/// indovinato darebbe accesso al calendario di un'altra agenzia.
+model CalendarConnection {
+  id String @id @default(cuid())
+
+  /// `google` oppure `outlook`. Stringa e non enum, stesso motivo di
+  /// `Organization.crmProvider`: un provider in più è un dato, non deve
+  /// costare una migrazione del database.
+  provider String
+
+  /// Account collegato, mostrato in chiaro nella scheda ("Connesso come
+  /// mario@agenzia.it"). Non è un segreto: serve all'agente per riconoscere
+  /// *quale* casella ha collegato, e ricavarlo dal token a ogni lettura
+  /// richiederebbe una chiamata di rete per disegnare una riga di interfaccia.
+  accountEmail String
+
+  /// Token OAuth, entrambi cifrati con lo stesso schema di
+  /// lib/crypto/secrets.ts usato per WhatsApp e per i gestionali. Il refresh
+  /// token in chiaro varrebbe più dell'access token: non scade, e da solo
+  /// permette di leggere e scrivere l'agenda dell'agente a tempo indeterminato.
+  accessToken  String
+  refreshToken String?
+  /// Scadenza dell'access token: sotto questa soglia si rinnova prima di usarlo.
+  expiresAt    DateTime?
+
+  /// Calendario su cui leggere e scrivere. "primary" copre il caso normale.
+  calendarId String @default("primary")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Un solo collegamento per agente e provider: ricollegare aggiorna i token
+  /// della riga esistente invece di accumulare connessioni morte.
+  @@unique([userId, provider])
+  @@index([organizationId, provider])
 }
 
 /// Iscrizione alla newsletter dalla landing pubblica.

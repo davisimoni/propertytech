@@ -24,6 +24,45 @@ function nowIso(): string {
 }
 
 /**
+ * Riporta sull'agenda esterna dell'agente la visita appena fissata dall'AI.
+ *
+ * Non lancia e non modifica la risposta al cliente: l'appuntamento è già
+ * registrato sull'agenda interna, che resta la fonte di verità dell'agenzia.
+ * Un token revocato o Google irraggiungibile non devono trasformare una
+ * visita fissata in un messaggio di errore al lead — stesso principio di
+ * `deliverLeadToCrm`.
+ *
+ * Salta in silenzio gli slot generici (`assignedToId: null`): senza un agente
+ * non c'è un calendario personale su cui scrivere, e scegliere d'ufficio quello
+ * di un collaboratore qualsiasi riempirebbe l'agenda della persona sbagliata.
+ */
+async function mirrorAppointmentToExternalCalendar(lead: Lead, slotId: string): Promise<void> {
+  try {
+    const slot = await prisma.calendarSlot.findFirst({
+      where: { id: slotId, organizationId: lead.organizationId },
+      select: { assignedToId: true, startTime: true, endTime: true },
+    });
+
+    if (!slot?.assignedToId) return;
+
+    const { createCalendarEvent } = await import("@/lib/calendar/sync");
+
+    await createCalendarEvent(slot.assignedToId, {
+      leadName: lead.clientName,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      propertyRef: lead.propertyRef,
+      notes: `Telefono lead: ${lead.clientPhone}`,
+    });
+  } catch (error) {
+    console.error("[whatsapp/conversation] Sincronizzazione calendario esterno fallita", {
+      leadId: lead.id,
+      error,
+    });
+  }
+}
+
+/**
  * Invia il primo messaggio di ingaggio e mette il lead IN_PROGRESS.
  *
  * Il credito è già stato verificato dal chiamante (fail-closed) e viene
@@ -164,6 +203,8 @@ export async function handleIncomingMessage(
         // scelta: meglio dirlo subito che confermare un appuntamento inesistente.
         replyText =
           "Mi dispiace, quell'orario è appena stato prenotato. Un nostro agente la contatterà a breve per concordare una nuova disponibilità.";
+      } else {
+        await mirrorAppointmentToExternalCalendar(lead, chosen.id);
       }
     }
   } catch (error) {
