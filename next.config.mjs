@@ -16,7 +16,15 @@ const nextConfig = {
    * Marcandolo esterno, a runtime viene richiesto da node_modules con le
    * condizioni normali e vede un solo React.
    */
-  serverExternalPackages: ["@react-pdf/renderer"],
+  /**
+   * `got-scraping` va richiesta a runtime da node_modules, non impacchettata.
+   *
+   * È ESM pura e monta una pila HTTP propria (http2-wrapper, agenti TLS
+   * dedicati): è proprio la firma TLS che produce a farle superare le
+   * protezioni anti-bot dei portali, e un bundler che la riscrive o ne
+   * sostituisce le dipendenze le toglie l'unica cosa per cui la usiamo.
+   */
+  serverExternalPackages: ["@react-pdf/renderer", "got-scraping"],
 };
 
 export default nextConfig;

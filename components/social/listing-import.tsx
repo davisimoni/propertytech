@@ -53,9 +53,11 @@ export function ListingImport({ onImported, onLocked }: ListingImportProps) {
 
       if (!response.ok) {
         setError(body.message ?? "Import non riuscito.");
-        // Se il portale ha bloccato il recupero, il percorso testuale funziona
-        // sempre: ci si sposta lì senza far ripartire l'utente da capo.
-        if (mode === "link") setMode("text");
+        // Solo quando è il portale a respingerci il percorso testuale è la via
+        // d'uscita, e ci si sposta da soli. Su un link scritto male (o su un
+        // indirizzo non raggiungibile) spostare la scheda sarebbe dannoso:
+        // nasconderebbe il campo che l'agente deve correggere.
+        if (body.error === "portal_blocked") setMode("text");
         return;
       }
 

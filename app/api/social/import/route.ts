@@ -4,6 +4,15 @@ import { auth } from "@/auth";
 import { checkFeatureAccess } from "@/lib/feature-access";
 import { importListing, ListingImportError } from "@/lib/ai/listing-import";
 
+/**
+ * Questa rotta somma due attese lunghe: il recupero della pagina dal portale
+ * (fino a 12s, più un tentativo di riserva) e la successiva estrazione con
+ * Claude. Col limite predefinito di Vercel la funzione verrebbe interrotta a
+ * metà proprio sugli annunci più corposi, restituendo un errore generico
+ * invece del risultato. 60s è il massimo consentito anche sul piano Hobby.
+ */
+export const maxDuration = 60;
+
 const importSchema = z
   .object({
     url: z.string().trim().max(2000).optional(),
@@ -45,6 +54,9 @@ export async function POST(request: Request) {
     if (error instanceof ListingImportError) {
       // Gli errori di recupero pagina sono 422: la richiesta era valida, è la
       // fonte a non essere utilizzabile, e il messaggio dice cosa fare.
+      // `portal_blocked` rientra qui: il link è corretto, è il portale a
+      // rifiutare l'accesso automatico. Il codice viaggia nel corpo, ed è
+      // quello che la UI legge per aprire da sola la scheda "Da testo".
       const status =
         error.code === "upstream_error" ? 502 : error.code === "blocked_url" ? 400 : 422;
       return NextResponse.json({ error: error.code, message: error.message }, { status });

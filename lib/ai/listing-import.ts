@@ -45,6 +45,7 @@ export class ListingImportError extends Error {
     public readonly code:
       | "invalid_url"
       | "blocked_url"
+      | "portal_blocked"
       | "fetch_failed"
       | "empty_content"
       | "upstream_error"
@@ -55,6 +56,18 @@ export class ListingImportError extends Error {
     this.name = "ListingImportError";
   }
 }
+
+/**
+ * Messaggio unico per "il portale ci ha riconosciuti e ci ha respinti".
+ *
+ * Distinto da un errore di rete generico perché la via d'uscita è diversa e
+ * concreta: non ha senso invitare a riprovare il link: qualunque numero di
+ * tentativi darà lo stesso esito finché la protezione resta attiva. Il codice
+ * `portal_blocked` che lo accompagna è ciò che permette alla UI di portare
+ * l'agente sul percorso testuale invece di lasciarlo davanti a un errore.
+ */
+export const PORTAL_BLOCKED_MESSAGE =
+  "Il portale protegge l'annuncio da scraping automatico. Passa alla scheda \"Da testo\" e incolla il testo dell'annuncio: l'AI lo analizzerà allo stesso modo.";
 
 /**
  * Impedisce che l'URL fornito dall'utente punti alla rete interna.
@@ -93,44 +106,130 @@ function htmlToText(html: string): string {
     .trim();
 }
 
+/** Stati con cui un anti-bot respinge: non è un guasto, è un rifiuto deliberato. */
+function isAntiBotStatus(status: number): boolean {
+  return status === 401 || status === 403 || status === 405 || status === 429;
+}
+
+/**
+ * Riconosce la pagina di verifica servita **con stato 200**.
+ *
+ * Cloudflare e DataDome non rispondono sempre 403: spesso restituiscono 200 con
+ * una pagina di challenge. Senza questo controllo quel guscio finirebbe al
+ * modello, che ne ricaverebbe un annuncio inventato a partire dal nulla — molto
+ * peggio di un errore, perché nessuno andrebbe a verificarlo.
+ */
+function looksLikeChallengePage(text: string): boolean {
+  const haystack = text.slice(0, 4000).toLowerCase();
+  return [
+    "just a moment",
+    "enable javascript and cookies to continue",
+    "checking your browser",
+    "verifying you are human",
+    "attendi qualche istante",
+    "cf-browser-verification",
+    "px-captcha",
+    "captcha-delivery",
+  ].some((marker) => haystack.includes(marker));
+}
+
 /**
  * Scarica la pagina dell'annuncio e ne estrae il testo.
  *
- * I portali immobiliari adottano protezioni anti-bot: il recupero può fallire
- * o restituire una pagina di verifica anche con un URL corretto. In quel caso
- * l'errore invita a incollare il testo, che è il percorso sempre funzionante.
+ * Usa `got-scraping` e non la `fetch` di Node: i portali immobiliari italiani
+ * (Immobiliare.it, Idealista, Casa.it) stanno tutti dietro protezioni che
+ * valutano la firma TLS del client, non solo lo User-Agent — con `fetch` e un
+ * User-Agent da browser rispondevano comunque 403. `got-scraping` presenta un
+ * handshake e un set di header coerenti con un Chrome reale, ed è ciò che
+ * riporta le tre risposte a 200.
+ *
+ * Resta comunque un percorso che può fallire — le protezioni cambiano, e non
+ * dipendono da noi: quando succede l'errore è `portal_blocked` e la UI dirotta
+ * l'agente sul testo incollato, che funziona sempre.
  */
 async function fetchListingText(rawUrl: string): Promise<string> {
   const url = assertPublicHttpUrl(rawUrl);
 
-  let response: Response;
+  // Import dinamico: `got-scraping` è ESM pura, e caricarla solo qui evita di
+  // pagarne l'avvio nelle richieste che importano da testo incollato.
+  const { gotScraping } = await import("got-scraping");
+
+  let statusCode: number;
+  let body: string;
+  let contentType: string;
+
   try {
-    response = await fetch(url, {
-      redirect: "follow",
-      headers: {
-        // Alcuni portali rispondono 403 alle richieste senza user agent.
-        "User-Agent": "Mozilla/5.0 (compatible; PropertyTechBot/1.0)",
-        Accept: "text/html,application/xhtml+xml",
-        "Accept-Language": "it-IT,it;q=0.9",
+    const response = await gotScraping({
+      url: url.toString(),
+      /**
+       * HTTP/2 disattivato **di proposito**, e non è un dettaglio di comodo.
+       *
+       * Dentro il runtime di Next la pila HTTP/2 di `got-scraping` fallisce
+       * con "socket hang up" su Immobiliare.it — in modo riproducibile, e solo
+       * lì: lo stesso identico codice eseguito in Node puro riceve 200. Con
+       * `http2: false` la risposta torna 200 con lo stesso corpo. Idealista e
+       * Casa.it funzionano in entrambe le modalità, quindi non si perde nulla
+       * a disattivarlo per tutti.
+       */
+      http2: false,
+      // Gli stati li interpretiamo noi qui sotto: un 403 va distinto da un
+      // guasto di rete, e `got` altrimenti li accomuna in un'unica eccezione.
+      throwHttpErrors: false,
+      timeout: { request: FETCH_TIMEOUT_MS },
+      retry: { limit: 1 },
+      headerGeneratorOptions: {
+        browsers: [{ name: "chrome", minVersion: 120 }],
+        devices: ["desktop"],
+        operatingSystems: ["windows"],
+        locales: ["it-IT"],
       },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      hooks: {
+        /**
+         * La guardia SSRF va riapplicata a ogni salto, non solo all'URL
+         * digitato: un indirizzo pubblico che redirige su `169.254.169.254`
+         * aggirerebbe il controllo iniziale e ci farebbe leggere i metadati
+         * dell'istanza. È lo stesso motivo per cui `parsePublicHttpUrl` esiste.
+         */
+        beforeRedirect: [
+          (options) => {
+            const next = parsePublicHttpUrl(options.url?.toString() ?? "");
+            if (!next.ok) {
+              throw new ListingImportError(UNSAFE_URL_MESSAGES[next.reason], "blocked_url");
+            }
+          },
+        ],
+      },
     });
-  } catch {
+
+    statusCode = response.statusCode;
+    body = response.body;
+    contentType = String(response.headers["content-type"] ?? "");
+  } catch (error) {
+    // Un redirect verso la rete interna è già un errore nostro, con il suo
+    // messaggio: non va riscritto come guasto di rete.
+    if (error instanceof ListingImportError) throw error;
+
+    console.error("[listing-import] Fetch failed", {
+      name: error instanceof Error ? error.name : "unknown",
+    });
     throw new ListingImportError(
       "Non sono riuscito ad aprire il link. Copia e incolla il testo dell'annuncio nel campo qui sotto.",
       "fetch_failed"
     );
   }
 
-  if (!response.ok) {
-    console.error("[listing-import] Fetch returned error", { status: response.status });
+  if (isAntiBotStatus(statusCode)) {
+    console.error("[listing-import] Portale ha respinto la richiesta", { status: statusCode });
+    throw new ListingImportError(PORTAL_BLOCKED_MESSAGE, "portal_blocked");
+  }
+
+  if (statusCode >= 400) {
     throw new ListingImportError(
-      `Il portale ha rifiutato la richiesta (errore ${response.status}). Copia e incolla il testo dell'annuncio.`,
+      `Il portale ha rifiutato la richiesta (errore ${statusCode}). Copia e incolla il testo dell'annuncio.`,
       "fetch_failed"
     );
   }
 
-  const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("html") && !contentType.includes("text")) {
     throw new ListingImportError(
       "Il link non porta a una pagina di testo. Incolla il testo dell'annuncio.",
@@ -138,13 +237,15 @@ async function fetchListingText(rawUrl: string): Promise<string> {
     );
   }
 
-  const text = htmlToText(await response.text()).slice(0, MAX_FETCHED_CHARS);
+  const text = htmlToText(body).slice(0, MAX_FETCHED_CHARS);
+
+  if (looksLikeChallengePage(text)) {
+    console.error("[listing-import] Pagina di verifica anti-bot servita con stato", { status: statusCode });
+    throw new ListingImportError(PORTAL_BLOCKED_MESSAGE, "portal_blocked");
+  }
 
   if (text.length < 120) {
-    throw new ListingImportError(
-      "La pagina non contiene testo leggibile: molti portali bloccano l'accesso automatico. Incolla il testo dell'annuncio.",
-      "empty_content"
-    );
+    throw new ListingImportError(PORTAL_BLOCKED_MESSAGE, "portal_blocked");
   }
 
   return text;
