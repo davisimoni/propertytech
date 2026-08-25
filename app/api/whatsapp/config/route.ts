@@ -2,46 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { encryptAccessToken, hasUsableAccessToken } from "@/lib/whatsapp/credentials";
+import { encryptAccessToken } from "@/lib/whatsapp/credentials";
+import { getOrCreateWhatsAppConfig, toPublicWhatsAppConfig } from "@/lib/whatsapp/config-view";
 import { isWhatsAppProviderId, WHATSAPP_PROVIDER_IDS, type WhatsAppProviderId } from "@/lib/whatsapp/provider";
-
-/**
- * Il token d'ingestione e il verify token sono creati alla prima lettura, così
- * l'agenzia trova subito URL webhook ed email dedicata pronti da incollare nei
- * portali, prima ancora di connettere WhatsApp.
- */
-async function getOrCreateConfig(organizationId: string) {
-  return prisma.whatsAppConfig.upsert({
-    where: { organizationId },
-    create: { organizationId, webhookVerifyToken: crypto.randomUUID() },
-    update: {},
-  });
-}
-
-/** Non espone mai token o Auth Token in chiaro: solo flag di presenza. */
-function toPublicConfig(config: Awaited<ReturnType<typeof getOrCreateConfig>>) {
-  const provider: WhatsAppProviderId = isWhatsAppProviderId(config.provider)
-    ? config.provider
-    : "meta";
-
-  return {
-    provider,
-    isConnected: config.isConnected,
-    phoneNumber: config.phoneNumber,
-    metaPhoneAccountId: config.metaPhoneAccountId,
-    // Non `Boolean(...)`: un token presente ma non decifrabile mostrerebbe la
-    // connessione a posto mentre ogni invio fallisce, e l'agenzia non avrebbe
-    // modo di capire perché.
-    hasAccessToken: hasUsableAccessToken(config.metaAccessToken),
-    twilioAccountSid: config.twilioAccountSid,
-    twilioWhatsAppNumber: config.twilioWhatsAppNumber,
-    hasTwilioAuthToken: hasUsableAccessToken(config.twilioAuthToken),
-    genericSendUrl: config.genericSendUrl,
-    hasGenericAuthToken: hasUsableAccessToken(config.genericAuthToken),
-    inboundToken: config.inboundToken,
-    webhookVerifyToken: config.webhookVerifyToken,
-  };
-}
 
 export async function GET() {
   const session = await auth();
@@ -49,8 +12,8 @@ export async function GET() {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const config = await getOrCreateConfig(session.user.organizationId);
-  return NextResponse.json(toPublicConfig(config));
+  const config = await getOrCreateWhatsAppConfig(session.user.organizationId);
+  return NextResponse.json(toPublicWhatsAppConfig(config));
 }
 
 const updateConfigSchema = z.object({
@@ -92,7 +55,7 @@ export async function PUT(request: Request) {
     );
   }
 
-  const current = await getOrCreateConfig(organizationId);
+  const current = await getOrCreateWhatsAppConfig(organizationId);
   const targetProvider: WhatsAppProviderId = parsed.data.provider ?? (isWhatsAppProviderId(current.provider) ? current.provider : "meta");
 
   if (parsed.data.disconnect) {
@@ -118,7 +81,7 @@ export async function PUT(request: Request) {
         }),
       },
     });
-    return NextResponse.json(toPublicConfig(cleared));
+    return NextResponse.json(toPublicWhatsAppConfig(cleared));
   }
 
   const data: Record<string, unknown> = {};
@@ -200,5 +163,5 @@ export async function PUT(request: Request) {
   }
 
   const updated = await prisma.whatsAppConfig.update({ where: { organizationId }, data });
-  return NextResponse.json(toPublicConfig(updated));
+  return NextResponse.json(toPublicWhatsAppConfig(updated));
 }
