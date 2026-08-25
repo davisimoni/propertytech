@@ -53,27 +53,19 @@ export async function handleCalendarConnect(
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
+  // Rimanda in pagina con l'esito invece di rispondere JSON: questo endpoint
+  // è il bersaglio di un clic su un pulsante, non una chiamata XHR, e un
+  // corpo JSON grezzo in finestra sarebbe una schermata incomprensibile per
+  // l'agente che voleva solo collegare l'agenda.
   if (!isCalendarProviderConfigured(provider)) {
-    return NextResponse.json(
-      {
-        error: "provider_not_configured",
-        message: `${CALENDAR_OAUTH_PROVIDERS[provider].name} non è configurato su questo ambiente.`,
-      },
-      { status: 503 }
-    );
+    return settingsRedirect("not_configured");
   }
 
   // Verificata *prima* di mandare l'agente dal fornitore: completare il
   // consenso per poi scoprire che il token non è salvabile sarebbe un giro a
   // vuoto con una schermata di errore alla fine.
   if (!isEncryptionAvailable()) {
-    return NextResponse.json(
-      {
-        error: "encryption_unavailable",
-        message: "Cifratura non disponibile sul server: il collegamento non è stato avviato.",
-      },
-      { status: 503 }
-    );
+    return settingsRedirect("encryption_unavailable");
   }
 
   const config = CALENDAR_OAUTH_PROVIDERS[provider];
