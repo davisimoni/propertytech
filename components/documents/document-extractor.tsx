@@ -21,6 +21,8 @@ import { DownloadPdfButton } from "@/components/shared/download-pdf-button";
 import { DOCUMENT_PROGRESS, ProgressMessages } from "@/components/shared/progress-messages";
 import { cn } from "@/lib/utils";
 import {
+  AMBITI_DOCUMENTO,
+  AMBITO_LABELS,
   DIRITTI_REALI,
   DIRITTO_REALE_LABELS,
   DOCUMENT_TYPE_LABELS,
@@ -486,71 +488,26 @@ function ExtractionResultView({
           </ul>
         </DetailSection>
 
-        <DetailSection
-          title="Situazione giuridica"
-          isEmpty={
-            !result.situazioneGiuridica?.attoProvenienza &&
-            (result.situazioneGiuridica?.formalita ?? []).length === 0
-          }
-        >
-          {result.situazioneGiuridica?.attoProvenienza && (
-            <p className="text-sm text-foreground">
-              <span className="text-muted-foreground">Provenienza: </span>
-              {result.situazioneGiuridica.attoProvenienza}
-            </p>
-          )}
-          {(result.situazioneGiuridica?.formalita ?? []).map((formalita, index) => (
-            <div key={index} className="rounded-lg border border-border p-2.5 text-sm">
-              <span className="font-medium text-foreground">{formalita.tipo}</span>
-              <p className="mt-0.5 text-muted-foreground">{formalita.dettaglio}</p>
-            </div>
-          ))}
-        </DetailSection>
+        {/* Un solo array raggruppato per ambito: a schermo restituisce le
+            stesse sezioni di prima (provenienza, formalità, titoli edilizi,
+            condominio), ma con una frazione del peso nello schema — vedi la
+            nota sui limiti della grammatica in `lib/ai/document-schema.ts`. */}
+        {AMBITI_DOCUMENTO.map((ambito) => {
+          const voci = (result.altriDati ?? []).filter((item) => item.ambito === ambito);
 
-        <DetailSection title="Titoli edilizi" isEmpty={(result.titoliEdilizi ?? []).length === 0}>
-          <ul className="space-y-1.5">
-            {(result.titoliEdilizi ?? []).map((titolo, index) => (
-              <li
-                key={index}
-                className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-2.5 text-sm"
-              >
-                <span className="font-medium text-foreground">{titolo.tipo}</span>
-                {titolo.estremi && (
-                  <span className="text-xs text-muted-foreground">{titolo.estremi}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </DetailSection>
-
-        <DetailSection
-          title="Condominio"
-          isEmpty={
-            !result.condominio?.millesimi && (result.condominio?.lavoriDeliberati ?? []).length === 0
-          }
-        >
-          {result.condominio?.millesimi && (
-            <p className="text-sm text-foreground">
-              <span className="text-muted-foreground">Millesimi: </span>
-              {result.condominio.millesimi}
-            </p>
-          )}
-          {(result.condominio?.lavoriDeliberati ?? []).map((lavoro, index) => (
-            <div key={index} className="rounded-lg border border-border p-2.5 text-sm">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-foreground">{lavoro.descrizione}</span>
-                {lavoro.stato && (
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                    {lavoro.stato}
-                  </span>
-                )}
-              </div>
-              {lavoro.importo && (
-                <p className="mt-0.5 text-muted-foreground">Importo: {lavoro.importo}</p>
-              )}
-            </div>
-          ))}
-        </DetailSection>
+          return (
+            <DetailSection key={ambito} title={AMBITO_LABELS[ambito]} isEmpty={voci.length === 0}>
+              {voci.map((voce, index) => (
+                <div key={index} className="rounded-lg border border-border p-2.5 text-sm">
+                  <span className="font-medium text-foreground">{voce.voce}</span>
+                  {voce.dettaglio && (
+                    <p className="mt-0.5 text-muted-foreground">{voce.dettaglio}</p>
+                  )}
+                </div>
+              ))}
+            </DetailSection>
+          );
+        })}
 
         <div>
           <h3 className="text-sm font-semibold text-foreground">Dati Anagrafici Proprietari</h3>
