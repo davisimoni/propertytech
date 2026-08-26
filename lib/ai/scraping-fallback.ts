@@ -37,16 +37,37 @@ const SCRAPERAPI_ENDPOINT = "https://api.scraperapi.com/";
 const FIRECRAWL_ENDPOINT = "https://api.firecrawl.dev/v1/scrape";
 
 /**
+ * Rendering JavaScript lato servizio: **spento** per impostazione predefinita.
+ *
+ * Costava troppo su due fronti. In tempo: il servizio deve caricare la pagina
+ * in un browser vero, e su Vercel l'attesa faceva scattare il timeout della
+ * funzione prima ancora di arrivare alla chiamata a Claude. In denaro: una
+ * richiesta con rendering consuma diverse volte i crediti di una semplice.
+ *
+ * E soprattutto non risultava necessario: nel collaudo diretto con
+ * `got-scraping` — che non esegue JavaScript — Immobiliare.it ha restituito
+ * 487 KB di HTML con l'annuncio dentro. Il contenuto è servito dal server,
+ * non iniettato dal browser, quindi l'HTML statico basta.
+ *
+ * Resta attivabile con `SCRAPER_API_RENDER=true` per i portali che
+ * dovessero comportarsi diversamente: si prova senza toccare il codice.
+ */
+function isRenderEnabled(): boolean {
+  return readSecret("SCRAPER_API_RENDER") === "true";
+}
+
+/**
  * Attesa massima per il servizio di riserva.
  *
- * Generosa di proposito: con il rendering JavaScript attivo il servizio deve
- * caricare la pagina in un browser vero prima di restituirla, e sotto i 30
- * secondi si interromperebbero proprio le pagine più protette — quelle per
- * cui lo si sta pagando. Regge dentro il `maxDuration = 60` della rotta
- * perché sul percorso bloccato il tentativo diretto costa un paio di secondi:
- * un portale che ci respinge risponde 403 subito, non va in timeout.
+ * Due valori perché i due scenari non sono paragonabili: senza rendering è una
+ * richiesta HTTP con proxy davanti, con rendering c'è un browser che carica
+ * una pagina. Entrambi devono restare dentro il `maxDuration = 60` della
+ * rotta insieme alla successiva chiamata a Claude — ed è proprio il margine
+ * che mancava quando il rendering era sempre attivo.
  */
-const FALLBACK_TIMEOUT_MS = 40_000;
+function fallbackTimeoutMs(): number {
+  return isRenderEnabled() ? 40_000 : 20_000;
+}
 
 export function isScrapingFallbackConfigured(): boolean {
   return Boolean(readSecret("SCRAPER_API_KEY"));
@@ -86,26 +107,25 @@ function readFirecrawlContent(payload: unknown): string | null {
 /**
  * Richiesta a ScraperAPI.
  *
- * `render=true` fa caricare la pagina in un browser reale lato loro: senza,
- * da Immobiliare.it e Idealista si riceve il guscio dell'applicazione senza
- * il contenuto dell'annuncio, che questi portali iniettano via JavaScript.
+ * `country_code=it` instrada la richiesta da un IP italiano, e resta anche
+ * senza rendering: è la parte che conta davvero contro questi blocchi. Un
+ * portale immobiliare italiano guarda con più sospetto il traffico estero, e
+ * alcune pagine cambiano contenuto in base alla provenienza.
  *
- * `country_code=it` instrada la richiesta da un IP italiano. Conta per due
- * motivi: un portale immobiliare italiano guarda con più sospetto il traffico
- * estero, e alcune pagine cambiano contenuto in base alla provenienza.
+ * `render` è spento salvo richiesta esplicita — vedi `isRenderEnabled`.
  */
 async function fetchViaScraperApi(url: string, apiKey: string): Promise<Response> {
   const endpoint = new URL(readSecret("SCRAPER_API_URL") ?? SCRAPERAPI_ENDPOINT);
   endpoint.searchParams.set("api_key", apiKey);
   endpoint.searchParams.set("url", url);
-  endpoint.searchParams.set("render", "true");
+  endpoint.searchParams.set("render", isRenderEnabled() ? "true" : "false");
   endpoint.searchParams.set("country_code", "it");
 
   // GET, senza header di autenticazione: ScraperAPI vuole la chiave nella
   // query string. Un Bearer qui verrebbe semplicemente ignorato.
   return fetch(endpoint.toString(), {
     method: "GET",
-    signal: AbortSignal.timeout(FALLBACK_TIMEOUT_MS),
+    signal: AbortSignal.timeout(fallbackTimeoutMs()),
   });
 }
 
@@ -120,7 +140,7 @@ async function fetchViaFirecrawl(url: string, apiKey: string): Promise<Response>
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ url, formats: ["markdown"] }),
-    signal: AbortSignal.timeout(FALLBACK_TIMEOUT_MS),
+    signal: AbortSignal.timeout(fallbackTimeoutMs()),
   });
 }
 
