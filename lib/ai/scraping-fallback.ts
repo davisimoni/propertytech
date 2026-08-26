@@ -37,25 +37,26 @@ const SCRAPERAPI_ENDPOINT = "https://api.scraperapi.com/";
 const FIRECRAWL_ENDPOINT = "https://api.firecrawl.dev/v1/scrape";
 
 /**
- * Rendering JavaScript lato servizio: **acceso** per impostazione predefinita.
+ * Rendering JavaScript lato servizio: **spento** per impostazione predefinita.
  *
- * Non per necessità tecnica — nel collaudo diretto con `got-scraping`, che
- * non esegue JavaScript, Immobiliare.it aveva restituito 487 KB di HTML con
- * l'annuncio dentro — ma perché è l'unica leva anti-blocco che il piano
- * ScraperAPI in uso ci concede.
+ * Acceso costa 15-20 secondi per richiesta, perché il servizio carica davvero
+ * la pagina in un browser prima di restituirla. Dentro una funzione con
+ * `maxDuration = 60` che deve ancora chiamare Claude, quel tempo è la
+ * differenza fra un import riuscito e uno troncato.
  *
- * Il livello `ultra_premium`, pensato proprio per Cloudflare, risponde
- * **403**: "Your current plan does not allow you to use our premium proxies".
- * Il rendering è compreso nei piani base e fa passare la richiesta da un
- * browser reale lato loro, il che cambia comunque il profilo della richiesta
- * rispetto a una GET secca.
+ * E non serve per leggere il contenuto: nel collaudo diretto con
+ * `got-scraping`, che non esegue JavaScript, Immobiliare.it ha restituito
+ * 487 KB di HTML con l'annuncio dentro. È servito dal server, non iniettato
+ * dal browser.
  *
- * Disattivabile con `SCRAPER_API_RENDER=false`: costa più crediti di una
- * richiesta semplice, e se un giorno il blocco cadesse non ci sarebbe motivo
- * di continuare a pagarlo.
+ * Restava come unica leva anti-blocco dopo il rifiuto di `ultra_premium`
+ * (403, "Your current plan does not allow you to use our premium proxies"),
+ * ma una leva che fa scadere la richiesta non è una leva. Se i proxy standard
+ * con IP italiano non bastassero, si riaccende con `SCRAPER_API_RENDER=true`
+ * — e a quel punto il timeout qui sotto va rialzato di conseguenza.
  */
 function isRenderEnabled(): boolean {
-  return readSecret("SCRAPER_API_RENDER") !== "false";
+  return readSecret("SCRAPER_API_RENDER") === "true";
 }
 
 /**
@@ -63,18 +64,16 @@ function isRenderEnabled(): boolean {
  *
  * ScraperAPI raccomanda **70 secondi** per il miglior tasso di successo, ma
  * non ci stanno: la rotta ha `maxDuration = 60` e dopo il recupero c'è ancora
- * l'estrazione con Claude. 40 secondi è il tetto praticabile: col rendering
- * attivo il servizio carica davvero la pagina in un browser, e i 30
- * precedenti la interrompevano a metà.
+ * l'estrazione con Claude. Senza rendering la richiesta è un GET attraverso
+ * un proxy: si misura in pochi secondi, non in decine. 15 secondi bastano e
+ * lasciano al modello i tre quarti del budget della funzione.
  *
- * Il margine però è stretto — 40 secondi qui più una generazione lunga del
- * modello sfiorano i 60 della funzione. Se comparissero errori di
- * piattaforma (un 504 al posto dell'avviso arancione), le leve sono
- * abbassare questo valore o ridurre `MAX_FETCHED_CHARS`, che accorcia il
- * lavoro del modello.
+ * Attenzione se si riattiva `SCRAPER_API_RENDER`: lì servono 30-40 secondi e
+ * questo valore va rialzato, altrimenti si interrompono richieste che stavano
+ * per riuscire.
  */
 function fallbackTimeoutMs(): number {
-  return 40_000;
+  return isRenderEnabled() ? 40_000 : 15_000;
 }
 
 export function isScrapingFallbackConfigured(): boolean {
@@ -196,13 +195,15 @@ export async function fetchViaScrapingFallback(url: string): Promise<string | nu
       // supportato", e senza quel dettaglio si resta a indovinare perché il
       // fallback non recupera nulla.
       const detail = await response.text().catch(() => "");
+      // Tag `[IMPORT-ERROR]`: una sola stringa da cercare nei log di Vercel
+      // per trovare qualunque fallimento dell'import, da qui o dalla rotta.
+      console.error("[IMPORT-ERROR]", response.status, detail.slice(0, 500));
       console.error("[scraping-fallback] Servizio di riserva ha rifiutato la richiesta", {
         provider,
         status: response.status,
         // Anche i parametri inviati: è così che si è scoperto che il 403
         // veniva da `ultra_premium` e non dalla chiave.
         render: isRenderEnabled(),
-        detail: detail.slice(0, 500),
       });
       return null;
     }
@@ -221,10 +222,15 @@ export async function fetchViaScrapingFallback(url: string): Promise<string | nu
     return content;
   } catch (error) {
     const isTimeout = error instanceof DOMException && error.name === "TimeoutError";
+    console.error(
+      "[IMPORT-ERROR]",
+      isTimeout ? "timeout" : "network",
+      error instanceof Error ? `${error.name}: ${error.message}` : "unknown"
+    );
     console.error("[scraping-fallback] Chiamata al servizio di riserva non riuscita", {
       provider,
       isTimeout,
-      name: error instanceof Error ? error.name : "unknown",
+      timeoutMs: fallbackTimeoutMs(),
     });
     return null;
   }

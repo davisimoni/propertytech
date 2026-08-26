@@ -59,10 +59,20 @@ export async function POST(request: Request) {
       // quello che la UI legge per aprire da sola la scheda "Da testo".
       const status =
         error.code === "upstream_error" ? 502 : error.code === "blocked_url" ? 400 : 422;
+
+      // Stesso tag usato in `scraping-fallback`: cercando `[IMPORT-ERROR]`
+      // nei log si ricostruisce l'intera catena di un import fallito, dalla
+      // risposta del proxy fino allo stato restituito al browser.
+      console.error("[IMPORT-ERROR]", status, `${error.code}: ${error.message}`);
+
       return NextResponse.json({ error: error.code, message: error.message }, { status });
     }
 
-    console.error("[api/social/import] Unexpected error", error);
+    console.error(
+      "[IMPORT-ERROR]",
+      500,
+      error instanceof Error ? `${error.name}: ${error.message}` : "unknown"
+    );
     return NextResponse.json({ error: "internal_error" }, { status: 500 });
   }
 }
