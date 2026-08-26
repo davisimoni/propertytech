@@ -8,43 +8,66 @@ import { readSecret } from "@/lib/env";
  * respinto (403/429 o pagina di verifica): è un servizio a consumo, e pagarlo
  * per le pagine che sappiamo già di saper leggere sarebbe uno spreco.
  *
- * # Perché un'API e non un browser headless
+ * # Due fornitori, due protocolli incompatibili
  *
- * Puppeteer o Playwright su Vercel richiedono un binario di Chromium
- * (`@sparticuz/chromium`) di svariate decine di MB contro il tetto della
- * funzione serverless, con avvii a freddo di secondi su una rotta che già
- * somma il recupero della pagina e una chiamata a Claude. Ma il problema vero
- * è un altro: **Chrome headless è a sua volta riconoscibile**. Cloudflare e
- * DataDome ne rilevano da anni le impronte, quindi si pagherebbe tutto quel
- * peso senza la certezza di superare il blocco. Un servizio specializzato
- * usa proxy residenziali a rotazione — la parte che non possiamo replicare —
- * e da qui costa una chiamata HTTP e zero dipendenze.
+ * Non è una preferenza di stile: ScraperAPI e Firecrawl si chiamano in modi
+ * che non hanno nulla in comune.
  *
- * # Agnostico rispetto al fornitore
+ *   ScraperAPI  GET  ?api_key=…&url=…&render=true   → risponde HTML grezzo
+ *   Firecrawl   POST + Bearer + JSON body           → risponde JSON
  *
- * Stesso principio del seam STT in `lib/ai/transcription.ts`: l'endpoint è
- * configurabile, così cambiare fornitore non richiede di toccare il codice.
- * Il valore predefinito parla il dialetto di Firecrawl, il più diffuso per
- * questo compito.
+ * Mandare la richiesta nella forma sbagliata non degrada: fallisce e basta,
+ * con un 401 che sembra una chiave errata. Per questo il fornitore va scelto
+ * esplicitamente e non indovinato dalla chiave.
  *
- * ATTENZIONE — il contratto di risposta **non è stato verificato** contro il
- * servizio reale (serve una chiave a pagamento). La lettura è quindi
- * volutamente permissiva: si accettano più forme di risposta e, se nessuna
- * contiene testo utile, si restituisce `null` e il flusso prosegue verso il
- * percorso testuale. Stesso criterio dei connettori gestionale marcati
- * `verified: false` in `lib/integrations/providers.ts`: meglio dichiarare
- * l'incertezza che dare per buono un endpoint mai visto rispondere.
+ * # Perché non un browser headless
+ *
+ * Puppeteer o Playwright su Vercel richiedono un binario di Chromium di
+ * svariate decine di MB contro il tetto della funzione serverless, con avvii
+ * a freddo di secondi su una rotta che già somma il recupero della pagina e
+ * una chiamata a Claude. Ma il problema vero è un altro: **Chrome headless è
+ * a sua volta riconoscibile**, e lo si pagherebbe senza garanzia di superare
+ * il blocco. Quello che serve davvero — proxy residenziali a rotazione e
+ * rendering JS lato loro — è esattamente ciò che questi servizi vendono.
  */
 
-const DEFAULT_ENDPOINT = "https://api.firecrawl.dev/v1/scrape";
-const FALLBACK_TIMEOUT_MS = 25_000;
+export type ScraperProviderId = "scraperapi" | "firecrawl";
+
+const SCRAPERAPI_ENDPOINT = "https://api.scraperapi.com/";
+const FIRECRAWL_ENDPOINT = "https://api.firecrawl.dev/v1/scrape";
+
+/**
+ * Attesa massima per il servizio di riserva.
+ *
+ * Generosa di proposito: con il rendering JavaScript attivo il servizio deve
+ * caricare la pagina in un browser vero prima di restituirla, e sotto i 30
+ * secondi si interromperebbero proprio le pagine più protette — quelle per
+ * cui lo si sta pagando. Regge dentro il `maxDuration = 60` della rotta
+ * perché sul percorso bloccato il tentativo diretto costa un paio di secondi:
+ * un portale che ci respinge risponde 403 subito, non va in timeout.
+ */
+const FALLBACK_TIMEOUT_MS = 40_000;
 
 export function isScrapingFallbackConfigured(): boolean {
   return Boolean(readSecret("SCRAPER_API_KEY"));
 }
 
-/** Estrae il primo campo testuale utile, senza pretendere di conoscere la forma esatta. */
-function readContent(payload: unknown): string | null {
+/**
+ * Fornitore configurato.
+ *
+ * Il default è ScraperAPI. `SCRAPER_API_PROVIDER` lo forza esplicitamente;
+ * in mancanza si guarda l'endpoint, perché chi punta a Firecrawl a mano non
+ * deve anche ricordarsi una seconda variabile.
+ */
+function resolveProvider(): ScraperProviderId {
+  const explicit = readSecret("SCRAPER_API_PROVIDER")?.toLowerCase();
+  if (explicit === "firecrawl" || explicit === "scraperapi") return explicit;
+
+  return readSecret("SCRAPER_API_URL")?.includes("firecrawl") ? "firecrawl" : "scraperapi";
+}
+
+/** Estrae il primo campo testuale utile dalla risposta JSON di Firecrawl. */
+function readFirecrawlContent(payload: unknown): string | null {
   if (typeof payload !== "object" || payload === null) return null;
 
   const record = payload as Record<string, unknown>;
@@ -61,6 +84,47 @@ function readContent(payload: unknown): string | null {
 }
 
 /**
+ * Richiesta a ScraperAPI.
+ *
+ * `render=true` fa caricare la pagina in un browser reale lato loro: senza,
+ * da Immobiliare.it e Idealista si riceve il guscio dell'applicazione senza
+ * il contenuto dell'annuncio, che questi portali iniettano via JavaScript.
+ *
+ * `country_code=it` instrada la richiesta da un IP italiano. Conta per due
+ * motivi: un portale immobiliare italiano guarda con più sospetto il traffico
+ * estero, e alcune pagine cambiano contenuto in base alla provenienza.
+ */
+async function fetchViaScraperApi(url: string, apiKey: string): Promise<Response> {
+  const endpoint = new URL(readSecret("SCRAPER_API_URL") ?? SCRAPERAPI_ENDPOINT);
+  endpoint.searchParams.set("api_key", apiKey);
+  endpoint.searchParams.set("url", url);
+  endpoint.searchParams.set("render", "true");
+  endpoint.searchParams.set("country_code", "it");
+
+  // GET, senza header di autenticazione: ScraperAPI vuole la chiave nella
+  // query string. Un Bearer qui verrebbe semplicemente ignorato.
+  return fetch(endpoint.toString(), {
+    method: "GET",
+    signal: AbortSignal.timeout(FALLBACK_TIMEOUT_MS),
+  });
+}
+
+/** Richiesta a Firecrawl: POST autenticato con Bearer, risposta JSON. */
+async function fetchViaFirecrawl(url: string, apiKey: string): Promise<Response> {
+  const endpoint = readSecret("SCRAPER_API_URL") ?? FIRECRAWL_ENDPOINT;
+
+  return fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ url, formats: ["markdown"] }),
+    signal: AbortSignal.timeout(FALLBACK_TIMEOUT_MS),
+  });
+}
+
+/**
  * Recupera la pagina tramite il servizio di riserva.
  *
  * `null` quando non è configurato o non ce l'ha fatta: il chiamante tratta i
@@ -71,36 +135,45 @@ export async function fetchViaScrapingFallback(url: string): Promise<string | nu
   const apiKey = readSecret("SCRAPER_API_KEY");
   if (!apiKey) return null;
 
-  const endpoint = readSecret("SCRAPER_API_URL") ?? DEFAULT_ENDPOINT;
+  const provider = resolveProvider();
 
   try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ url, formats: ["markdown"] }),
-      signal: AbortSignal.timeout(FALLBACK_TIMEOUT_MS),
-    });
+    const response =
+      provider === "firecrawl"
+        ? await fetchViaFirecrawl(url, apiKey)
+        : await fetchViaScraperApi(url, apiKey);
 
     if (!response.ok) {
+      // Il corpo dell'errore è la parte utile: questi servizi ci scrivono
+      // dentro "chiave non valida", "crediti esauriti" o "dominio non
+      // supportato", e senza quel dettaglio si resta a indovinare perché il
+      // fallback non recupera nulla.
+      const detail = await response.text().catch(() => "");
       console.error("[scraping-fallback] Servizio di riserva ha rifiutato la richiesta", {
+        provider,
         status: response.status,
+        detail: detail.slice(0, 300),
       });
       return null;
     }
 
-    const content = readContent(await response.json().catch(() => null));
+    // ScraperAPI risponde con l'HTML della pagina, non con un involucro JSON.
+    const content =
+      provider === "firecrawl"
+        ? readFirecrawlContent(await response.json().catch(() => null))
+        : await response.text();
 
-    if (!content) {
-      console.error("[scraping-fallback] Risposta senza contenuto testuale riconoscibile");
+    if (!content || content.trim().length === 0) {
+      console.error("[scraping-fallback] Risposta senza contenuto utilizzabile", { provider });
       return null;
     }
 
     return content;
   } catch (error) {
-    console.error("[scraping-fallback] Errore di rete verso il servizio di riserva", {
+    const isTimeout = error instanceof DOMException && error.name === "TimeoutError";
+    console.error("[scraping-fallback] Chiamata al servizio di riserva non riuscita", {
+      provider,
+      isTimeout,
       name: error instanceof Error ? error.name : "unknown",
     });
     return null;
