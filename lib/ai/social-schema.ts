@@ -11,15 +11,41 @@ export const TONE_LABELS: Record<ToneOfVoice, string> = {
   giovane: "Giovane / Dinamico",
 };
 
-/** Payload accettato da /api/social/generate. */
-export const socialGenerationRequestSchema = z.object({
-  propertyTitle: z.string().min(3, "Titolo troppo corto").max(150),
-  keyPoints: z
-    .string()
-    .min(10, "Inserisci almeno qualche punto chiave sull'immobile")
-    .max(2000),
-  tone: z.enum(TONE_OPTIONS),
-});
+/**
+ * Payload accettato da /api/social/generate: due sorgenti alternative.
+ *
+ * L'agente arriva alla generazione in due modi, che valgono uguale:
+ * compilando titolo e punti chiave a mano, oppure incollando il testo di un
+ * annuncio. Prima era ammessa solo la prima forma, quindi chi partiva da un
+ * testo doveva passare per forza dall'estrazione dei campi — un giro in più
+ * che non serve a chi quei campi non intende rileggerli.
+ *
+ * `superRefine` e non una union: il messaggio deve dire *cosa* manca, mentre
+ * una union restituirebbe gli errori di entrambi i rami lasciando l'agente a
+ * indovinare quale stesse seguendo.
+ */
+export const socialGenerationRequestSchema = z
+  .object({
+    propertyTitle: z.string().trim().max(150).optional(),
+    keyPoints: z.string().trim().max(2000).optional(),
+    /** Testo dell'annuncio incollato, alternativa ai due campi sopra. */
+    rawText: z.string().trim().max(20_000).optional(),
+    tone: z.enum(TONE_OPTIONS),
+  })
+  .superRefine((data, ctx) => {
+    const hasFields =
+      (data.propertyTitle?.length ?? 0) >= 3 && (data.keyPoints?.length ?? 0) >= 10;
+    const hasRawText = (data.rawText?.length ?? 0) >= 30;
+
+    if (!hasFields && !hasRawText) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "Compila titolo e punti chiave dell'immobile, oppure incolla il testo dell'annuncio.",
+        path: ["keyPoints"],
+      });
+    }
+  });
 
 export type SocialGenerationRequest = z.infer<typeof socialGenerationRequestSchema>;
 

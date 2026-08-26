@@ -36,6 +36,13 @@ function withDisclaimer(text: string): string {
 export function SocialGenerator() {
   const [propertyTitle, setPropertyTitle] = useState("");
   const [keyPoints, setKeyPoints] = useState("");
+  /**
+   * Il testo incollato vive qui e non dentro `ListingImport` perché serve a
+   * due pulsanti: "Compila i campi", che lo trasforma nei campi qui sotto, e
+   * "Genera", che può inviarlo direttamente all'AI. Le due strade sono
+   * alternative, non in sequenza.
+   */
+  const [rawText, setRawText] = useState("");
   const [tone, setTone] = useState<ToneOfVoice>("professionale");
   const [content, setContent] = useState<SocialContent | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("portal");
@@ -53,7 +60,16 @@ export function SocialGenerator() {
       const response = await fetch("/api/social/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ propertyTitle, keyPoints, tone }),
+        // Si manda ciò che c'è: i campi se compilati, il testo grezzo se
+        // l'agente ha saltato la compilazione, entrambi se ha corretto i
+        // campi partendo da un testo — in quel caso il server dà la
+        // precedenza ai campi rivisti.
+        body: JSON.stringify({
+          ...(propertyTitle.trim() ? { propertyTitle: propertyTitle.trim() } : {}),
+          ...(keyPoints.trim() ? { keyPoints: keyPoints.trim() } : {}),
+          ...(rawText.trim() ? { rawText: rawText.trim() } : {}),
+          tone,
+        }),
       });
 
       if (response.status === 402) {
@@ -78,11 +94,18 @@ export function SocialGenerator() {
     }
   }
 
-  const canGenerate = propertyTitle.trim().length >= 3 && keyPoints.trim().length >= 10;
+  // Basta UNA delle due sorgenti: i campi compilati a mano oppure il testo
+  // incollato. Le stesse soglie del server (lib/ai/social-schema.ts), così il
+  // pulsante non si accende su un payload che verrebbe poi rifiutato.
+  const hasFields = propertyTitle.trim().length >= 3 && keyPoints.trim().length >= 10;
+  const hasRawText = rawText.trim().length >= 30;
+  const canGenerate = hasFields || hasRawText;
 
   return (
     <div className="space-y-6">
       <ListingImport
+        rawText={rawText}
+        onRawTextChange={setRawText}
         onImported={(listing) => {
           setPropertyTitle(listing.propertyTitle);
           setKeyPoints(listing.keyPoints);
@@ -94,6 +117,11 @@ export function SocialGenerator() {
 
       <section className="rounded-xl border border-border bg-card p-4 md:p-5">
         <h2 className="text-sm font-semibold text-foreground">Dati dell&apos;immobile</h2>
+        {/* Chiarisce che questa sezione è una delle due strade, non un
+            passaggio obbligato dopo la casella di testo qui sopra. */}
+        <p className="mt-1 text-sm text-muted-foreground">
+          Compilali a mano, oppure lasciali vuoti e genera direttamente dal testo incollato sopra.
+        </p>
 
         <div className="mt-4 space-y-4">
           <div>

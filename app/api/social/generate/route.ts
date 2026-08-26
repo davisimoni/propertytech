@@ -41,7 +41,13 @@ export async function POST(request: Request) {
           organizationId: session.user.organizationId,
           createdById: session.user.userId ?? null,
           kind: "SOCIAL",
-          title: parsed.data.propertyTitle.slice(0, 160),
+          // `propertyTitle` non è più obbligatorio: generando dal solo testo
+          // incollato non esiste. Si ripiega sul titolo prodotto dall'AI, che
+          // è pure più descrittivo di un testo grezzo troncato a metà parola.
+          title: (parsed.data.propertyTitle || content.portalListing?.title || "Annuncio").slice(
+            0,
+            160
+          ),
           preview: previewFromContent({
             annuncio: content.portalListing?.body,
             instagram: content.socialPost?.caption,

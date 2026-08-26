@@ -16,6 +16,12 @@ export interface ImportedListingView {
 }
 
 interface ListingImportProps {
+  /**
+   * Testo controllato dal componente padre: serve anche al pulsante "Genera",
+   * che può inviarlo direttamente all'AI saltando la compilazione dei campi.
+   */
+  rawText: string;
+  onRawTextChange: (value: string) => void;
   /** Riempie il form principale con i dati estratti. */
   onImported: (listing: ImportedListingView) => void;
   onLocked: () => void;
@@ -31,16 +37,18 @@ interface ListingImportProps {
  * e un messaggio d'allarme prima di arrivare all'unica strada percorribile.
  * Una sola casella, nessun bivio.
  */
-export function ListingImport({ onImported, onLocked }: ListingImportProps) {
-  const [rawText, setRawText] = useState("");
+export function ListingImport({
+  rawText,
+  onRawTextChange,
+  onImported,
+  onLocked,
+}: ListingImportProps) {
   const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [missingInfo, setMissingInfo] = useState<string[]>([]);
 
   async function handleImport() {
     setIsImporting(true);
     setError(null);
-    setMissingInfo([]);
 
     try {
       const response = await fetch("/api/social/import", {
@@ -61,9 +69,11 @@ export function ListingImport({ onImported, onLocked }: ListingImportProps) {
         return;
       }
 
-      const listing = body.listing as ImportedListingView;
-      setMissingInfo(listing.missingInfo ?? []);
-      onImported(listing);
+      // `missingInfo` non viene più mostrato qui: elencare ciò che manca
+      // subito dopo una compilazione riuscita si leggeva come un blocco,
+      // mentre i campi si erano popolati regolarmente. Chi vuole integrare
+      // vede già i campi vuoti sotto, che è un'informazione più diretta.
+      onImported(body.listing as ImportedListingView);
     } catch {
       setError("Errore di rete durante la compilazione.");
     } finally {
@@ -91,7 +101,7 @@ export function ListingImport({ onImported, onLocked }: ListingImportProps) {
         <textarea
           id="listing-text"
           value={rawText}
-          onChange={(event) => setRawText(event.target.value)}
+          onChange={(event) => onRawTextChange(event.target.value)}
           rows={6}
           placeholder="Incolla qui il testo della scheda immobile o dell'annuncio…"
           className="input-field bg-card"
@@ -113,24 +123,24 @@ export function ListingImport({ onImported, onLocked }: ListingImportProps) {
         </div>
       )}
 
-      {missingInfo.length > 0 && (
-        <div className="mt-3 rounded-lg border border-border bg-card p-3">
-          <p className="text-xs font-medium text-foreground">Dati non presenti nel testo</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Aggiungili a mano nei punti chiave se li conosci: {missingInfo.join(", ")}.
-          </p>
-        </div>
-      )}
-
-      <button
-        type="button"
-        onClick={handleImport}
-        disabled={!canImport || isImporting}
-        className="btn-brand mt-4"
-      >
-        {isImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-        {isImporting ? "Lettura in corso…" : "Compila i campi"}
-      </button>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={handleImport}
+          disabled={!canImport || isImporting}
+          className="btn-brand"
+        >
+          {isImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+          {isImporting ? "Lettura in corso…" : "Compila i campi"}
+        </button>
+        {/* Detto qui perché è la domanda che sorge davanti a due pulsanti che
+            sembrano fare la stessa cosa: questo serve solo a rileggere e
+            correggere i dati prima di generare, non è un passaggio dovuto. */}
+        <p className="text-xs text-muted-foreground">
+          Facoltativo: serve a rivedere i dati prima di generare. Puoi anche generare
+          direttamente dal testo.
+        </p>
+      </div>
 
       {isImporting && <ProgressMessages messages={IMPORT_PROGRESS} className="mt-3 block" />}
     </section>

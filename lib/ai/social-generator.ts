@@ -54,6 +54,44 @@ Quando le caratteristiche descritte lo suggeriscono concretamente, indica a chi 
 - SCRIPT REEL: pensato per essere girato con uno smartphone dall'agente. L'hook dei primi 3 secondi deve essere un gancio visivo concreto (cosa inquadrare, non solo cosa dire) che crei curiosità immediata — non un'introduzione generica ("Vi presento questo immobile"). Ogni scena ha un'indicazione di ripresa realizzabile da una persona sola. La call to action finale deve dare un'istruzione precisa e immediata (es. "Scrivici in DM per prenotare la visita", "Link in bio per tutti i dettagli"), mai un generico "contattaci". Il totale deve stare in circa 30 secondi di parlato.`;
 }
 
+/**
+ * Compone il brief a partire dalla sorgente disponibile.
+ *
+ * Con i campi compilati si passa il brief già strutturato dall'agente. Col
+ * solo testo incollato si passa quello, dicendo al modello che deve prima
+ * ricavarne i dati: il vincolo del prompt di sistema — usare esclusivamente
+ * ciò che è scritto — vale identico nei due casi, quindi non serve un
+ * passaggio intermedio di estrazione per ottenere lo stesso rigore.
+ *
+ * Se ci sono entrambi vince il brief strutturato, ma il testo resta allegato
+ * come contesto: l'agente che ha corretto i campi si aspetta che le sue
+ * correzioni prevalgano, non che vengano riscritte dall'originale.
+ */
+function buildUserMessage(input: SocialGenerationRequest): string {
+  const hasFields =
+    (input.propertyTitle?.length ?? 0) >= 3 && (input.keyPoints?.length ?? 0) >= 10;
+
+  if (hasFields) {
+    const context = input.rawText
+      ? `\n\nTesto originale dell'annuncio, come contesto aggiuntivo. In caso di divergenza prevalgono i punti chiave qui sopra, che l'agente ha rivisto:\n"""\n${input.rawText}\n"""`
+      : "";
+
+    return `Immobile: ${input.propertyTitle}
+
+Punti chiave forniti dall'agente:
+${input.keyPoints}${context}
+
+Genera i tre formati richiesti dallo schema.`;
+  }
+
+  return `Testo grezzo dell'annuncio, incollato dall'agente da un portale, un gestionale o un'email:
+"""
+${input.rawText ?? ""}
+"""
+
+Ricavane i dati dell'immobile — ignorando menu, banner e riferimenti ad altri immobili — e genera i tre formati richiesti dallo schema. Vale la regola di sempre: usa solo ciò che è scritto, senza colmare i vuoti con ipotesi.`;
+}
+
 export class SocialGenerationError extends Error {
   constructor(
     message: string,
@@ -84,12 +122,7 @@ export async function generateSocialContent(
       messages: [
         {
           role: "user",
-          content: `Immobile: ${input.propertyTitle}
-
-Punti chiave forniti dall'agente:
-${input.keyPoints}
-
-Genera i tre formati richiesti dallo schema.`,
+          content: buildUserMessage(input),
         },
       ],
     })
