@@ -3,11 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { parsePublicHttpUrl, UNSAFE_URL_MESSAGES } from "@/lib/net/safe-url";
-import {
-  fetchViaScrapingFallback,
-  isScrapingFallbackConfigured,
-  type ScrapingFallbackOptions,
-} from "./scraping-fallback";
+import { fetchViaScrapingFallback, isScrapingFallbackConfigured } from "./scraping-fallback";
 
 const client = new Anthropic();
 
@@ -180,10 +176,7 @@ async function fetchListingText(rawUrl: string): Promise<string> {
       throw new ListingImportError(PORTAL_BLOCKED_MESSAGE, "portal_blocked");
     }
 
-    // `hardened`: su questi portali la richiesta economica è destinata a
-    // fallire, quindi il livello anti-bot avanzato non è un lusso ma l'unico
-    // tentativo con una probabilità reale di riuscita.
-    const viaProxy = await tryScrapingFallback(url, { hardened: true });
+    const viaProxy = await tryScrapingFallback(url);
     if (viaProxy) return viaProxy;
 
     // Niente ripiego sul tentativo diretto, e non è una dimenticanza: il
@@ -356,13 +349,10 @@ function usableText(raw: string): string | null {
  * chiamante la differenza non cambia la mossa successiva. Il motivo preciso
  * resta nei log di `scraping-fallback`, che è dove serve per diagnosticare.
  */
-async function tryScrapingFallback(
-  url: URL,
-  options: ScrapingFallbackOptions = {}
-): Promise<string | null> {
+async function tryScrapingFallback(url: URL): Promise<string | null> {
   if (!isScrapingFallbackConfigured()) return null;
 
-  const recovered = await fetchViaScrapingFallback(url.toString(), options);
+  const recovered = await fetchViaScrapingFallback(url.toString());
   if (!recovered) return null;
 
   const text = usableText(htmlToText(recovered));

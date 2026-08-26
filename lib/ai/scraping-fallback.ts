@@ -37,23 +37,25 @@ const SCRAPERAPI_ENDPOINT = "https://api.scraperapi.com/";
 const FIRECRAWL_ENDPOINT = "https://api.firecrawl.dev/v1/scrape";
 
 /**
- * Rendering JavaScript lato servizio: **spento** per impostazione predefinita.
+ * Rendering JavaScript lato servizio: **acceso** per impostazione predefinita.
  *
- * Costava troppo su due fronti. In tempo: il servizio deve caricare la pagina
- * in un browser vero, e su Vercel l'attesa faceva scattare il timeout della
- * funzione prima ancora di arrivare alla chiamata a Claude. In denaro: una
- * richiesta con rendering consuma diverse volte i crediti di una semplice.
+ * Non per necessità tecnica — nel collaudo diretto con `got-scraping`, che
+ * non esegue JavaScript, Immobiliare.it aveva restituito 487 KB di HTML con
+ * l'annuncio dentro — ma perché è l'unica leva anti-blocco che il piano
+ * ScraperAPI in uso ci concede.
  *
- * E soprattutto non risultava necessario: nel collaudo diretto con
- * `got-scraping` — che non esegue JavaScript — Immobiliare.it ha restituito
- * 487 KB di HTML con l'annuncio dentro. Il contenuto è servito dal server,
- * non iniettato dal browser, quindi l'HTML statico basta.
+ * Il livello `ultra_premium`, pensato proprio per Cloudflare, risponde
+ * **403**: "Your current plan does not allow you to use our premium proxies".
+ * Il rendering è compreso nei piani base e fa passare la richiesta da un
+ * browser reale lato loro, il che cambia comunque il profilo della richiesta
+ * rispetto a una GET secca.
  *
- * Resta attivabile con `SCRAPER_API_RENDER=true` per i portali che
- * dovessero comportarsi diversamente: si prova senza toccare il codice.
+ * Disattivabile con `SCRAPER_API_RENDER=false`: costa più crediti di una
+ * richiesta semplice, e se un giorno il blocco cadesse non ci sarebbe motivo
+ * di continuare a pagarlo.
  */
 function isRenderEnabled(): boolean {
-  return readSecret("SCRAPER_API_RENDER") === "true";
+  return readSecret("SCRAPER_API_RENDER") !== "false";
 }
 
 /**
@@ -61,32 +63,18 @@ function isRenderEnabled(): boolean {
  *
  * ScraperAPI raccomanda **70 secondi** per il miglior tasso di successo, ma
  * non ci stanno: la rotta ha `maxDuration = 60` e dopo il recupero c'è ancora
- * l'estrazione con Claude. 30 secondi è il compromesso — abbastanza da non
- * interrompere noi la chiamata (i 20 iniziali erano troppo pochi, ed è da lì
- * che nascevano i TimeoutError), lasciando al modello mezzo minuto pieno.
+ * l'estrazione con Claude. 40 secondi è il tetto praticabile: col rendering
+ * attivo il servizio carica davvero la pagina in un browser, e i 30
+ * precedenti la interrompevano a metà.
  *
- * Il vero rimedio al tempo non è comunque attendere di più ma farsi bloccare
- * di meno: vedi `hardened` in `ScrapingFallbackOptions`.
+ * Il margine però è stretto — 40 secondi qui più una generazione lunga del
+ * modello sfiorano i 60 della funzione. Se comparissero errori di
+ * piattaforma (un 504 al posto dell'avviso arancione), le leve sono
+ * abbassare questo valore o ridurre `MAX_FETCHED_CHARS`, che accorcia il
+ * lavoro del modello.
  */
 function fallbackTimeoutMs(): number {
-  return 30_000;
-}
-
-export interface ScrapingFallbackOptions {
-  /**
-   * Modalità rinforzata per i portali che sappiamo respingerci.
-   *
-   * Attiva `ultra_premium`, il livello anti-bot di ScraperAPI pensato per
-   * Cloudflare e simili. Non è il default perché **costa molti più crediti**
-   * per richiesta: sui domini che ci lasciano passare sarebbe denaro buttato.
-   * Sui tre portali italiani, invece, la richiesta economica è destinata a
-   * fallire comunque — lì il tentativo a basso costo non è un risparmio, è
-   * solo un timeout pagato due volte.
-   *
-   * Nota: il parametro che ScrapFly chiama `asp` qui **non esiste**;
-   * `ultra_premium` è il suo equivalente nel dialetto ScraperAPI.
-   */
-  hardened?: boolean;
+  return 40_000;
 }
 
 export function isScrapingFallbackConfigured(): boolean {
@@ -134,23 +122,19 @@ function readFirecrawlContent(payload: unknown): string | null {
  *
  * `render` è spento salvo richiesta esplicita — vedi `isRenderEnabled`.
  */
-async function fetchViaScraperApi(
-  url: string,
-  apiKey: string,
-  options: ScrapingFallbackOptions
-): Promise<Response> {
+async function fetchViaScraperApi(url: string, apiKey: string): Promise<Response> {
   const endpoint = new URL(readSecret("SCRAPER_API_URL") ?? SCRAPERAPI_ENDPOINT);
   endpoint.searchParams.set("api_key", apiKey);
   endpoint.searchParams.set("url", url);
   endpoint.searchParams.set("render", isRenderEnabled() ? "true" : "false");
   endpoint.searchParams.set("country_code", "it");
 
-  // `ultra_premium` forzabile anche da variabile, per poterlo provare su un
-  // dominio non in elenco senza rimettere mano al codice.
-  if (options.hardened || readSecret("SCRAPER_API_ULTRA_PREMIUM") === "true") {
-    endpoint.searchParams.set("ultra_premium", "true");
-  }
-
+  // Nessun `ultra_premium`: il piano in uso lo rifiuta con 403 ("Your current
+  // plan does not allow you to use our premium proxies"), e inviarlo comunque
+  // non degradava su un tentativo normale — faceva fallire l'intera
+  // richiesta. Il rendering qui sopra è la sola leva anti-blocco disponibile
+  // senza cambiare piano.
+  //
   // Nessun `keep_headers` e nessun User-Agent nostro, **di proposito**: quel
   // parametro dice a ScraperAPI di inoltrare i nostri header al posto dei
   // suoi. Ma gli header che genera loro sono la parte che fa passare la
@@ -188,10 +172,7 @@ async function fetchViaFirecrawl(url: string, apiKey: string): Promise<Response>
  * due casi allo stesso modo — si rinuncia al link e si invita a incollare il
  * testo — perché all'agente la differenza non cambia cosa deve fare.
  */
-export async function fetchViaScrapingFallback(
-  url: string,
-  options: ScrapingFallbackOptions = {}
-): Promise<string | null> {
+export async function fetchViaScrapingFallback(url: string): Promise<string | null> {
   const apiKey = readSecret("SCRAPER_API_KEY");
   if (!apiKey) {
     // Detto esplicitamente e non ignorato: prima questo ramo restituiva
@@ -207,7 +188,7 @@ export async function fetchViaScrapingFallback(
     const response =
       provider === "firecrawl"
         ? await fetchViaFirecrawl(url, apiKey)
-        : await fetchViaScraperApi(url, apiKey, options);
+        : await fetchViaScraperApi(url, apiKey);
 
     if (!response.ok) {
       // Il corpo dell'errore è la parte utile: questi servizi ci scrivono
@@ -218,10 +199,8 @@ export async function fetchViaScrapingFallback(
       console.error("[scraping-fallback] Servizio di riserva ha rifiutato la richiesta", {
         provider,
         status: response.status,
-        // Anche i parametri inviati: senza, davanti a un errore non si
-        // distingue una chiave sbagliata da un `ultra_premium` non compreso
-        // nel piano, e sono due rimedi opposti.
-        ultraPremium: options.hardened || readSecret("SCRAPER_API_ULTRA_PREMIUM") === "true",
+        // Anche i parametri inviati: è così che si è scoperto che il 403
+        // veniva da `ultra_premium` e non dalla chiave.
         render: isRenderEnabled(),
         detail: detail.slice(0, 500),
       });
