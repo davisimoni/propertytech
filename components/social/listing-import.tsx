@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, ClipboardPaste, Link2, Loader2, Wand2 } from "lucide-react";
+import { AlertTriangle, Loader2, Wand2 } from "lucide-react";
 import { IMPORT_PROGRESS, ProgressMessages } from "@/components/shared/progress-messages";
-import { cn } from "@/lib/utils";
 
 export interface ImportedListingView {
   propertyTitle: string;
@@ -22,11 +21,17 @@ interface ListingImportProps {
   onLocked: () => void;
 }
 
-type Mode = "link" | "text";
-
+/**
+ * Compilazione automatica della scheda immobile a partire dal testo.
+ *
+ * Il recupero da link è stato rimosso: i portali italiani bloccano
+ * sistematicamente le richieste automatiche, e le due schede "Da link" /
+ * "Da testo" finivano quasi sempre sulla seconda dopo un avviso di errore —
+ * una scelta apparente che nei fatti costava all'agente un tentativo a vuoto
+ * e un messaggio d'allarme prima di arrivare all'unica strada percorribile.
+ * Una sola casella, nessun bivio.
+ */
 export function ListingImport({ onImported, onLocked }: ListingImportProps) {
-  const [mode, setMode] = useState<Mode>("link");
-  const [url, setUrl] = useState("");
   const [rawText, setRawText] = useState("");
   const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +46,7 @@ export function ListingImport({ onImported, onLocked }: ListingImportProps) {
       const response = await fetch("/api/social/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mode === "link" ? { url } : { rawText }),
+        body: JSON.stringify({ rawText }),
       });
 
       if (response.status === 402) {
@@ -52,12 +57,7 @@ export function ListingImport({ onImported, onLocked }: ListingImportProps) {
       const body = await response.json();
 
       if (!response.ok) {
-        setError(body.message ?? "Import non riuscito.");
-        // Solo quando è il portale a respingerci il percorso testuale è la via
-        // d'uscita, e ci si sposta da soli. Su un link scritto male (o su un
-        // indirizzo non raggiungibile) spostare la scheda sarebbe dannoso:
-        // nasconderebbe il campo che l'agente deve correggere.
-        if (body.error === "portal_blocked") setMode("text");
+        setError(body.message ?? "Compilazione non riuscita.");
         return;
       }
 
@@ -65,94 +65,42 @@ export function ListingImport({ onImported, onLocked }: ListingImportProps) {
       setMissingInfo(listing.missingInfo ?? []);
       onImported(listing);
     } catch {
-      setError("Errore di rete durante l'import.");
+      setError("Errore di rete durante la compilazione.");
     } finally {
       setIsImporting(false);
     }
   }
 
-  const canImport = mode === "link" ? url.trim().length > 8 : rawText.trim().length > 30;
+  const canImport = rawText.trim().length > 30;
 
   return (
     <section className="rounded-xl border border-primary/25 bg-primary/5 p-5">
       <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
         <Wand2 className="h-4 w-4 text-primary" />
-        Importa da Link o Testo Grezzo
+        Importa da Testo Grezzo o Scheda
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Incolla il link dell&apos;annuncio da Immobiliare.it o Idealista, oppure il testo della
-        scheda dal tuo gestionale: compilo io i campi qui sotto.
+        Incolla qui il testo dell&apos;annuncio (da Immobiliare.it, Idealista, email o gestionale) e
+        clicca su Compila i campi per estrarre automaticamente i dati.
       </p>
 
-      <div className="mt-4 flex gap-2">
-        {(
-          [
-            { value: "link", label: "Da link", icon: Link2 },
-            { value: "text", label: "Da testo", icon: ClipboardPaste },
-          ] as const
-        ).map((option) => {
-          const Icon = option.icon;
-          const isActive = mode === option.value;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setMode(option.value)}
-              aria-pressed={isActive}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200",
-                isActive
-                  ? "bg-brand-gradient text-white shadow-sm"
-                  : "border border-border bg-card text-muted-foreground hover:bg-muted"
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {option.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="mt-3">
-        {mode === "link" ? (
-          <>
-            <label htmlFor="listing-url" className="sr-only">
-              Link dell&apos;annuncio
-            </label>
-            <input
-              id="listing-url"
-              type="url"
-              value={url}
-              onChange={(event) => setUrl(event.target.value)}
-              placeholder="https://www.immobiliare.it/annunci/..."
-              className="input-field bg-card"
-              aria-describedby="listing-url-help"
-            />
-            <p id="listing-url-help" className="mt-1.5 text-xs text-muted-foreground">
-              Incolla il link dell&apos;immobile: l&apos;AI estrae automaticamente zona, superficie,
-              locali e prezzo, e compila la scheda al posto tuo.
-            </p>
-          </>
-        ) : (
-          <>
-            <label htmlFor="listing-text" className="sr-only">
-              Testo dell&apos;annuncio
-            </label>
-            <textarea
-              id="listing-text"
-              value={rawText}
-              onChange={(event) => setRawText(event.target.value)}
-              rows={5}
-              placeholder="Incolla qui il testo della scheda immobile o dell'annuncio…"
-              className="input-field bg-card"
-              aria-describedby="listing-text-help"
-            />
-            <p id="listing-text-help" className="mt-1.5 text-xs text-muted-foreground">
-              Va bene anche il testo copiato da un portale, da un&apos;email o dalla scheda del
-              gestionale: bastano i dati essenziali dell&apos;immobile.
-            </p>
-          </>
-        )}
+      <div className="mt-4">
+        <label htmlFor="listing-text" className="sr-only">
+          Testo dell&apos;annuncio
+        </label>
+        <textarea
+          id="listing-text"
+          value={rawText}
+          onChange={(event) => setRawText(event.target.value)}
+          rows={6}
+          placeholder="Incolla qui il testo della scheda immobile o dell'annuncio…"
+          className="input-field bg-card"
+          aria-describedby="listing-text-help"
+        />
+        <p id="listing-text-help" className="mt-1.5 text-xs text-muted-foreground">
+          Bastano i dati essenziali dell&apos;immobile: tipologia, metratura, zona, prezzo e
+          caratteristiche. L&apos;AI userà solo ciò che è scritto, senza inventare nulla.
+        </p>
       </div>
 
       {error && (
@@ -167,7 +115,7 @@ export function ListingImport({ onImported, onLocked }: ListingImportProps) {
 
       {missingInfo.length > 0 && (
         <div className="mt-3 rounded-lg border border-border bg-card p-3">
-          <p className="text-xs font-medium text-foreground">Dati non presenti nella fonte</p>
+          <p className="text-xs font-medium text-foreground">Dati non presenti nel testo</p>
           <p className="mt-1 text-xs text-muted-foreground">
             Aggiungili a mano nei punti chiave se li conosci: {missingInfo.join(", ")}.
           </p>

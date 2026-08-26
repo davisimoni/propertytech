@@ -5,22 +5,21 @@ import { checkFeatureAccess } from "@/lib/feature-access";
 import { importListing, ListingImportError } from "@/lib/ai/listing-import";
 
 /**
- * Questa rotta somma due attese lunghe: il recupero della pagina dal portale
- * (fino a 12s, più un tentativo di riserva) e la successiva estrazione con
- * Claude. Col limite predefinito di Vercel la funzione verrebbe interrotta a
- * metà proprio sugli annunci più corposi, restituendo un errore generico
- * invece del risultato. 60s è il massimo consentito anche sul piano Hobby.
+ * Resta il massimo consentito anche sul piano Hobby: un annuncio lungo può
+ * impegnare il modello per parecchi secondi, e col limite predefinito di
+ * Vercel la funzione verrebbe interrotta a metà proprio sui testi più
+ * corposi, restituendo un errore generico invece del risultato.
  */
 export const maxDuration = 60;
 
-const importSchema = z
-  .object({
-    url: z.string().trim().max(2000).optional(),
-    rawText: z.string().trim().max(20_000).optional(),
-  })
-  .refine((data) => Boolean(data.url) || Boolean(data.rawText), {
-    message: "Inserisci un link oppure incolla il testo dell'annuncio",
-  });
+/**
+ * Solo testo incollato: il recupero da link è stato rimosso perché i portali
+ * italiani lo bloccano sistematicamente dagli IP di Vercel (vedi la nota in
+ * `lib/ai/listing-import.ts`).
+ */
+const importSchema = z.object({
+  rawText: z.string().trim().min(1, "Incolla il testo dell'annuncio").max(20_000),
+});
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -52,17 +51,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ listing });
   } catch (error) {
     if (error instanceof ListingImportError) {
-      // Gli errori di recupero pagina sono 422: la richiesta era valida, è la
-      // fonte a non essere utilizzabile, e il messaggio dice cosa fare.
-      // `portal_blocked` rientra qui: il link è corretto, è il portale a
-      // rifiutare l'accesso automatico. Il codice viaggia nel corpo, ed è
-      // quello che la UI legge per aprire da sola la scheda "Da testo".
-      const status =
-        error.code === "upstream_error" ? 502 : error.code === "blocked_url" ? 400 : 422;
+      // 502 quando è il servizio AI a non rispondere, 422 quando il testo
+      // fornito non è utilizzabile: la richiesta era valida, è la fonte a non
+      // bastare, e il messaggio dice cosa fare.
+      const status = error.code === "upstream_error" ? 502 : 422;
 
-      // Stesso tag usato in `scraping-fallback`: cercando `[IMPORT-ERROR]`
-      // nei log si ricostruisce l'intera catena di un import fallito, dalla
-      // risposta del proxy fino allo stato restituito al browser.
+      // Tag `[IMPORT-ERROR]`: una sola stringa da cercare nei log di Vercel
+      // per trovare qualunque fallimento dell'import.
       console.error("[IMPORT-ERROR]", status, `${error.code}: ${error.message}`);
 
       return NextResponse.json({ error: error.code, message: error.message }, { status });
