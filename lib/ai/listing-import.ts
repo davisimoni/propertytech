@@ -3,7 +3,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { parsePublicHttpUrl, UNSAFE_URL_MESSAGES } from "@/lib/net/safe-url";
-import { fetchViaScrapingFallback, isScrapingFallbackConfigured } from "./scraping-fallback";
+import {
+  fetchViaScrapingFallback,
+  isScrapingFallbackConfigured,
+  type ScrapingFallbackOptions,
+} from "./scraping-fallback";
 
 const client = new Anthropic();
 
@@ -161,15 +165,18 @@ async function fetchListingText(rawUrl: string): Promise<string> {
       host: url.hostname,
     });
 
-    const viaProxy = await tryScrapingFallback(url);
+    // `hardened`: su questi portali la richiesta economica è destinata a
+    // fallire, quindi il livello anti-bot avanzato non è un lusso ma l'unico
+    // tentativo con una probabilità reale di riuscita.
+    const viaProxy = await tryScrapingFallback(url, { hardened: true });
     if (viaProxy) return viaProxy;
 
-    // Il proxy ha fallito: si tenta comunque la via diretta prima di
-    // rinunciare. Costa poco e copre il caso in cui sia il servizio a essere
-    // giù, non il portale a bloccarci.
-    const direct = await tryDirectFetch(url);
-    if (direct) return direct;
-
+    // Niente ripiego sul tentativo diretto, e non è una dimenticanza: il
+    // proxy può aver già consumato 35 secondi dei 60 della funzione, e
+    // aggiungerne fino a 24 di richiesta diretta manderebbe la rotta in
+    // timeout — l'agente vedrebbe un errore di piattaforma invece
+    // dell'avviso che lo manda sulla scheda "Da testo". Per di più su questi
+    // portali la via diretta è proprio quella che sappiamo fallire.
     throw new ListingImportError(PORTAL_BLOCKED_MESSAGE, "portal_blocked");
   }
 
@@ -324,10 +331,13 @@ function usableText(raw: string): string | null {
  * chiamante la differenza non cambia la mossa successiva. Il motivo preciso
  * resta nei log di `scraping-fallback`, che è dove serve per diagnosticare.
  */
-async function tryScrapingFallback(url: URL): Promise<string | null> {
+async function tryScrapingFallback(
+  url: URL,
+  options: ScrapingFallbackOptions = {}
+): Promise<string | null> {
   if (!isScrapingFallbackConfigured()) return null;
 
-  const recovered = await fetchViaScrapingFallback(url.toString());
+  const recovered = await fetchViaScrapingFallback(url.toString(), options);
   if (!recovered) return null;
 
   const text = usableText(htmlToText(recovered));

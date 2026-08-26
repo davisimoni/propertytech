@@ -59,14 +59,35 @@ function isRenderEnabled(): boolean {
 /**
  * Attesa massima per il servizio di riserva.
  *
- * Due valori perché i due scenari non sono paragonabili: senza rendering è una
- * richiesta HTTP con proxy davanti, con rendering c'è un browser che carica
- * una pagina. Entrambi devono restare dentro il `maxDuration = 60` della
- * rotta insieme alla successiva chiamata a Claude — ed è proprio il margine
- * che mancava quando il rendering era sempre attivo.
+ * ScraperAPI raccomanda **70 secondi** per il miglior tasso di successo, ma
+ * non ci stanno: la rotta ha `maxDuration = 60` e dopo il recupero c'è ancora
+ * l'estrazione con Claude. 35 secondi è il massimo che lascia un margine
+ * onesto al modello, e i 20 precedenti erano semplicemente troppo pochi —
+ * interrompevamo noi la chiamata prima che il servizio finisse, ed è da lì
+ * che nascevano i TimeoutError nei log.
+ *
+ * Il vero rimedio al tempo non è comunque attendere di più ma farsi bloccare
+ * di meno: vedi `hardened` in `ScrapingFallbackOptions`.
  */
 function fallbackTimeoutMs(): number {
-  return isRenderEnabled() ? 40_000 : 20_000;
+  return 35_000;
+}
+
+export interface ScrapingFallbackOptions {
+  /**
+   * Modalità rinforzata per i portali che sappiamo respingerci.
+   *
+   * Attiva `ultra_premium`, il livello anti-bot di ScraperAPI pensato per
+   * Cloudflare e simili. Non è il default perché **costa molti più crediti**
+   * per richiesta: sui domini che ci lasciano passare sarebbe denaro buttato.
+   * Sui tre portali italiani, invece, la richiesta economica è destinata a
+   * fallire comunque — lì il tentativo a basso costo non è un risparmio, è
+   * solo un timeout pagato due volte.
+   *
+   * Nota: il parametro che ScrapFly chiama `asp` qui **non esiste**;
+   * `ultra_premium` è il suo equivalente nel dialetto ScraperAPI.
+   */
+  hardened?: boolean;
 }
 
 export function isScrapingFallbackConfigured(): boolean {
@@ -114,15 +135,32 @@ function readFirecrawlContent(payload: unknown): string | null {
  *
  * `render` è spento salvo richiesta esplicita — vedi `isRenderEnabled`.
  */
-async function fetchViaScraperApi(url: string, apiKey: string): Promise<Response> {
+async function fetchViaScraperApi(
+  url: string,
+  apiKey: string,
+  options: ScrapingFallbackOptions
+): Promise<Response> {
   const endpoint = new URL(readSecret("SCRAPER_API_URL") ?? SCRAPERAPI_ENDPOINT);
   endpoint.searchParams.set("api_key", apiKey);
   endpoint.searchParams.set("url", url);
   endpoint.searchParams.set("render", isRenderEnabled() ? "true" : "false");
   endpoint.searchParams.set("country_code", "it");
 
-  // GET, senza header di autenticazione: ScraperAPI vuole la chiave nella
-  // query string. Un Bearer qui verrebbe semplicemente ignorato.
+  // `ultra_premium` forzabile anche da variabile, per poterlo provare su un
+  // dominio non in elenco senza rimettere mano al codice.
+  if (options.hardened || readSecret("SCRAPER_API_ULTRA_PREMIUM") === "true") {
+    endpoint.searchParams.set("ultra_premium", "true");
+  }
+
+  // Nessun `keep_headers` e nessun User-Agent nostro, **di proposito**: quel
+  // parametro dice a ScraperAPI di inoltrare i nostri header al posto dei
+  // suoi. Ma gli header che genera loro sono la parte che fa passare la
+  // richiesta — sono accordati con l'impronta TLS del proxy che la spedisce.
+  // Sostituirli con una stringa Chrome scritta da noi crea un'incoerenza fra
+  // header e handshake, cioè esattamente il segnale che Cloudflare cerca.
+  //
+  // GET senza header di autenticazione: la chiave sta nella query string, e
+  // un Bearer qui verrebbe semplicemente ignorato.
   return fetch(endpoint.toString(), {
     method: "GET",
     signal: AbortSignal.timeout(fallbackTimeoutMs()),
@@ -151,7 +189,10 @@ async function fetchViaFirecrawl(url: string, apiKey: string): Promise<Response>
  * due casi allo stesso modo — si rinuncia al link e si invita a incollare il
  * testo — perché all'agente la differenza non cambia cosa deve fare.
  */
-export async function fetchViaScrapingFallback(url: string): Promise<string | null> {
+export async function fetchViaScrapingFallback(
+  url: string,
+  options: ScrapingFallbackOptions = {}
+): Promise<string | null> {
   const apiKey = readSecret("SCRAPER_API_KEY");
   if (!apiKey) return null;
 
@@ -161,7 +202,7 @@ export async function fetchViaScrapingFallback(url: string): Promise<string | nu
     const response =
       provider === "firecrawl"
         ? await fetchViaFirecrawl(url, apiKey)
-        : await fetchViaScraperApi(url, apiKey);
+        : await fetchViaScraperApi(url, apiKey, options);
 
     if (!response.ok) {
       // Il corpo dell'errore è la parte utile: questi servizi ci scrivono
