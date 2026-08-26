@@ -7,13 +7,34 @@ const client = new Anthropic();
 
 const EXTRACTION_MODEL = "claude-opus-5";
 
-const EXTRACTION_PROMPT = `Analizza il documento immobiliare allegato (Visura Catastale, Planimetria, Atto di Provenienza o APE) ed estrai i dati richiesti dallo schema JSON fornito.
+const EXTRACTION_PROMPT = `Analizza il documento immobiliare allegato ed estrai i dati richiesti dallo schema JSON fornito. Può essere una visura catastale, una planimetria, un atto di provenienza, un APE, un'ispezione ipotecaria, un titolo edilizio (CILA, SCIA, permesso di costruire) o un verbale condominiale.
 
-Regole:
-- Usa null per qualsiasi campo non presente o non leggibile nel documento — non inventare dati.
-- L'elenco "proprietari" deve contenere una voce per ciascun intestatario individuato nel documento.
-- Traduci in italiano eventuali sintesi testuali (es. in "noteVincoli").
-- "sintesiAgente" è la prima cosa che l'agente legge: deve essere trasparente sui limiti dell'estrazione. Se un dato è illeggibile o assente dillo esplicitamente invece di ometterlo, così l'agente sa cosa verificare a mano.`;
+# Tre piani distinti, da non confondere
+- CATASTO: identifica e censisce l'immobile (foglio, particella, subalterno, categoria, classe, consistenza, rendita, superficie catastale, intestatari).
+- SITUAZIONE GIURIDICA (Conservatoria): cosa risulta pubblicizzato nei registri immobiliari — provenienza, trascrizioni, ipoteche, pignoramenti.
+- URBANISTICA/EDILIZIA: coerenza con i titoli edilizi — CILA, SCIA, permesso di costruire, sanatorie, condoni, agibilità.
+Un immobile può essere in regola su un piano e non sull'altro. Compila solo le sezioni che il documento contiene davvero: da una visura non arrivano titoli edilizi, da una CILA non arrivano intestatari.
+
+# Precisioni terminologiche
+- La CLASSE catastale è un parametro reddituale interno alla categoria, non un voto di qualità.
+- La CONSISTENZA in vani non corrisponde al numero di stanze fisiche.
+- La RENDITA catastale è un valore fiscale: non è il prezzo né il valore di mercato.
+- La SUPERFICIE CATASTALE non coincide necessariamente con quella commerciale, che segue criteri diversi.
+- I MILLESIMI sono una frazione su 1000, non una percentuale di proprietà dell'edificio.
+- Il DIRITTO REALE va letto, non dedotto: distingui proprietà, nuda proprietà e usufrutto, perché determinano chi può disporre del bene.
+
+# Pertinenze
+Garage, cantine e posti auto sono di norma subalterni distinti sulla stessa particella. Se il documento ne riporta, elencali in "pertinenze" anziché confonderli con l'unità principale.
+
+# Criticità
+In "criticita" segnala ciò che merita attenzione: incongruenze fra dati (superficie catastale diversa da quella dichiarata, intestatari catastali diversi dai soggetti dell'atto), ipoteche, pignoramenti, domande giudiziali, sanatorie, condoni, assenza di agibilità, diritti reali che limitano la vendita.
+Descrivi il FATTO rilevato citando i valori del documento. NON esprimere valutazioni legali, non concludere se l'immobile sia vendibile o commerciabile, non consigliare azioni legali: quella è responsabilità del professionista, e un giudizio sbagliato qui costerebbe caro all'agenzia. Se non emerge nulla, lascia l'array vuoto anziché forzare un rilievo.
+
+# Regole generali
+- Usa null per qualsiasi campo non presente o non leggibile — non inventare dati.
+- Gli array restano vuoti quando il documento non contiene quella categoria di informazioni.
+- Scrivi in italiano.
+- "sintesiAgente" è la prima cosa che l'agente legge: deve essere trasparente sui limiti dell'estrazione. Se un dato è illeggibile o assente dillo esplicitamente, così l'agente sa cosa verificare a mano.`;
 
 export class DocumentExtractionError extends Error {
   constructor(

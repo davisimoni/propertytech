@@ -1,7 +1,17 @@
 "use client";
 
 import { useRef, useState, type DragEvent } from "react";
-import { Check, Clipboard, Download, FileUp, Loader2, Printer, Sparkles, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Clipboard,
+  Download,
+  FileUp,
+  Loader2,
+  Printer,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { UpgradeLimitModal } from "@/components/billing/upgrade-limit-modal";
 import { ShareActions } from "@/components/shared/share-actions";
 import { AiDisclaimer } from "@/components/shared/ai-disclaimer";
@@ -10,7 +20,14 @@ import { extractionFileName } from "@/lib/pdf/file-name";
 import { DownloadPdfButton } from "@/components/shared/download-pdf-button";
 import { DOCUMENT_PROGRESS, ProgressMessages } from "@/components/shared/progress-messages";
 import { cn } from "@/lib/utils";
-import { DOCUMENT_TYPE_LABELS, type DocumentExtractionResult } from "@/lib/ai/document-schema";
+import {
+  DIRITTI_REALI,
+  DIRITTO_REALE_LABELS,
+  DOCUMENT_TYPE_LABELS,
+  type CriticitaLivello,
+  type DirittoReale,
+  type DocumentExtractionResult,
+} from "@/lib/ai/document-schema";
 
 type Status = "idle" | "uploading" | "success" | "error";
 
@@ -246,6 +263,88 @@ interface ExtractionResultViewProps {
   onReset: () => void;
 }
 
+const CRITICITA_STYLES: Record<CriticitaLivello, { box: string; label: string }> = {
+  alta: { box: "border-status-blocked/30 bg-status-blocked/10", label: "text-status-blocked" },
+  media: { box: "border-status-pending/30 bg-status-pending/10", label: "text-status-pending" },
+  informativa: { box: "border-border bg-muted/40", label: "text-muted-foreground" },
+};
+
+const CRITICITA_LABELS: Record<CriticitaLivello, string> = {
+  alta: "Da verificare",
+  media: "Attenzione",
+  informativa: "Nota",
+};
+
+/**
+ * Criticità rilevate nel documento.
+ *
+ * Compare **solo se c'è qualcosa da dire**: una sezione sempre presente che
+ * per lo più recita "nessun rilievo" aggiungerebbe rumore a ogni estrazione
+ * e finirebbe per essere saltata proprio quando conta.
+ *
+ * Il tono è descrittivo e non prescrittivo — "da verificare", non "immobile
+ * non vendibile". Il prodotto non certifica nulla: segnala un fatto e lascia
+ * la valutazione al professionista, coerentemente con quanto vale per il
+ * Fascicolo documentale (CLAUDE.md).
+ *
+ * `?? []` non è difensivismo inutile: le estrazioni salvate prima
+ * dell'introduzione di questo campo non lo contengono, e rileggerle dalla
+ * cronologia farebbe altrimenti fallire il rendering.
+ */
+function CriticitaList({ criticita }: { criticita?: DocumentExtractionResult["criticita"] }) {
+  const items = criticita ?? [];
+  if (items.length === 0) return null;
+
+  return (
+    <div>
+      <h3 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+        <AlertTriangle className="h-4 w-4 text-status-pending" />
+        Elementi da verificare
+      </h3>
+      <ul className="mt-2 space-y-2">
+        {items.map((item, index) => {
+          const style = CRITICITA_STYLES[item.livello] ?? CRITICITA_STYLES.informativa;
+          return (
+            <li key={index} className={cn("rounded-lg border p-3", style.box)}>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={cn("text-xs font-semibold uppercase tracking-wide", style.label)}>
+                  {CRITICITA_LABELS[item.livello] ?? "Nota"}
+                </span>
+                <span className="text-sm font-medium text-foreground">{item.titolo}</span>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">{item.dettaglio}</p>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        Segnalazioni automatiche a supporto della verifica: non sostituiscono il controllo del
+        professionista.
+      </p>
+    </div>
+  );
+}
+
+/** Sezione mostrata solo quando ha contenuto, per non allungare le estrazioni scarne. */
+function DetailSection({
+  title,
+  children,
+  isEmpty,
+}: {
+  title: string;
+  children: React.ReactNode;
+  isEmpty: boolean;
+}) {
+  if (isEmpty) return null;
+
+  return (
+    <div>
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      <div className="mt-2 space-y-2">{children}</div>
+    </div>
+  );
+}
+
 function ExtractionResultView({
   result,
   onChange,
@@ -287,6 +386,7 @@ function ExtractionResultView({
           <p className="mt-2 text-sm text-foreground">{result.sintesiAgente}</p>
         </div>
 
+        <CriticitaList criticita={result.criticita} />
 
         <div>
           <h3 className="text-sm font-semibold text-foreground">Dati Immobile</h3>
@@ -324,14 +424,133 @@ function ExtractionResultView({
               }
             />
             <LabeledField
+              label="Classe"
+              value={result.datiImmobile.classeCatastale ?? ""}
+              onChange={(value) =>
+                onChange({ ...result, datiImmobile: { ...result.datiImmobile, classeCatastale: value } })
+              }
+            />
+            <LabeledField
+              label="Consistenza"
+              value={result.datiImmobile.consistenza ?? ""}
+              onChange={(value) =>
+                onChange({ ...result, datiImmobile: { ...result.datiImmobile, consistenza: value } })
+              }
+            />
+            <LabeledField
               label="Rendita Catastale"
               value={result.datiImmobile.renditaCatastale ?? ""}
               onChange={(value) =>
                 onChange({ ...result, datiImmobile: { ...result.datiImmobile, renditaCatastale: value } })
               }
             />
+            <LabeledField
+              label="Superficie Catastale"
+              value={result.datiImmobile.superficieCatastale ?? ""}
+              onChange={(value) =>
+                onChange({ ...result, datiImmobile: { ...result.datiImmobile, superficieCatastale: value } })
+              }
+            />
           </div>
+          {/* La distinzione che gli agenti chiedono più spesso: la superficie
+              catastale non è quella commerciale su cui si calcola il €/m². */}
+          {result.datiImmobile.superficieCatastale && (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              La superficie catastale segue criteri propri e può non coincidere con la superficie
+              commerciale usata in valutazione.
+            </p>
+          )}
         </div>
+
+        <DetailSection
+          title="Pertinenze"
+          isEmpty={(result.pertinenze ?? []).length === 0}
+        >
+          <ul className="space-y-1.5">
+            {(result.pertinenze ?? []).map((pertinenza, index) => (
+              <li
+                key={index}
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-2.5 text-sm"
+              >
+                <span className="font-medium text-foreground">{pertinenza.descrizione}</span>
+                {pertinenza.categoriaCatastale && (
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                    {pertinenza.categoriaCatastale}
+                  </span>
+                )}
+                {pertinenza.subalterno && (
+                  <span className="text-xs text-muted-foreground">sub. {pertinenza.subalterno}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </DetailSection>
+
+        <DetailSection
+          title="Situazione giuridica"
+          isEmpty={
+            !result.situazioneGiuridica?.attoProvenienza &&
+            (result.situazioneGiuridica?.formalita ?? []).length === 0
+          }
+        >
+          {result.situazioneGiuridica?.attoProvenienza && (
+            <p className="text-sm text-foreground">
+              <span className="text-muted-foreground">Provenienza: </span>
+              {result.situazioneGiuridica.attoProvenienza}
+            </p>
+          )}
+          {(result.situazioneGiuridica?.formalita ?? []).map((formalita, index) => (
+            <div key={index} className="rounded-lg border border-border p-2.5 text-sm">
+              <span className="font-medium text-foreground">{formalita.tipo}</span>
+              <p className="mt-0.5 text-muted-foreground">{formalita.dettaglio}</p>
+            </div>
+          ))}
+        </DetailSection>
+
+        <DetailSection title="Titoli edilizi" isEmpty={(result.titoliEdilizi ?? []).length === 0}>
+          <ul className="space-y-1.5">
+            {(result.titoliEdilizi ?? []).map((titolo, index) => (
+              <li
+                key={index}
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-2.5 text-sm"
+              >
+                <span className="font-medium text-foreground">{titolo.tipo}</span>
+                {titolo.estremi && (
+                  <span className="text-xs text-muted-foreground">{titolo.estremi}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </DetailSection>
+
+        <DetailSection
+          title="Condominio"
+          isEmpty={
+            !result.condominio?.millesimi && (result.condominio?.lavoriDeliberati ?? []).length === 0
+          }
+        >
+          {result.condominio?.millesimi && (
+            <p className="text-sm text-foreground">
+              <span className="text-muted-foreground">Millesimi: </span>
+              {result.condominio.millesimi}
+            </p>
+          )}
+          {(result.condominio?.lavoriDeliberati ?? []).map((lavoro, index) => (
+            <div key={index} className="rounded-lg border border-border p-2.5 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-foreground">{lavoro.descrizione}</span>
+                {lavoro.stato && (
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                    {lavoro.stato}
+                  </span>
+                )}
+              </div>
+              {lavoro.importo && (
+                <p className="mt-0.5 text-muted-foreground">Importo: {lavoro.importo}</p>
+              )}
+            </div>
+          ))}
+        </DetailSection>
 
         <div>
           <h3 className="text-sm font-semibold text-foreground">Dati Anagrafici Proprietari</h3>
@@ -342,6 +561,10 @@ function ExtractionResultView({
                   <th className="px-3 py-2 font-medium">Nome e Cognome</th>
                   <th className="px-3 py-2 font-medium">Codice Fiscale</th>
                   <th className="px-3 py-2 font-medium">Quota</th>
+                  {/* Il diritto reale risponde alla domanda "chi può vendere":
+                      un nudo proprietario non dispone del pieno godimento
+                      finché esiste l'usufrutto. */}
+                  <th className="px-3 py-2 font-medium">Diritto</th>
                 </tr>
               </thead>
               <tbody>
@@ -383,11 +606,31 @@ function ExtractionResultView({
                         className="w-full rounded-lg border border-border bg-background px-2 py-1 text-sm outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
                       />
                     </td>
+                    <td className="p-2">
+                      <select
+                        value={proprietario.dirittoReale ?? "non_specificato"}
+                        onChange={(event) => {
+                          const proprietari = [...result.proprietari];
+                          proprietari[index] = {
+                            ...proprietario,
+                            dirittoReale: event.target.value as DirittoReale,
+                          };
+                          onChange({ ...result, proprietari });
+                        }}
+                        className="w-full rounded-lg border border-border bg-background px-2 py-1 text-sm outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+                      >
+                        {DIRITTI_REALI.map((diritto) => (
+                          <option key={diritto} value={diritto}>
+                            {DIRITTO_REALE_LABELS[diritto]}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
                   </tr>
                 ))}
                 {result.proprietari.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="px-3 py-4 text-center text-sm text-muted-foreground">
+                    <td colSpan={4} className="px-3 py-4 text-center text-sm text-muted-foreground">
                       Nessun proprietario individuato nel documento.
                     </td>
                   </tr>
