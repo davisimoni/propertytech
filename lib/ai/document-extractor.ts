@@ -72,8 +72,20 @@ export async function extractDocumentData(pdfBase64: string): Promise<DocumentEx
         },
       ],
     })
-    .catch((error) => {
-      console.error("[document-extractor] Anthropic API call failed", error);
+    .catch((error: unknown) => {
+      // `[DOCS-ANALYSIS-ERROR]`: una sola stringa da cercare nei log di
+      // Vercel. Il messaggio mostrato all'agente parla genericamente di
+      // "servizio non disponibile", ma la causa può essere tutt'altro — un
+      // timeout della funzione, un PDF rifiutato, un limite di rate — e
+      // senza questi campi restano indistinguibili.
+      const detail = error as { name?: string; message?: string; status?: number };
+      console.error("[DOCS-ANALYSIS-ERROR]", {
+        name: detail?.name,
+        status: detail?.status,
+        message: detail?.message,
+      });
+      console.error("[DOCS-ANALYSIS-ERROR] stack", error);
+
       throw new DocumentExtractionError(
         "Il servizio di analisi non risponde in questo momento. Riprova fra qualche minuto: il credito non è stato consumato.",
         "upstream_error"

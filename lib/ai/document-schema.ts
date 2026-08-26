@@ -148,7 +148,13 @@ export const documentExtractionSchema = z.object({
     )
     .describe(
       "Unità accessorie censite sulla stessa particella (garage, cantina, posto auto). Array vuoto se il documento non ne riporta: sono spesso subalterni distinti dello stesso fabbricato."
-    ),
+    )
+    // `.default([])` su tutte le sezioni introdotte dopo il primo rilascio:
+    // un APE o una planimetria non contengono pertinenze, formalità o
+    // delibere, e pretenderle renderebbe l'estrazione fragile proprio sui
+    // documenti più semplici. Il modello continua a riceverne la descrizione
+    // e a compilarle quando ci sono.
+    .default([]),
   situazioneGiuridica: z
     .object({
       attoProvenienza: z
@@ -170,8 +176,10 @@ export const documentExtractionSchema = z.object({
         )
         .describe(
           "Formalità dei registri immobiliari presenti nel documento. Array vuoto se assenti o se il documento non è un'ispezione ipotecaria."
-        ),
+        )
+        .default([]),
     })
+    .default({ attoProvenienza: null, formalita: [] })
     .describe("Piano giuridico: provenienza e formalità pubblicizzate. Distinto dal catasto."),
   titoliEdilizi: z
     .array(
@@ -187,7 +195,8 @@ export const documentExtractionSchema = z.object({
     )
     .describe(
       "Titoli edilizi citati nel documento. Array vuoto se assenti. Riguardano la conformità urbanistica, che è cosa diversa dalla conformità catastale."
-    ),
+    )
+    .default([]),
   condominio: z
     .object({
       millesimi: z
@@ -207,8 +216,10 @@ export const documentExtractionSchema = z.object({
         )
         .describe(
           "Lavori e spese straordinarie deliberate. Array vuoto se il documento non è un verbale o non ne contiene. È l'informazione che un acquirente deve conoscere prima della proposta."
-        ),
+        )
+        .default([]),
     })
+    .default({ millesimi: null, lavoriDeliberati: [] })
     .describe("Dati condominiali, popolati dai verbali assembleari e dai riparti."),
   criticita: z
     .array(
@@ -228,7 +239,8 @@ export const documentExtractionSchema = z.object({
     )
     .describe(
       "Elementi che meritano attenzione dell'agente. Segnala in particolare: incongruenze fra superficie catastale e commerciale, disallineamenti fra intestatari catastali e soggetti dell'atto, presenza di ipoteche, pignoramenti, sanatorie o condoni, assenza di agibilità, diritti reali che limitano la vendita. NON esprimere giudizi legali né conclusioni sulla vendibilità: descrivi il fatto e lascia la valutazione all'agente. Array vuoto se non emerge nulla."
-    ),
+    )
+    .default([]),
   noteVincoli: z.object({
     presenti: z
       .boolean()

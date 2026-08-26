@@ -9,6 +9,22 @@ import { syncPortfolioFromExtraction } from "@/lib/leads/portfolio-sync";
 
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15MB — well under Claude's 32MB request limit once base64-encoded
 
+/**
+ * Mancava, ed è ciò che ha rotto l'analisi documenti.
+ *
+ * Finché lo schema di estrazione era piccolo la chiamata rientrava nel
+ * limite predefinito di Vercel. Estendendolo a catasto completo, situazione
+ * giuridica, titoli edilizi, condominio e criticità, il modello ha molto più
+ * da generare e la chiamata dura sensibilmente di più: la funzione veniva
+ * troncata a metà, l'SDK falliva e l'agente leggeva "il servizio di analisi
+ * non risponde" — un messaggio che indica il fornitore mentre il problema
+ * era qui.
+ *
+ * 60s è il massimo consentito anche sul piano Hobby. Vale per un PDF di
+ * diverse pagine analizzato in multimodale, che è il caso normale qui.
+ */
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.organizationId) {
@@ -79,7 +95,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.code, message: error.message }, { status });
     }
 
-    console.error("[api/documents/extract] Unexpected error", error);
+    console.error("[DOCS-ANALYSIS-ERROR]", error);
     return NextResponse.json({ error: "internal_error", message: "Errore imprevisto durante l'analisi. Riprova fra poco." }, { status: 500 });
   }
 }
