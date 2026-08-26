@@ -151,6 +151,73 @@ function looksLikeChallengePage(text: string): boolean {
 async function fetchListingText(rawUrl: string): Promise<string> {
   const url = assertPublicHttpUrl(rawUrl);
 
+  // Sui portali che sappiamo bloccarci dagli IP di Vercel si va dritti al
+  // proxy: il tentativo diretto è già stato pagato in produzione — fallisce
+  // sempre, e prima di fallire consuma secondi preziosi dentro il
+  // `maxDuration` della rotta. Provarlo di nuovo a ogni import sarebbe
+  // ripetere un esperimento di cui conosciamo il risultato.
+  if (shouldUseProxyFirst(url)) {
+    console.info("[listing-import] Portale noto per il blocco: si usa il proxy come primo tentativo", {
+      host: url.hostname,
+    });
+
+    const viaProxy = await tryScrapingFallback(url);
+    if (viaProxy) return viaProxy;
+
+    // Il proxy ha fallito: si tenta comunque la via diretta prima di
+    // rinunciare. Costa poco e copre il caso in cui sia il servizio a essere
+    // giù, non il portale a bloccarci.
+    const direct = await tryDirectFetch(url);
+    if (direct) return direct;
+
+    throw new ListingImportError(PORTAL_BLOCKED_MESSAGE, "portal_blocked");
+  }
+
+  const direct = await tryDirectFetch(url);
+  if (direct) return direct;
+
+  // **Qualunque** sia stato il motivo del fallimento diretto — 403, errore di
+  // connessione, contenuto illeggibile — si prova il proxy prima di
+  // rinunciare. Prima il percorso d'eccezione lanciava `fetch_failed` senza
+  // nemmeno interpellarlo: bastava che `got-scraping` sollevasse un errore di
+  // rete invece di restituire un 403 pulito perché la riserva non entrasse
+  // mai in funzione.
+  const viaProxy = await tryScrapingFallback(url);
+  if (viaProxy) return viaProxy;
+
+  throw new ListingImportError(PORTAL_BLOCKED_MESSAGE, "portal_blocked");
+}
+
+/**
+ * Portali che dagli IP di Vercel rispondono sempre con un blocco.
+ *
+ * Elenco deliberatamente corto e specifico: vale solo per i portali su cui
+ * abbiamo osservato il blocco, non per "tutti i siti immobiliari". Per
+ * qualunque altro dominio si prova prima la via diretta, che è gratuita.
+ */
+const PORTALS_REQUIRING_PROXY = ["immobiliare.it", "idealista.it", "casa.it"];
+
+function shouldUseProxyFirst(url: URL): boolean {
+  if (!isScrapingFallbackConfigured()) return false;
+
+  const host = url.hostname.toLowerCase();
+  // Confronto sul suffisso di dominio, non `includes`: `immobiliare.it.evil.test`
+  // non deve contare come Immobiliare.it.
+  return PORTALS_REQUIRING_PROXY.some(
+    (domain) => host === domain || host.endsWith(`.${domain}`)
+  );
+}
+
+/**
+ * Tentativo diretto con `got-scraping`.
+ *
+ * Restituisce `null` invece di lanciare per ogni fallimento recuperabile —
+ * blocco, errore di rete, pagina illeggibile — perché la decisione se
+ * rinunciare spetta al chiamante, che ha ancora una carta da giocare. Continua
+ * invece a lanciare per gli URL verso la rete interna: quello non è un
+ * fallimento da recuperare con un altro strumento, è una richiesta da rifiutare.
+ */
+async function tryDirectFetch(url: URL): Promise<string | null> {
   // Import dinamico: `got-scraping` è ESM pura, e caricarla solo qui evita di
   // pagarne l'avvio nelle richieste che importano da testo incollato.
   const { gotScraping } = await import("got-scraping");
@@ -206,84 +273,72 @@ async function fetchListingText(rawUrl: string): Promise<string> {
     body = response.body;
     contentType = String(response.headers["content-type"] ?? "");
   } catch (error) {
-    // Un redirect verso la rete interna è già un errore nostro, con il suo
-    // messaggio: non va riscritto come guasto di rete.
+    // Un URL verso la rete interna non è un fallimento da recuperare con un
+    // altro strumento: si rifiuta e basta, senza passare dal proxy.
     if (error instanceof ListingImportError) throw error;
 
-    console.error("[listing-import] Fetch failed", {
+    console.error("[listing-import] Tentativo diretto fallito", {
       name: error instanceof Error ? error.name : "unknown",
     });
-    throw new ListingImportError(
-      "Non sono riuscito ad aprire il link. Copia e incolla il testo dell'annuncio nel campo qui sotto.",
-      "fetch_failed"
-    );
+    return null;
   }
 
-  if (isAntiBotStatus(statusCode)) {
-    console.error("[listing-import] Portale ha respinto la richiesta", { status: statusCode });
-    return blockedOrFallback(url);
-  }
-
-  if (statusCode >= 400) {
-    throw new ListingImportError(
-      `Il portale ha rifiutato la richiesta (errore ${statusCode}). Copia e incolla il testo dell'annuncio.`,
-      "fetch_failed"
-    );
+  if (isAntiBotStatus(statusCode) || statusCode >= 400) {
+    console.error("[listing-import] Il portale ha rifiutato la richiesta diretta", {
+      status: statusCode,
+    });
+    return null;
   }
 
   if (!contentType.includes("html") && !contentType.includes("text")) {
-    throw new ListingImportError(
-      "Il link non porta a una pagina di testo. Incolla il testo dell'annuncio.",
-      "fetch_failed"
-    );
+    console.error("[listing-import] Il link diretto non porta a una pagina di testo", { contentType });
+    return null;
   }
 
-  const text = htmlToText(body).slice(0, MAX_FETCHED_CHARS);
-
-  if (looksLikeChallengePage(text)) {
-    console.error("[listing-import] Pagina di verifica anti-bot servita con stato", { status: statusCode });
-    return blockedOrFallback(url);
-  }
-
-  if (text.length < 120) {
-    return blockedOrFallback(url);
-  }
-
-  return text;
+  return usableText(htmlToText(body));
 }
 
 /**
- * Ultimo tentativo prima di rinunciare al link.
+ * Testo utilizzabile, oppure `null`.
  *
- * Raggiunto solo quando il portale ci ha effettivamente respinti, mai sul
- * percorso normale: il servizio di riserva è a consumo, e chiamarlo per
- * pagine che sappiamo già leggere sarebbe denaro speso per nulla.
- *
- * Se non è configurato, o se fallisce a sua volta, si lancia lo stesso
- * `portal_blocked` di prima: la UI porta l'agente sulla scheda "Da testo",
- * che funziona sempre. La differenza fra "riserva assente" e "riserva
- * fallita" non cambia cosa deve fare l'agente, quindi non gliela si racconta.
+ * Applicato a entrambe le sorgenti: anche il proxy può restituire il guscio di
+ * una pagina di verifica, e darlo in pasto al modello significherebbe farsi
+ * inventare un annuncio a partire dal nulla — molto peggio di un errore,
+ * perché nessuno andrebbe a controllarlo.
  */
-async function blockedOrFallback(url: URL): Promise<string> {
-  if (isScrapingFallbackConfigured()) {
-    const recovered = await fetchViaScrapingFallback(url.toString());
+function usableText(raw: string): string | null {
+  const text = raw.slice(0, MAX_FETCHED_CHARS);
 
-    if (recovered) {
-      const text = htmlToText(recovered).slice(0, MAX_FETCHED_CHARS);
-
-      // Anche la riserva può restituire il guscio di una challenge: il
-      // controllo va rifatto sul suo risultato, o si manderebbe al modello
-      // una pagina di verifica da cui inventerebbe un annuncio.
-      if (text.length >= 120 && !looksLikeChallengePage(text)) {
-        console.info("[listing-import] Pagina recuperata dal servizio di riserva");
-        return text;
-      }
-
-      console.error("[listing-import] Servizio di riserva ha restituito contenuto inutilizzabile");
-    }
+  if (looksLikeChallengePage(text)) {
+    console.error("[listing-import] Ricevuta una pagina di verifica anti-bot");
+    return null;
   }
 
-  throw new ListingImportError(PORTAL_BLOCKED_MESSAGE, "portal_blocked");
+  return text.length >= 120 ? text : null;
+}
+
+/**
+ * Tentativo tramite il servizio proxy.
+ *
+ * `null` sia quando non è configurato sia quando non ce l'ha fatta: al
+ * chiamante la differenza non cambia la mossa successiva. Il motivo preciso
+ * resta nei log di `scraping-fallback`, che è dove serve per diagnosticare.
+ */
+async function tryScrapingFallback(url: URL): Promise<string | null> {
+  if (!isScrapingFallbackConfigured()) return null;
+
+  const recovered = await fetchViaScrapingFallback(url.toString());
+  if (!recovered) return null;
+
+  const text = usableText(htmlToText(recovered));
+
+  if (text) {
+    console.info("[listing-import] Pagina recuperata tramite proxy");
+  } else {
+    console.error("[listing-import] Il proxy ha restituito contenuto inutilizzabile");
+  }
+
+  return text;
 }
 
 const SYSTEM_PROMPT = `Sei un assistente per agenzie immobiliari italiane. Ricevi il testo grezzo di un annuncio — copiato da un portale, da un gestionale o estratto da una pagina web — e ne ricavi i dati strutturati dell'immobile.
