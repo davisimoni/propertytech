@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { parsePublicHttpUrl, UNSAFE_URL_MESSAGES } from "@/lib/net/safe-url";
+import { fetchViaScrapingFallback, isScrapingFallbackConfigured } from "./scraping-fallback";
 
 const client = new Anthropic();
 
@@ -220,7 +221,7 @@ async function fetchListingText(rawUrl: string): Promise<string> {
 
   if (isAntiBotStatus(statusCode)) {
     console.error("[listing-import] Portale ha respinto la richiesta", { status: statusCode });
-    throw new ListingImportError(PORTAL_BLOCKED_MESSAGE, "portal_blocked");
+    return blockedOrFallback(url);
   }
 
   if (statusCode >= 400) {
@@ -241,14 +242,48 @@ async function fetchListingText(rawUrl: string): Promise<string> {
 
   if (looksLikeChallengePage(text)) {
     console.error("[listing-import] Pagina di verifica anti-bot servita con stato", { status: statusCode });
-    throw new ListingImportError(PORTAL_BLOCKED_MESSAGE, "portal_blocked");
+    return blockedOrFallback(url);
   }
 
   if (text.length < 120) {
-    throw new ListingImportError(PORTAL_BLOCKED_MESSAGE, "portal_blocked");
+    return blockedOrFallback(url);
   }
 
   return text;
+}
+
+/**
+ * Ultimo tentativo prima di rinunciare al link.
+ *
+ * Raggiunto solo quando il portale ci ha effettivamente respinti, mai sul
+ * percorso normale: il servizio di riserva è a consumo, e chiamarlo per
+ * pagine che sappiamo già leggere sarebbe denaro speso per nulla.
+ *
+ * Se non è configurato, o se fallisce a sua volta, si lancia lo stesso
+ * `portal_blocked` di prima: la UI porta l'agente sulla scheda "Da testo",
+ * che funziona sempre. La differenza fra "riserva assente" e "riserva
+ * fallita" non cambia cosa deve fare l'agente, quindi non gliela si racconta.
+ */
+async function blockedOrFallback(url: URL): Promise<string> {
+  if (isScrapingFallbackConfigured()) {
+    const recovered = await fetchViaScrapingFallback(url.toString());
+
+    if (recovered) {
+      const text = htmlToText(recovered).slice(0, MAX_FETCHED_CHARS);
+
+      // Anche la riserva può restituire il guscio di una challenge: il
+      // controllo va rifatto sul suo risultato, o si manderebbe al modello
+      // una pagina di verifica da cui inventerebbe un annuncio.
+      if (text.length >= 120 && !looksLikeChallengePage(text)) {
+        console.info("[listing-import] Pagina recuperata dal servizio di riserva");
+        return text;
+      }
+
+      console.error("[listing-import] Servizio di riserva ha restituito contenuto inutilizzabile");
+    }
+  }
+
+  throw new ListingImportError(PORTAL_BLOCKED_MESSAGE, "portal_blocked");
 }
 
 const SYSTEM_PROMPT = `Sei un assistente per agenzie immobiliari italiane. Ricevi il testo grezzo di un annuncio — copiato da un portale, da un gestionale o estratto da una pagina web — e ne ricavi i dati strutturati dell'immobile.
