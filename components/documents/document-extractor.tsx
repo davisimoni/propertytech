@@ -4,6 +4,7 @@ import { useRef, useState, type DragEvent } from "react";
 import {
   AlertTriangle,
   Check,
+  ChevronDown,
   Clipboard,
   Download,
   FileUp,
@@ -21,11 +22,11 @@ import { DownloadPdfButton } from "@/components/shared/download-pdf-button";
 import { DOCUMENT_PROGRESS, ProgressMessages } from "@/components/shared/progress-messages";
 import { cn } from "@/lib/utils";
 import {
-  AMBITI_DOCUMENTO,
   AMBITO_LABELS,
   DIRITTI_REALI,
   DIRITTO_REALE_LABELS,
   DOCUMENT_TYPE_LABELS,
+  type AmbitoDocumento,
   type CriticitaLivello,
   type DirittoReale,
   type DocumentExtractionResult,
@@ -278,16 +279,20 @@ const CRITICITA_LABELS: Record<CriticitaLivello, string> = {
 };
 
 /**
- * Criticità rilevate nel documento.
+ * Criticità rilevate nel documento, in forma compatta ed espandibile.
  *
- * Compare **solo se c'è qualcosa da dire**: una sezione sempre presente che
- * per lo più recita "nessun rilievo" aggiungerebbe rumore a ogni estrazione
- * e finirebbe per essere saltata proprio quando conta.
+ * A schermo l'agente vede solo livello e titolo: una riga per rilievo. Il
+ * dettaglio si apre su richiesta — con cinque criticità aperte tutte insieme
+ * la scheda diventava un muro di testo, e il rilievo grave si perdeva fra le
+ * note informative.
  *
- * Il tono è descrittivo e non prescrittivo — "da verificare", non "immobile
- * non vendibile". Il prodotto non certifica nulla: segnala un fatto e lascia
- * la valutazione al professionista, coerentemente con quanto vale per il
- * Fascicolo documentale (CLAUDE.md).
+ * In stampa il dettaglio riappare comunque (`print:block`): il foglio che
+ * esce dall'agenzia non deve dipendere da quali riquadri erano aperti sullo
+ * schermo al momento del clic.
+ *
+ * Il tono resta descrittivo e non prescrittivo — "da verificare", non
+ * "immobile non vendibile": il prodotto non certifica nulla, segnala un fatto
+ * e lascia la valutazione al professionista (CLAUDE.md).
  *
  * `?? []` non è difensivismo inutile: le estrazioni salvate prima
  * dell'introduzione di questo campo non lo contengono, e rileggerle dalla
@@ -295,6 +300,8 @@ const CRITICITA_LABELS: Record<CriticitaLivello, string> = {
  */
 function CriticitaList({ criticita }: { criticita?: DocumentExtractionResult["criticita"] }) {
   const items = criticita ?? [];
+  const [expanded, setExpanded] = useState<number | null>(null);
+
   if (items.length === 0) return null;
 
   return (
@@ -302,19 +309,59 @@ function CriticitaList({ criticita }: { criticita?: DocumentExtractionResult["cr
       <h3 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
         <AlertTriangle className="h-4 w-4 text-status-pending" />
         Elementi da verificare
+        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+          {items.length}
+        </span>
       </h3>
-      <ul className="mt-2 space-y-2">
+      <ul className="mt-2 space-y-1.5">
         {items.map((item, index) => {
           const style = CRITICITA_STYLES[item.livello] ?? CRITICITA_STYLES.informativa;
+          const isOpen = expanded === index;
+
           return (
-            <li key={index} className={cn("rounded-lg border p-3", style.box)}>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={cn("text-xs font-semibold uppercase tracking-wide", style.label)}>
+            <li key={index} className={cn("rounded-lg border", style.box)}>
+              <button
+                type="button"
+                onClick={() => setExpanded(isOpen ? null : index)}
+                aria-expanded={isOpen}
+                className="flex w-full items-center gap-2 p-2.5 text-left print:hidden"
+              >
+                <span
+                  className={cn(
+                    "shrink-0 text-[10px] font-semibold uppercase tracking-wide",
+                    style.label
+                  )}
+                >
                   {CRITICITA_LABELS[item.livello] ?? "Nota"}
                 </span>
-                <span className="text-sm font-medium text-foreground">{item.titolo}</span>
+                <span className="min-w-0 flex-1 text-sm font-medium text-foreground">
+                  {item.titolo}
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                    isOpen && "rotate-180"
+                  )}
+                  aria-hidden="true"
+                />
+              </button>
+
+              {/* In stampa titolo e dettaglio sono sempre entrambi visibili. */}
+              <div className="hidden p-2.5 print:block">
+                <span className="text-[10px] font-semibold uppercase tracking-wide">
+                  {CRITICITA_LABELS[item.livello] ?? "Nota"}
+                </span>{" "}
+                <span className="text-sm font-medium">{item.titolo}</span>
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">{item.dettaglio}</p>
+
+              <p
+                className={cn(
+                  "px-2.5 pb-2.5 text-sm text-muted-foreground print:block",
+                  !isOpen && "hidden"
+                )}
+              >
+                {item.dettaglio}
+              </p>
             </li>
           );
         })}
@@ -323,6 +370,48 @@ function CriticitaList({ criticita }: { criticita?: DocumentExtractionResult["cr
         Segnalazioni automatiche a supporto della verifica: non sostituiscono il controllo del
         professionista.
       </p>
+    </div>
+  );
+}
+
+type ResultTab = "sintesi" | "catasto" | "urbanistica" | "conservatoria";
+
+const RESULT_TABS: { id: ResultTab; label: string }[] = [
+  { id: "sintesi", label: "Sintesi & Alert" },
+  { id: "catasto", label: "Catasto & Pertinenze" },
+  { id: "urbanistica", label: "Urbanistica & Edilizia" },
+  { id: "conservatoria", label: "Conservatoria & Condominio" },
+];
+
+/** Ambiti mostrati nella scheda "Conservatoria & Condominio". */
+const CONSERVATORIA_AMBITI: AmbitoDocumento[] = ["provenienza", "formalita", "condominio"];
+
+/**
+ * Pannello di una scheda.
+ *
+ * Le schede inattive restano **montate** e vengono solo nascoste a schermo:
+ * `print:block` le fa riapparire in stampa. Smontarle sarebbe stato più
+ * semplice, ma "Stampa" stampa il DOM — e avrebbe prodotto un foglio con la
+ * sola scheda aperta, cioè un documento incompleto senza che nessuno se ne
+ * accorgesse. Copia, JSON e PDF non hanno questo problema: si costruiscono
+ * dai dati, non da ciò che è a schermo.
+ */
+function TabPanel({
+  id,
+  activeTab,
+  children,
+}: {
+  id: ResultTab;
+  activeTab: ResultTab;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      role="tabpanel"
+      aria-labelledby={`extraction-tab-${id}`}
+      className={cn("space-y-4", activeTab !== id && "hidden print:block")}
+    >
+      {children}
     </div>
   );
 }
@@ -355,6 +444,8 @@ function ExtractionResultView({
   copied,
   onReset,
 }: ExtractionResultViewProps) {
+  const [activeTab, setActiveTab] = useState<ResultTab>("sintesi");
+
   return (
     <div className="space-y-4">
       <div id="extraction-print-area" className="space-y-4 rounded-xl border border-border bg-card p-6">
@@ -371,27 +462,89 @@ function ExtractionResultView({
           )}
         </div>
 
-        {/* Sintesi in cima: è la prima cosa che l'agente legge, prima di
-            scendere nelle tabelle catastali. */}
-        <div className="rounded-xl border border-primary/25 bg-primary/5 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
-              <Sparkles className="h-3.5 w-3.5" />
-              Sintesi per l&apos;Agente
-            </h3>
-            <ShareActions
-              text={result.sintesiAgente}
-              copyLabel="Copia sintesi"
-              className="print:hidden"
-            />
-          </div>
-          <p className="mt-2 text-sm text-foreground">{result.sintesiAgente}</p>
+        {/* Barra delle schede: fuori dalla stampa, dove i pannelli vengono
+            comunque resi tutti e un elenco di linguette non significherebbe
+            nulla. Scorre in orizzontale su mobile, come in /settings. */}
+        <div
+          role="tablist"
+          aria-label="Sezioni del documento"
+          className="scrollbar-none -mx-6 flex snap-x snap-mandatory gap-1 overflow-x-auto border-b border-border px-6 print:hidden sm:snap-none"
+        >
+          {RESULT_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              id={`extraction-tab-${tab.id}`}
+              aria-selected={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "shrink-0 snap-start whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors duration-200",
+                activeTab === tab.id
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        <CriticitaList criticita={result.criticita} />
+        {/* --- Scheda 1: Sintesi & Alert --- */}
+        <TabPanel id="sintesi" activeTab={activeTab}>
+          {/* Sintesi in cima: è la prima cosa che l'agente legge. */}
+          <div className="rounded-xl border border-primary/25 bg-primary/5 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
+                <Sparkles className="h-3.5 w-3.5" />
+                Sintesi per l&apos;Agente
+              </h3>
+              <ShareActions
+                text={result.sintesiAgente}
+                copyLabel="Copia sintesi"
+                className="print:hidden"
+              />
+            </div>
+            <p className="mt-2 text-sm text-foreground">{result.sintesiAgente}</p>
+          </div>
 
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">Dati Immobile</h3>
+          <CriticitaList criticita={result.criticita} />
+
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Note e vincoli</h3>
+            <label className="mt-3 flex items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={result.noteVincoli.presenti}
+                onChange={(event) =>
+                  onChange({
+                    ...result,
+                    noteVincoli: { ...result.noteVincoli, presenti: event.target.checked },
+                  })
+                }
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+              />
+              Note o vincoli particolari presenti nel documento
+            </label>
+            <textarea
+              value={result.noteVincoli.dettagli ?? ""}
+              onChange={(event) =>
+                onChange({
+                  ...result,
+                  noteVincoli: { ...result.noteVincoli, dettagli: event.target.value },
+                })
+              }
+              rows={2}
+              placeholder="Dettagli su eventuali note o vincoli…"
+              className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+        </TabPanel>
+
+        {/* --- Scheda 2: Catasto & Pertinenze --- */}
+        <TabPanel id="catasto" activeTab={activeTab}>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Dati Immobile</h3>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <LabeledField
               label="Comune"
@@ -488,27 +641,6 @@ function ExtractionResultView({
           </ul>
         </DetailSection>
 
-        {/* Un solo array raggruppato per ambito: a schermo restituisce le
-            stesse sezioni di prima (provenienza, formalità, titoli edilizi,
-            condominio), ma con una frazione del peso nello schema — vedi la
-            nota sui limiti della grammatica in `lib/ai/document-schema.ts`. */}
-        {AMBITI_DOCUMENTO.map((ambito) => {
-          const voci = (result.altriDati ?? []).filter((item) => item.ambito === ambito);
-
-          return (
-            <DetailSection key={ambito} title={AMBITO_LABELS[ambito]} isEmpty={voci.length === 0}>
-              {voci.map((voce, index) => (
-                <div key={index} className="rounded-lg border border-border p-2.5 text-sm">
-                  <span className="font-medium text-foreground">{voce.voce}</span>
-                  {voce.dettaglio && (
-                    <p className="mt-0.5 text-muted-foreground">{voce.dettaglio}</p>
-                  )}
-                </div>
-              ))}
-            </DetailSection>
-          );
-        })}
-
         <div>
           <h3 className="text-sm font-semibold text-foreground">Dati Anagrafici Proprietari</h3>
           <div className="mt-3 overflow-x-auto rounded-lg border border-border">
@@ -597,31 +729,73 @@ function ExtractionResultView({
           </div>
         </div>
 
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">Checklist Rapida</h3>
-          <label className="mt-3 flex items-center gap-2 text-sm text-foreground">
-            <input
-              type="checkbox"
-              checked={result.noteVincoli.presenti}
-              onChange={(event) =>
-                onChange({ ...result, noteVincoli: { ...result.noteVincoli, presenti: event.target.checked } })
-              }
-              className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-            />
-            Note o vincoli particolari presenti nel documento
-          </label>
-          <textarea
-            value={result.noteVincoli.dettagli ?? ""}
-            onChange={(event) =>
-              onChange({ ...result, noteVincoli: { ...result.noteVincoli, dettagli: event.target.value } })
-            }
-            rows={2}
-            placeholder="Dettagli su eventuali note o vincoli…"
-            className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
-          />
-        </div>
+        </TabPanel>
 
-        {/* Dentro l'area di stampa: il disclaimer accompagna anche il PDF esportato. */}
+        {/* --- Scheda 3: Urbanistica & Edilizia --- */}
+        <TabPanel id="urbanistica" activeTab={activeTab}>
+          <DetailSection
+            title={AMBITO_LABELS.titolo_edilizio}
+            isEmpty={
+              (result.altriDati ?? []).filter((v) => v.ambito === "titolo_edilizio").length === 0
+            }
+          >
+            {(result.altriDati ?? [])
+              .filter((voce) => voce.ambito === "titolo_edilizio")
+              .map((voce, index) => (
+                <div key={index} className="rounded-lg border border-border p-2.5 text-sm">
+                  <span className="font-medium text-foreground">{voce.voce}</span>
+                  {voce.dettaglio && <p className="mt-0.5 text-muted-foreground">{voce.dettaglio}</p>}
+                </div>
+              ))}
+          </DetailSection>
+
+          {(result.altriDati ?? []).filter((v) => v.ambito === "titolo_edilizio").length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Nessun titolo edilizio rilevato in questo documento. CILA, SCIA, permesso di costruire
+              e agibilità compaiono qui quando si carica il relativo atto.
+            </p>
+          )}
+
+          {/* La distinzione che il mestiere richiede e che un estrattore
+              generico appiattisce. */}
+          <p className="text-[11px] text-muted-foreground">
+            La conformità urbanistica riguarda la coerenza con i titoli edilizi ed è cosa diversa
+            dalla conformità catastale: un immobile può essere in regola sull&apos;una e non
+            sull&apos;altra.
+          </p>
+        </TabPanel>
+
+        {/* --- Scheda 4: Conservatoria & Condominio --- */}
+        <TabPanel id="conservatoria" activeTab={activeTab}>
+          {CONSERVATORIA_AMBITI.map((ambito) => {
+            const voci = (result.altriDati ?? []).filter((item) => item.ambito === ambito);
+
+            return (
+              <DetailSection key={ambito} title={AMBITO_LABELS[ambito]} isEmpty={voci.length === 0}>
+                {voci.map((voce, index) => (
+                  <div key={index} className="rounded-lg border border-border p-2.5 text-sm">
+                    <span className="font-medium text-foreground">{voce.voce}</span>
+                    {voce.dettaglio && (
+                      <p className="mt-0.5 text-muted-foreground">{voce.dettaglio}</p>
+                    )}
+                  </div>
+                ))}
+              </DetailSection>
+            );
+          })}
+
+          {CONSERVATORIA_AMBITI.every(
+            (ambito) => (result.altriDati ?? []).filter((v) => v.ambito === ambito).length === 0
+          ) && (
+            <p className="text-sm text-muted-foreground">
+              Nessun dato di provenienza, formalità o condominio in questo documento. Compaiono qui
+              caricando un atto, un&apos;ispezione ipotecaria o un verbale assembleare.
+            </p>
+          )}
+        </TabPanel>
+
+        {/* Fuori dalle schede: il disclaimer vale per tutto ciò che l'AI ha
+            prodotto, e accompagna anche il foglio stampato. */}
         <AiDisclaimer />
       </div>
 
