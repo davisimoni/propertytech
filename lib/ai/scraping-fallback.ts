@@ -61,16 +61,15 @@ function isRenderEnabled(): boolean {
  *
  * ScraperAPI raccomanda **70 secondi** per il miglior tasso di successo, ma
  * non ci stanno: la rotta ha `maxDuration = 60` e dopo il recupero c'è ancora
- * l'estrazione con Claude. 35 secondi è il massimo che lascia un margine
- * onesto al modello, e i 20 precedenti erano semplicemente troppo pochi —
- * interrompevamo noi la chiamata prima che il servizio finisse, ed è da lì
- * che nascevano i TimeoutError nei log.
+ * l'estrazione con Claude. 30 secondi è il compromesso — abbastanza da non
+ * interrompere noi la chiamata (i 20 iniziali erano troppo pochi, ed è da lì
+ * che nascevano i TimeoutError), lasciando al modello mezzo minuto pieno.
  *
  * Il vero rimedio al tempo non è comunque attendere di più ma farsi bloccare
  * di meno: vedi `hardened` in `ScrapingFallbackOptions`.
  */
 function fallbackTimeoutMs(): number {
-  return 35_000;
+  return 30_000;
 }
 
 export interface ScrapingFallbackOptions {
@@ -194,7 +193,13 @@ export async function fetchViaScrapingFallback(
   options: ScrapingFallbackOptions = {}
 ): Promise<string | null> {
   const apiKey = readSecret("SCRAPER_API_KEY");
-  if (!apiKey) return null;
+  if (!apiKey) {
+    // Detto esplicitamente e non ignorato: prima questo ramo restituiva
+    // `null` in silenzio, e nei log restava solo il rifiuto del portale —
+    // che faceva sembrare il problema del sito invece che della variabile.
+    console.error("[scraping-fallback] SCRAPER_API_KEY assente o non leggibile: nessun tentativo.");
+    return null;
+  }
 
   const provider = resolveProvider();
 
@@ -213,7 +218,12 @@ export async function fetchViaScrapingFallback(
       console.error("[scraping-fallback] Servizio di riserva ha rifiutato la richiesta", {
         provider,
         status: response.status,
-        detail: detail.slice(0, 300),
+        // Anche i parametri inviati: senza, davanti a un errore non si
+        // distingue una chiave sbagliata da un `ultra_premium` non compreso
+        // nel piano, e sono due rimedi opposti.
+        ultraPremium: options.hardened || readSecret("SCRAPER_API_ULTRA_PREMIUM") === "true",
+        render: isRenderEnabled(),
+        detail: detail.slice(0, 500),
       });
       return null;
     }

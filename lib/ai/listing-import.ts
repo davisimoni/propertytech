@@ -161,9 +161,24 @@ async function fetchListingText(rawUrl: string): Promise<string> {
   // `maxDuration` della rotta. Provarlo di nuovo a ogni import sarebbe
   // ripetere un esperimento di cui conosciamo il risultato.
   if (shouldUseProxyFirst(url)) {
-    console.info("[listing-import] Portale noto per il blocco: si usa il proxy come primo tentativo", {
+    const hasKey = isScrapingFallbackConfigured();
+
+    // Riga diagnostica esplicita: dice quale strada si sta prendendo e se la
+    // chiave risulta leggibile — mai il suo valore. È la prima cosa da
+    // guardare nei log quando l'import non riesce, e la sua assenza è ciò
+    // che ha reso opaca l'intera vicenda finora.
+    console.info("[listing-import] Portale con blocco noto: si va direttamente al proxy", {
       host: url.hostname,
+      scraperApiKeyConfigured: hasKey,
     });
+
+    if (!hasKey) {
+      console.error(
+        "[listing-import] SCRAPER_API_KEY assente o non leggibile: impossibile recuperare questo portale. " +
+          "Verifica la variabile sull'ambiente Production di Vercel e ridistribuisci."
+      );
+      throw new ListingImportError(PORTAL_BLOCKED_MESSAGE, "portal_blocked");
+    }
 
     // `hardened`: su questi portali la richiesta economica è destinata a
     // fallire, quindi il livello anti-bot avanzato non è un lusso ma l'unico
@@ -204,9 +219,19 @@ async function fetchListingText(rawUrl: string): Promise<string> {
  */
 const PORTALS_REQUIRING_PROXY = ["immobiliare.it", "idealista.it", "casa.it"];
 
+/**
+ * Decisione basata **solo sul dominio**, mai sulla presenza della chiave.
+ *
+ * Legarla anche alla configurazione è stato l'errore che ha tenuto in piedi
+ * il problema: con `SCRAPER_API_KEY` non leggibile la funzione rispondeva
+ * `false`, la rotta ripiegava sulla richiesta diretta — quella che questi
+ * portali rifiutano sempre — e il fallback veniva poi saltato dallo stesso
+ * controllo. Nei log restava solo "il portale ha rifiutato la richiesta
+ * diretta", che fa sembrare il problema del portale mentre è di
+ * configurazione. Adesso il percorso è deciso dal dominio e una chiave
+ * mancante viene detta a voce alta, invece di degradare in silenzio.
+ */
 function shouldUseProxyFirst(url: URL): boolean {
-  if (!isScrapingFallbackConfigured()) return false;
-
   const host = url.hostname.toLowerCase();
   // Confronto sul suffisso di dominio, non `includes`: `immobiliare.it.evil.test`
   // non deve contare come Immobiliare.it.
