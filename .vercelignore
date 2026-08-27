@@ -40,3 +40,6 @@ ide
 downloads
 backups
 projects
+
+# Microservizio WhatsApp: gira su Render, non su Vercel.
+whatsapp-service

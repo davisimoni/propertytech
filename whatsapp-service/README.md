@@ -62,23 +62,28 @@ senza, l'AI non risponde a nessuno.
 
 ---
 
-## Deploy su Render (il più rapido)
+## I file del servizio
 
-1. Metti i due file qui sotto in un repository.
-2. Su [render.com](https://render.com) → **New → Web Service** → collega il repo.
-3. Runtime **Node**, build `npm install`, start `npm start`.
-4. Aggiungi un **Disk** montato su `/data` (1 GB basta).
-   Senza, le credenziali di sessione si perdono a ogni riavvio e tutte le
-   agenzie devono rifare la scansione.
-5. Variabili d'ambiente:
+Sono già in questa cartella, versionati insieme al resto del progetto:
 
-   | Variabile | Valore |
-   |---|---|
-   | `SERVICE_TOKEN` | un segreto lungo e casuale |
-   | `PLATFORM_WEBHOOK_URL` | `https://propertytechsolutions.net/api/whatsapp/qr/webhook` |
-   | `SESSIONS_DIR` | `/data/sessions` |
+- `package.json` — dipendenze e comando di avvio
+- `server.js` — il servizio completo
 
-6. A deploy fatto, su **Vercel** aggiungi:
+Non c'è nulla da copiare a mano: Render li prende dal repository.
+
+---
+
+## Deploy su Render
+
+La configurazione è in **`render.yaml`** nella radice del repository, quindi
+non serve impostare nulla dalla dashboard.
+
+1. Su [render.com](https://render.com) → **New → Blueprint** → collega il repo.
+   Render legge `render.yaml` e propone il servizio già configurato: piano,
+   comandi, volume su `/data` e regione Francoforte.
+2. L'unica variabile da inserire a mano è **`SERVICE_TOKEN`** (le altre sono
+   già nel file): genera un segreto lungo e casuale.
+3. A deploy fatto, su **Vercel** aggiungi:
 
    | Variabile | Valore |
    |---|---|
@@ -88,190 +93,36 @@ senza, l'AI non risponde a nessuno.
    Poi **ridistribuisci**: le variabili nuove non entrano in vigore sui
    deployment esistenti.
 
-Su Railway il procedimento è identico: New Project → Deploy from repo →
-Volume su `/data` → stesse variabili.
+Preferendo la creazione manuale (New → Web Service invece di Blueprint), le
+impostazioni da replicare sono: build `cd whatsapp-service && npm install`,
+start `cd whatsapp-service && node server.js`, health check `/health`, un
+**Disk** montato su `/data`, e le tre variabili d'ambiente.
+
+Su Railway il procedimento è analogo: New Project → Deploy from repo → Volume
+su `/data` → stesse variabili.
 
 > **Il piano gratuito di Render non va bene.** Sospende il servizio dopo
 > qualche minuto di inattività, e con esso cade il socket: le agenzie
-> risulterebbero scollegate a intermittenza. Serve un piano che tenga il
-> processo sempre acceso.
+> risulterebbero scollegate a intermittenza. `render.yaml` imposta già
+> `starter`.
+
+> **Il volume su `/data` è indispensabile.** Baileys ci scrive le credenziali
+> di sessione: senza, si perdono a ogni riavvio o nuovo deploy e **tutte** le
+> agenzie collegate devono rifare la scansione del QR.
 
 ---
 
-## `package.json`
+## Il codice
 
-```json
-{
-  "name": "propertytech-whatsapp-service",
-  "private": true,
-  "type": "module",
-  "scripts": { "start": "node server.js" },
-  "dependencies": {
-    "@whiskeysockets/baileys": "^6.7.9",
-    "express": "^4.21.2",
-    "qrcode": "^1.5.4"
-  }
-}
-```
+Sta in [`server.js`](./server.js), non riprodotto qui: due copie dello stesso
+file divergono alla prima modifica, e quella dimenticata diventa la fonte di
+un problema difficile da spiegare.
 
-## `server.js`
-
-```js
-import express from "express";
-import QRCode from "qrcode";
-import { makeWASocket, useMultiFileAuthState, DisconnectReason } from "@whiskeysockets/baileys";
-
-const app = express();
-app.use(express.json());
-
-const TOKEN = process.env.SERVICE_TOKEN;
-const WEBHOOK = process.env.PLATFORM_WEBHOOK_URL;
-const SESSIONS_DIR = process.env.SESSIONS_DIR || "./sessions";
-
-if (!TOKEN) throw new Error("SERVICE_TOKEN mancante: il servizio resterebbe aperto a chiunque.");
-
-// Una sessione per agenzia, tenuta in memoria e ricostruita all'avvio dal disco.
-const sessions = new Map();
-
-app.use((req, res, next) => {
-  const bearer = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-  if (bearer !== TOKEN) return res.status(401).json({ error: "unauthorized" });
-  next();
-});
-
-async function notify(payload) {
-  if (!WEBHOOK) return;
-  try {
-    await fetch(WEBHOOK, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-  } catch (error) {
-    // Non blocca: la piattaforma interroga comunque /status mentre il QR e'
-    // a schermo, quindi un webhook perso non impedisce l'abbinamento.
-    console.error("[notify] fallito", error.message);
-  }
-}
-
-async function startSession(sessionId) {
-  const existing = sessions.get(sessionId);
-  if (existing?.sock) return existing;
-
-  const { state, saveCreds } = await useMultiFileAuthState(`${SESSIONS_DIR}/${sessionId}`);
-  const entry = { sock: null, qr: null, status: "pending", phoneNumber: null };
-  sessions.set(sessionId, entry);
-
-  const sock = makeWASocket({ auth: state, printQRInTerminal: false });
-  entry.sock = sock;
-
-  sock.ev.on("creds.update", saveCreds);
-
-  sock.ev.on("connection.update", async (update) => {
-    const { connection, lastDisconnect, qr } = update;
-
-    if (qr) entry.qr = await QRCode.toDataURL(qr);
-
-    if (connection === "open") {
-      entry.status = "connected";
-      entry.qr = null;
-      entry.phoneNumber = sock.user?.id?.split(":")[0] ?? null;
-      await notify({ sessionId, event: "connected", phoneNumber: entry.phoneNumber });
-    }
-
-    if (connection === "close") {
-      entry.status = "disconnected";
-      const code = lastDisconnect?.error?.output?.statusCode;
-      await notify({ sessionId, event: "disconnected" });
-
-      // Riconnessione automatica salvo logout esplicito dal telefono: la
-      // caduta e' frequente e quasi sempre passeggera.
-      if (code !== DisconnectReason.loggedOut) {
-        sessions.delete(sessionId);
-        setTimeout(() => startSession(sessionId), 3000);
-      }
-    }
-  });
-
-  sock.ev.on("messages.upsert", async ({ messages, type }) => {
-    if (type !== "notify") return;
-
-    for (const msg of messages) {
-      // Si ignorano i messaggi inviati da noi e quelli dei gruppi: la
-      // qualificazione riguarda conversazioni uno-a-uno con un cliente.
-      if (msg.key.fromMe || msg.key.remoteJid?.endsWith("@g.us")) continue;
-
-      const text =
-        msg.message?.conversation || msg.message?.extendedTextMessage?.text || "";
-      if (!text) continue;
-
-      await notify({
-        sessionId,
-        event: "message",
-        message: {
-          from: msg.key.remoteJid.split("@")[0],
-          text,
-          profileName: msg.pushName || undefined,
-        },
-      });
-    }
-  });
-
-  return entry;
-}
-
-app.post("/sessions/:id/connect", async (req, res) => {
-  const entry = await startSession(req.params.id);
-
-  // Il QR arriva in modo asincrono da Baileys: si attende qualche istante
-  // invece di rispondere subito con null, che l'interfaccia mostrerebbe come
-  // "codice non disponibile".
-  for (let i = 0; i < 20 && !entry.qr && entry.status !== "connected"; i++) {
-    await new Promise((r) => setTimeout(r, 250));
-  }
-
-  if (entry.status === "connected") return res.json({ qrDataUrl: null, alreadyConnected: true });
-  if (!entry.qr) return res.status(504).json({ error: "qr_not_ready" });
-
-  res.json({ qrDataUrl: entry.qr });
-});
-
-app.get("/sessions/:id/status", (req, res) => {
-  const entry = sessions.get(req.params.id);
-  res.json({
-    status: entry?.status ?? "disconnected",
-    phoneNumber: entry?.phoneNumber ?? null,
-  });
-});
-
-app.post("/sessions/:id/send", async (req, res) => {
-  const entry = sessions.get(req.params.id);
-  if (!entry?.sock || entry.status !== "connected") {
-    return res.status(409).json({ error: "not_connected" });
-  }
-
-  const { to, text } = req.body || {};
-  if (!to || !text) return res.status(400).json({ error: "invalid_payload" });
-
-  await entry.sock.sendMessage(`${String(to).replace(/\D/g, "")}@s.whatsapp.net`, { text });
-  res.json({ ok: true });
-});
-
-app.delete("/sessions/:id", async (req, res) => {
-  const entry = sessions.get(req.params.id);
-  if (entry?.sock) {
-    try {
-      await entry.sock.logout();
-    } catch {
-      // Gia' disconnesso: la sessione va comunque rimossa.
-    }
-  }
-  sessions.delete(req.params.id);
-  res.json({ ok: true });
-});
-
-app.listen(process.env.PORT || 3000, () => console.log("whatsapp-service in ascolto"));
-```
+In sintesi cosa fa: una sessione Baileys per agenzia, credenziali su disco in
+`SESSIONS_DIR`, riconnessione automatica salvo logout esplicito dal telefono,
+inoltro alla piattaforma dei messaggi uno-a-uno (esclusi gruppi e messaggi
+inviati da noi), e `/health` esposta **prima** dell'autenticazione perché
+Render la interroga senza credenziali.
 
 ---
 

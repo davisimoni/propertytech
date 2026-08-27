@@ -1,0 +1,48 @@
+# Configurazione Render del microservizio di sessione WhatsApp.
+#
+# Riguarda SOLO whatsapp-service/: l'applicazione Next.js resta su Vercel.
+# Render legge questo file dalla radice del repository e crea il servizio da
+# se', senza impostazioni manuali dalla dashboard.
+#
+# Dopo il deploy servono due variabili su VERCEL, non qui:
+#   WHATSAPP_SERVICE_URL    = l'URL pubblico di questo servizio
+#   WHATSAPP_SERVICE_TOKEN  = lo STESSO valore di SERVICE_TOKEN qui sotto
+# poi un redeploy: le variabili nuove non entrano in vigore su quelli esistenti.
+
+services:
+  - type: web
+    name: propertytech-whatsapp-service
+    env: node
+    # `starter` e non `free`: il piano gratuito sospende il servizio dopo
+    # qualche minuto di inattivita', e con esso cade il socket verso WhatsApp.
+    # Le agenzie risulterebbero scollegate a intermittenza, senza un motivo
+    # visibile in dashboard.
+    plan: starter
+    region: frankfurt
+    buildCommand: cd whatsapp-service && npm install
+    startCommand: cd whatsapp-service && node server.js
+    healthCheckPath: /health
+
+    # INDISPENSABILE. Baileys scrive qui le credenziali di sessione: senza un
+    # volume persistente si perdono a ogni riavvio o nuovo deploy, e TUTTE le
+    # agenzie collegate devono rifare la scansione del QR.
+    disk:
+      name: whatsapp-sessions
+      mountPath: /data
+      sizeGB: 1
+
+    envVars:
+      # Segreto condiviso con la piattaforma: autentica sia le chiamate in
+      # arrivo sia i webhook in uscita. Da generare lungo e casuale.
+      - key: SERVICE_TOKEN
+        sync: false
+
+      # Dove il servizio recapita abbinamenti e messaggi in arrivo. Senza,
+      # l'abbinamento funziona lo stesso (la scheda interroga /status) ma
+      # l'AI non riceve i messaggi dei clienti.
+      - key: PLATFORM_WEBHOOK_URL
+        value: https://propertytechsolutions.net/api/whatsapp/qr/webhook
+
+      # Deve puntare dentro il volume qui sopra.
+      - key: SESSIONS_DIR
+        value: /data/sessions
