@@ -39,6 +39,20 @@ export const agentReplySchema = z.object({
     .string()
     .nullable()
     .describe("Budget dichiarato dal cliente, se menzionato spontaneamente; altrimenti null."),
+  /**
+   * Zona di interesse. Come il budget, si **raccoglie** se il cliente la
+   * nomina — non si chiede: le domande restano tre, e aggiungerne una quarta
+   * allungherebbe la qualificazione proprio dove il tasso di abbandono è più
+   * alto. Serve allo Smart Match, che finora funzionava solo sui lead
+   * importati da CSV: quelli arrivati da WhatsApp non avevano mai una zona,
+   * quindi non venivano mai abbinati a un immobile in portafoglio.
+   */
+  preferredZone: z
+    .string()
+    .nullable()
+    .describe(
+      "Zona, quartiere o comune che il cliente dice di cercare, se lo menziona spontaneamente (es. 'Navigli', 'zona centro'). NON chiederlo: null se non emerge da solo."
+    ),
   outcome: z
     .enum(["CONTINUE", "QUALIFIED", "UNQUALIFIED"])
     .describe(

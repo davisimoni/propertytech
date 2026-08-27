@@ -181,6 +181,10 @@ export async function handleIncomingMessage(
       mustSellFirst: agentReply.mustSellFirst,
       timeframe: agentReply.timeframe,
       budget: agentReply.budget ?? lead.budget,
+      // `??` e non sovrascrittura secca, come per il budget: se il cliente ha
+      // nominato la zona a inizio conversazione e non la ripete più, i turni
+      // successivi restituiscono null e la cancellerebbero.
+      preferredZone: agentReply.preferredZone ?? lead.preferredZone,
       qualificationStatus:
         agentReply.outcome === "CONTINUE" ? "IN_PROGRESS" : agentReply.outcome,
       ownedPropertiesCount,
@@ -215,6 +219,17 @@ export async function handleIncomingMessage(
       error,
     });
   }
+
+  // Prima dell'invio, così il log resta anche se la consegna fallisce: senza,
+  // davanti a un cliente che non riceve nulla non si distinguerebbe un'AI che
+  // non ha risposto da una risposta che non è partita.
+  console.info("[WA-AI-RESPONSE]", {
+    leadId: lead.id,
+    provider: config.provider,
+    isFallback: replyText === AGENT_FALLBACK_MESSAGE,
+    chars: replyText.length,
+    fieldsUpdated: Object.keys(leadUpdate),
+  });
 
   await sendWhatsAppMessageForProvider(resolveWhatsAppCredentials(config), lead.clientPhone, replyText);
 

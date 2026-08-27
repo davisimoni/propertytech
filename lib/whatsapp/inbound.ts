@@ -30,6 +30,34 @@ export async function handleInboundWhatsAppMessage(
 ): Promise<void> {
   const clientPhone = normalizePhone(message.fromPhone);
 
+  console.info("[WA-INBOUND-MESSAGE]", {
+    organizationId: config.organizationId,
+    provider: config.provider,
+    // Numero troncato: nei log resta abbastanza per riconoscere una
+    // conversazione senza conservare per intero il recapito di una persona
+    // che ha solo chiesto informazioni su una casa (CLAUDE.md §5).
+    from: `${clientPhone.slice(0, 6)}…`,
+    chars: message.text.length,
+  });
+
+  /**
+   * Guardia anti-loop: un messaggio che arriva dal numero **dell'agenzia
+   * stessa** non è un cliente da qualificare.
+   *
+   * Il microservizio QR già scarta i messaggi con `fromMe`, ma affidare la
+   * protezione a un solo strato — per giunta in un processo separato, che può
+   * essere riavviato o sostituito — significa che il giorno in cui quel
+   * filtro sbaglia l'AI apre una scheda sull'agenzia e comincia a farle le
+   * domande di qualificazione, consumando crediti a ogni giro. Qui costa un
+   * confronto fra stringhe.
+   */
+  if (config.phoneNumber && clientPhone === normalizePhone(config.phoneNumber)) {
+    console.warn("[WA-INBOUND-MESSAGE] Ignorato: mittente uguale al numero dell'agenzia", {
+      organizationId: config.organizationId,
+    });
+    return;
+  }
+
   const existing = await prisma.lead.findUnique({
     where: { organizationId_clientPhone: { organizationId: config.organizationId, clientPhone } },
   });
