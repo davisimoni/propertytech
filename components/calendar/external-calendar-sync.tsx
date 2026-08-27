@@ -261,7 +261,7 @@ export function ExternalCalendarSync() {
                       che sembra rotto. */}
                   <a
                     href={`/api/calendar/${provider}/connect`}
-                    className="inline-flex w-fit items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-foreground shadow-sm transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+                    className="inline-flex w-fit items-center gap-2 rounded-lg border border-border-strong bg-background px-3 py-2 text-xs font-medium text-foreground shadow-sm transition-all duration-200 hover:border-primary/40 hover:bg-muted"
                   >
                     <Mark />
                     {CONNECT_LABELS[provider]}

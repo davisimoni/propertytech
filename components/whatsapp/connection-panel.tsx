@@ -18,7 +18,10 @@ import {
   WHATSAPP_PROVIDERS,
   type WhatsAppProviderId,
 } from "@/lib/whatsapp/provider";
-import { MetaConnectButton } from "@/components/whatsapp/meta-connect-button";
+import {
+  isMetaSignupConfigured,
+  MetaConnectButton,
+} from "@/components/whatsapp/meta-connect-button";
 import { QrConnect } from "@/components/whatsapp/qr-connect";
 import { cn } from "@/lib/utils";
 
@@ -55,7 +58,7 @@ function CopyableField({ label, value, icon: Icon }: { label: string; value: str
 }
 
 const inputClass =
-  "mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30";
+  "mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40";
 
 export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: () => void }) {
   const [config, setConfig] = useState<WhatsAppConfigView | null>(null);
@@ -318,19 +321,23 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                 </div>
               </div>
 
-              {/* --- Collegamento ufficiale Meta: resta disponibile per chi ha
-                  già un account Business verificato. --- */}
-              <div className="rounded-xl border border-border bg-muted/20 p-4">
-                <h4 className="text-sm font-semibold text-foreground">
-                  Hai già un account Meta Business?
-                </h4>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Collega WhatsApp Cloud API, il canale ufficiale di Meta.
-                </p>
-                <div className="mt-3">
-                  <MetaConnectButton onConnected={handleGuidedConnect} />
+              {/* --- Collegamento ufficiale Meta: mostrato solo dove è
+                  davvero attivabile. Su un ambiente senza credenziali Meta
+                  questo blocco proponeva una strada chiusa, e l'avviso che lo
+                  spiegava rubava attenzione alla CTA che invece funziona. --- */}
+              {isMetaSignupConfigured() && (
+                <div className="rounded-xl border border-border bg-muted/20 p-4">
+                  <h4 className="text-sm font-semibold text-foreground">
+                    Hai già un account Meta Business?
+                  </h4>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Collega WhatsApp Cloud API, il canale ufficiale di Meta.
+                  </p>
+                  <div className="mt-3">
+                    <MetaConnectButton onConnected={handleGuidedConnect} />
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* --- Configurazione avanzata: nascosta finché non richiesta
                   esplicitamente — è il percorso per chi vuole (o deve)

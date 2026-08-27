@@ -16,6 +16,13 @@
   --card: 0 0% 100%;
   --card-foreground: 216 89% 11%;
   --border: 214 32% 91%;
+  /**
+   * Bordo degli elementi con cui si interagisce: aree di trascinamento,
+   * textarea, pulsanti secondari. Più marcato di `--border`, che va bene per
+   * separare ma sparisce quando deve invece dire "qui puoi agire".
+   * Sul tema chiaro basta poco: su fondo bianco un bordo troppo scuro pesa.
+   */
+  --border-strong: 214 25% 78%;
   --muted: 210 40% 96%;
   --muted-foreground: 215 19% 45%;
   --primary: 216 100% 50%; /* brand blue #0066FF */
@@ -29,6 +36,12 @@
   --card: 211 53% 11%; /* #0D1B2A */
   --card-foreground: 210 40% 98%;
   --border: 214 35% 20%;
+  /**
+   * Qui la differenza si sente davvero: su fondo carta all'11% un bordo al
+   * 20% è quasi invisibile, e le aree di trascinamento sembravano assenti.
+   * Al 36% il contorno si legge senza diventare una gabbia.
+   */
+  --border-strong: 214 30% 36%;
   --muted: 213 40% 16%;
   --muted-foreground: 215 20% 68%;
   --primary: 216 100% 58%; /* blue schiarito per il contrasto su fondo scuro */
@@ -58,9 +71,9 @@ body {
 
   /* Azioni secondarie: contorno neutro, stessa curvatura e transizione. */
   .btn-outline {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-border-strong px-4 py-2
            text-sm font-medium text-foreground transition-all duration-200
-           hover:border-primary/40 hover:bg-muted
+           hover:border-primary hover:bg-muted
            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary
            disabled:cursor-not-allowed disabled:opacity-50;
   }
@@ -70,10 +83,26 @@ body {
     @apply rounded-xl border border-border bg-card;
   }
 
+  /* Campi di inserimento: bordo marcato, perché un campo deve dichiararsi
+     tale prima che ci si clicchi dentro. Il focus alza sia il bordo sia
+     l'anello, così resta evidente dove si sta scrivendo anche su schermi
+     poco contrastati o alla luce del sole — l'agente lavora sul campo. */
   .input-field {
-    @apply w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground
+    @apply w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground
            outline-none transition-all duration-200
-           focus:border-primary/50 focus:ring-2 focus:ring-primary/30;
+           hover:border-primary/50
+           focus:border-primary focus:ring-2 focus:ring-primary/40;
+  }
+
+  /* Aree di trascinamento file: stesso linguaggio visivo ovunque compaiano. */
+  .dropzone {
+    @apply rounded-lg border-2 border-dashed border-border-strong bg-transparent
+           transition-colors duration-200
+           hover:border-primary hover:bg-primary/5;
+  }
+
+  .dropzone-active {
+    @apply border-primary bg-primary/10;
   }
 }
 

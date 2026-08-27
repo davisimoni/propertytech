@@ -211,7 +211,7 @@ export function SupportWidget() {
                 rows={1}
                 maxLength={MAX_QUESTION_LENGTH}
                 placeholder="Scrivi la tua domanda…"
-                className="max-h-24 min-h-[2.5rem] flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 placeholder:text-muted-foreground/60 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+                className="max-h-24 min-h-[2.5rem] flex-1 resize-none rounded-xl border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/40"
               />
               <button
                 type="submit"

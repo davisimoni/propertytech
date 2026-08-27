@@ -155,7 +155,7 @@ export function SlotManager() {
               value={agentName}
               onChange={(event) => setAgentName(event.target.value)}
               placeholder="Marco Bianchi"
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
             />
             <datalist id="existing-agents">
               {[...new Set(slots.map((slot) => slot.agentName))].map((name) => (
@@ -173,7 +173,7 @@ export function SlotManager() {
               type="date"
               value={date}
               onChange={(event) => setDate(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
             />
           </div>
 
@@ -186,7 +186,7 @@ export function SlotManager() {
               type="time"
               value={startTime}
               onChange={(event) => setStartTime(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
             />
           </div>
 
@@ -199,7 +199,7 @@ export function SlotManager() {
               type="time"
               value={endTime}
               onChange={(event) => setEndTime(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
             />
           </div>
         </div>

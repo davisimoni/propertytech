@@ -17,6 +17,8 @@ const config: Config = {
         // Colori semantici: risolti dalle variabili CSS, così i componenti
         // seguono automaticamente tema chiaro/scuro.
         border: "hsl(var(--border))",
+        /** Bordo marcato per gli elementi interattivi: `border-border-strong`. */
+        "border-strong": "hsl(var(--border-strong))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         muted: {

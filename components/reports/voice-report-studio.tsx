@@ -205,7 +205,7 @@ export function VoiceReportStudio() {
               value={propertyRef}
               onChange={(event) => setPropertyRef(event.target.value)}
               placeholder="Rif. A102 — Trilocale Via Roma 12"
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
             />
           </div>
 
@@ -219,7 +219,7 @@ export function VoiceReportStudio() {
               value={sellerName}
               onChange={(event) => setSellerName(event.target.value)}
               placeholder="Sig.ra Bianchi"
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
             />
           </div>
 
@@ -233,7 +233,7 @@ export function VoiceReportStudio() {
               value={sellerPhone}
               onChange={(event) => setSellerPhone(event.target.value)}
               placeholder="+39 333 1234567"
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
             />
           </div>
         </div>
@@ -295,8 +295,8 @@ export function VoiceReportStudio() {
                 if (event.key === "Enter" || event.key === " ") inputRef.current?.click();
               }}
               className={cn(
-                "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-center transition-all duration-200",
-                isDragActive ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                "dropzone flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl p-6 text-center",
+                isDragActive && "dropzone-active"
               )}
             >
               <input
@@ -344,7 +344,7 @@ export function VoiceReportStudio() {
               onChange={(event) => setNotes(event.target.value)}
               rows={5}
               placeholder="Visita con la famiglia Rossi. La casa piace molto, soprattutto la luminosità del soggiorno, ma ritengono la cucina troppo piccola e il prezzo di 250.000€ fuori mercato di almeno 20.000€."
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
             />
           </div>
         )}

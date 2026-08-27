@@ -75,7 +75,10 @@ function Tab({
         "inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
         isActive
           ? "bg-brand-gradient text-white shadow-sm"
-          : "border border-border text-muted-foreground hover:border-primary/40 hover:bg-muted"
+          : // Bordo marcato e testo pieno: da inattivo era doppiamente
+            // sbiadito — contorno appena percettibile e testo attenuato — e
+            // sembrava disabilitato invece che solo non selezionato.
+            "border border-border-strong text-foreground hover:border-primary hover:bg-muted"
       )}
     >
       {icon}

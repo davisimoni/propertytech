@@ -124,7 +124,7 @@ export function CancellationSurveyModal({
                 rows={3}
                 maxLength={2000}
                 placeholder="Raccontaci cosa è mancato o cosa possiamo migliorare…"
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+                className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
               />
             </div>
 

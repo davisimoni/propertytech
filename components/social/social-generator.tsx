@@ -134,7 +134,7 @@ export function SocialGenerator() {
               value={propertyTitle}
               onChange={(event) => setPropertyTitle(event.target.value)}
               placeholder="Trilocale ristrutturato in Via Roma"
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
             />
           </div>
 
@@ -148,7 +148,7 @@ export function SocialGenerator() {
               onChange={(event) => setKeyPoints(event.target.value)}
               rows={4}
               placeholder="Trilocale, 80mq, ristrutturato 2023, zona centrale, 250.000€, balcone abitabile, terzo piano con ascensore, classe energetica C"
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
             />
             <p className="mt-1 text-xs text-muted-foreground">
               Scrivi liberamente: l&apos;AI userà solo i dati che inserisci, senza inventarne altri.

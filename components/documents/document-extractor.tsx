@@ -163,9 +163,14 @@ export function DocumentExtractor() {
           if (event.key === "Enter" || event.key === " ") inputRef.current?.click();
         }}
         className={cn(
-          "flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-12 text-center transition-colors",
-          status === "uploading" ? "cursor-default border-border" : "cursor-pointer border-border hover:border-primary/50",
-          isDragActive && "border-primary bg-primary/5"
+          "dropzone flex flex-col items-center justify-center gap-3 p-12 text-center",
+          // Durante il caricamento l'area non è più un bersaglio: si spegne
+          // l'invito al passaggio del mouse, o continuerebbe a promettere
+          // un'azione che in quel momento non è disponibile.
+          status === "uploading"
+            ? "cursor-default hover:border-border-strong hover:bg-transparent"
+            : "cursor-pointer",
+          isDragActive && "dropzone-active"
         )}
       >
         <input
@@ -536,7 +541,7 @@ function ExtractionResultView({
               }
               rows={2}
               placeholder="Dettagli su eventuali note o vincoli…"
-              className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+              className="mt-2 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
             />
           </div>
         </TabPanel>
@@ -668,7 +673,7 @@ function ExtractionResultView({
                           proprietari[index] = { ...proprietario, nomeCognome: event.target.value };
                           onChange({ ...result, proprietari });
                         }}
-                        className="w-full rounded-lg border border-border bg-background px-2 py-1 text-sm outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+                        className="w-full rounded-lg border border-border bg-background px-2 py-1 text-sm outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
                       />
                     </td>
                     <td className="p-2">
@@ -680,7 +685,7 @@ function ExtractionResultView({
                           proprietari[index] = { ...proprietario, codiceFiscale: event.target.value };
                           onChange({ ...result, proprietari });
                         }}
-                        className="w-full rounded-lg border border-border bg-background px-2 py-1 text-sm outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+                        className="w-full rounded-lg border border-border bg-background px-2 py-1 text-sm outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
                       />
                     </td>
                     <td className="p-2">
@@ -692,7 +697,7 @@ function ExtractionResultView({
                           proprietari[index] = { ...proprietario, quotaProprieta: event.target.value };
                           onChange({ ...result, proprietari });
                         }}
-                        className="w-full rounded-lg border border-border bg-background px-2 py-1 text-sm outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+                        className="w-full rounded-lg border border-border bg-background px-2 py-1 text-sm outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
                       />
                     </td>
                     <td className="p-2">
@@ -706,7 +711,7 @@ function ExtractionResultView({
                           };
                           onChange({ ...result, proprietari });
                         }}
-                        className="w-full rounded-lg border border-border bg-background px-2 py-1 text-sm outline-none transition-all duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+                        className="w-full rounded-lg border border-border bg-background px-2 py-1 text-sm outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
                       >
                         {DIRITTI_REALI.map((diritto) => (
                           <option key={diritto} value={diritto}>

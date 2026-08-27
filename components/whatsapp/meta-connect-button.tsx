@@ -5,6 +5,18 @@ import { Facebook, Loader2 } from "lucide-react";
 
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID;
 const META_CONFIG_ID = process.env.NEXT_PUBLIC_META_CONFIG_ID;
+
+/**
+ * Vero quando l'Embedded Signup è utilizzabile su questo ambiente.
+ *
+ * Esposta perché è la scheda a doverla interrogare: senza credenziali va
+ * nascosto **tutto il blocco** Meta, non solo il pulsante. Nasconderne solo
+ * il pulsante lascerebbe a schermo un riquadro con titolo e descrizione e
+ * nessuna azione — peggio dell'avviso che ha sostituito.
+ */
+export function isMetaSignupConfigured(): boolean {
+  return Boolean(META_APP_ID && META_CONFIG_ID);
+}
 const SDK_VERSION = "v21.0";
 
 interface FacebookLoginResponse {
@@ -196,14 +208,9 @@ export function MetaConnectButton({ onConnected }: { onConnected: () => void }) 
     );
   }
 
-  if (!META_APP_ID || !META_CONFIG_ID) {
-    return (
-      <p className="rounded-lg border border-dashed border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-        Il collegamento guidato non è ancora configurato su questo ambiente. Usa la configurazione
-        avanzata qui sotto per inserire le credenziali manualmente.
-      </p>
-    );
-  }
+  // Difesa: chi monta il pulsante dovrebbe già aver verificato con
+  // `isMetaSignupConfigured`, ma qui non si dà per scontato.
+  if (!isMetaSignupConfigured()) return null;
 
   return (
     <div>
