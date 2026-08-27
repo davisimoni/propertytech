@@ -211,7 +211,7 @@ export function CrmConnector({ state, onSaved }: CrmConnectorProps) {
             {provider.authHeaderName && (
               <>
                 {" "}
-                (<code className="rounded bg-muted px-1">{provider.authHeaderName}</code>)
+                (<code className="break-all rounded bg-muted px-1">{provider.authHeaderName}</code>)
               </>
             )}
           </p>
@@ -387,7 +387,7 @@ export function CrmConnector({ state, onSaved }: CrmConnectorProps) {
         <div className="mt-4 border-t border-border pt-3">
           <p className="text-xs text-muted-foreground">
             Segreto di firma — il tuo gestionale può usarlo per verificare l&apos;header{" "}
-            <code className="rounded bg-muted px-1">X-PropertyTech-Signature</code> (HMAC-SHA256 del
+            <code className="break-all rounded bg-muted px-1">X-PropertyTech-Signature</code> (HMAC-SHA256 del
             corpo della richiesta).
           </p>
           <div className="mt-1.5 flex items-center gap-2">

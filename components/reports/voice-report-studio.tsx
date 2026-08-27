@@ -368,7 +368,10 @@ export function VoiceReportStudio() {
           className="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 disabled:opacity-50"
         >
           {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          {isGenerating ? "Generazione report in corso…" : "Genera report per il proprietario"}
+          {/* "Genera report" e basta: l'etichetta lunga andava a capo dentro
+              il pulsante su schermo stretto, e il destinatario è già detto
+              dal titolo della sezione. */}
+          {isGenerating ? "Generazione report in corso…" : "Genera report"}
         </button>
 
         {isGenerating && <ProgressMessages messages={REPORT_PROGRESS} className="mt-3 block" />}

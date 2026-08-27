@@ -99,8 +99,12 @@ export function OnboardingChecklist() {
 
   return (
     <section className="card-surface overflow-hidden">
-      <div className="flex flex-wrap items-start justify-between gap-3 p-5 pb-3">
-        <div>
+      {/* Stesso motivo di agency-name-prompt: con `flex-wrap` la X andava a
+          capo e finiva a sinistra. Qui il blocco di testo non aveva nemmeno
+          `min-w-0`, quindi non poteva restringersi e il ritorno a capo era
+          garantito su qualunque telefono. */}
+      <div className="flex items-start justify-between gap-3 p-5 pb-3">
+        <div className="min-w-0">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Rocket className="h-4 w-4 text-primary" />
             Primi passi: dal contatto al Match Perfetto

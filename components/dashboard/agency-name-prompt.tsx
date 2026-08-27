@@ -59,7 +59,12 @@ export function AgencyNamePrompt({ initialName }: { initialName: string }) {
 
   return (
     <section className="rounded-xl border border-primary/30 bg-primary/5 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      {/* Niente `flex-wrap`: su schermo stretto mandava a capo la X, che sulla
+          riga nuova finiva a SINISTRA — `justify-between` con un solo elemento
+          lo allinea all'inizio. Il blocco di testo ha già `min-w-0` e si
+          restringe da solo, quindi il pulsante resta dove ci si aspetta: in
+          alto a destra. */}
+      <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-gradient text-white shadow-sm">
             <Building2 className="h-5 w-5" />

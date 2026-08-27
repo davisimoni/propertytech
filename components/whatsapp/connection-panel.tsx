@@ -271,12 +271,12 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                       Numero Twilio:{" "}
                       <span className="font-medium">{config.twilioWhatsAppNumber ?? "non specificato"}</span>
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="mt-1 break-all text-xs text-muted-foreground">
                       Account SID: {config.twilioAccountSid}
                     </p>
                   </>
                 ) : config.provider === "generic" ? (
-                  <p className="text-sm text-foreground">
+                  <p className="break-all text-sm text-foreground">
                     Endpoint di invio:{" "}
                     <span className="font-medium">{config.genericSendUrl}</span>
                   </p>
@@ -286,7 +286,7 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                       Numero collegato:{" "}
                       <span className="font-medium">{config.phoneNumber ?? "non specificato"}</span>
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="mt-1 break-all text-xs text-muted-foreground">
                       Phone Account ID: {config.metaPhoneAccountId}
                     </p>
                   </>
@@ -584,7 +584,7 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
             {provider === "twilio" ? (
               <>
                 Nella Console Twilio imposta come webhook &quot;When a message comes in&quot;{" "}
-                <code className="rounded bg-muted px-1 py-0.5">
+                <code className="break-all rounded bg-muted px-1 py-0.5">
                   {origin}
                   {WHATSAPP_PROVIDERS.twilio.webhookPathHint}
                 </code>
@@ -594,7 +594,7 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
             ) : (
               <>
                 Nel pannello Meta imposta come Callback URL{" "}
-                <code className="rounded bg-muted px-1 py-0.5">
+                <code className="break-all rounded bg-muted px-1 py-0.5">
                   {origin}
                   {WHATSAPP_PROVIDERS.meta.webhookPathHint}
                 </code>
