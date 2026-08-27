@@ -36,13 +36,13 @@ export function PlanGrid({ currentPlanId }: { currentPlanId: PlanId }) {
   const searchParams = useSearchParams();
   const requested = searchParams.get("interval");
 
-  const [interval, setInterval] = useState<BillingInterval>(
+  const [interval, setBillingInterval] = useState<BillingInterval>(
     requested === "yearly" ? "yearly" : "monthly"
   );
 
   return (
     <div>
-      <BillingIntervalToggle value={interval} onChange={setInterval} />
+      <BillingIntervalToggle value={interval} onChange={setBillingInterval} />
 
       <div className="mt-8 grid gap-4 lg:grid-cols-4">
         {Object.values(PLANS).map((plan) => {

@@ -21,7 +21,7 @@ function formatAgendas(limit: number | null): string {
 }
 
 export function PricingSection({ isLoggedIn }: { isLoggedIn: boolean }) {
-  const [interval, setInterval] = useState<BillingInterval>("monthly");
+  const [interval, setBillingInterval] = useState<BillingInterval>("monthly");
 
   // I piani arrivano da lib/plans.ts: prezzi e limiti restano allineati a
   // quelli applicati davvero dal paywall.
@@ -44,7 +44,7 @@ export function PricingSection({ isLoggedIn }: { isLoggedIn: boolean }) {
           </p>
         </div>
 
-        <BillingIntervalToggle value={interval} onChange={setInterval} className="mt-8" />
+        <BillingIntervalToggle value={interval} onChange={setBillingInterval} className="mt-8" />
 
         <div className="mt-10 grid gap-4 lg:grid-cols-4">
           {plans.map((plan) => {
