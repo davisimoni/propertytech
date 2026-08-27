@@ -470,6 +470,19 @@ model WhatsAppConfig {
   /// Credenziale opzionale (Bearer), cifrata come sopra.
   genericAuthToken String?
 
+  /// --- Collegamento via QR (provider = "qr") ---
+  ///
+  /// Nome della sessione sul microservizio esterno che tiene aperto il socket
+  /// verso WhatsApp. Non contiene credenziali: le chiavi della sessione
+  /// restano sul microservizio, qui c'è solo il riferimento con cui
+  /// interrogarlo. Un'esposizione di questo campo non permette di inviare
+  /// messaggi — serve comunque la chiave del servizio, che vive in ambiente.
+  qrSessionId    String?  @unique
+  /// Quando la sessione è stata abbinata: utile a spiegare all'agenzia da
+  /// quanto regge il collegamento, che con un client non ufficiale può
+  /// cadere e richiedere una nuova scansione.
+  qrConnectedAt  DateTime?
+
   /// --- Promemoria anti no-show ---
   /// Attivo per default: il no-show è il costo operativo che questa funzione
   /// esiste per ridurre, e un'agenzia che non lo vuole lo disattiva in un clic.

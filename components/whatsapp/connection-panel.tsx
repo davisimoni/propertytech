@@ -19,6 +19,7 @@ import {
   type WhatsAppProviderId,
 } from "@/lib/whatsapp/provider";
 import { MetaConnectButton } from "@/components/whatsapp/meta-connect-button";
+import { QrConnect } from "@/components/whatsapp/qr-connect";
 import { cn } from "@/lib/utils";
 
 function CopyableField({ label, value, icon: Icon }: { label: string; value: string; icon: typeof Mail }) {
@@ -113,6 +114,27 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
   async function save(disconnect = false) {
     setIsSaving(true);
     setError(null);
+
+    // Una sessione QR si stacca dalla sua rotta, non da `/config`: oltre a
+    // ripulire il database bisogna chiudere il socket e cancellare le
+    // credenziali sul microservizio. Passare di qui lascerebbe la sessione
+    // viva là fuori, ancora capace di inviare a nome dell'agenzia.
+    if (disconnect && provider === "qr") {
+      try {
+        const response = await fetch("/api/whatsapp/qr/generate", { method: "DELETE" });
+        if (!response.ok) {
+          setError("Disconnessione non riuscita. Riprova.");
+          return;
+        }
+        setConfig((await response.json()) as WhatsAppConfigView);
+        onConnectionChange?.();
+      } catch {
+        setError("Errore di rete durante la disconnessione.");
+      } finally {
+        setIsSaving(false);
+      }
+      return;
+    }
 
     const payload = disconnect
       ? { provider, disconnect: true }
@@ -227,7 +249,20 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
           {config.isConnected ? (
             <div className="mt-3 space-y-3">
               <div className="rounded-lg border border-border bg-muted/40 p-4">
-                {config.provider === "twilio" ? (
+                {config.provider === "qr" ? (
+                  <>
+                    <p className="text-sm text-foreground">
+                      Numero collegato:{" "}
+                      <span className="font-medium">
+                        {config.phoneNumber ?? "in attesa dal dispositivo"}
+                      </span>
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Collegato via QR. Se scolleghi il dispositivo da WhatsApp sul telefono, il
+                      collegamento cade e va rifatta la scansione.
+                    </p>
+                  </>
+                ) : config.provider === "twilio" ? (
                   <>
                     <p className="text-sm text-foreground">
                       Numero Twilio:{" "}
@@ -266,14 +301,31 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
             </div>
           ) : (
             <div className="mt-3 space-y-4">
-              {/* --- Collegamento guidato (Embedded Signup) --- */}
-              <div className="rounded-xl border border-border bg-muted/20 p-4">
+              {/* --- Collegamento rapido con QR: la strada preferita.
+                  Nessun account sviluppatore, nessuna verifica Business: si
+                  inquadra un codice col telefono e si è operativi. È il
+                  percorso che riduce l'abbandono in fase di attivazione. --- */}
+              <div className="rounded-xl border border-primary/25 bg-primary/5 p-4">
                 <h4 className="text-sm font-semibold text-foreground">
                   Collega il tuo WhatsApp Business
                 </h4>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Collega il tuo account in pochi secondi per permettere all&apos;AI di
-                  qualificare automaticamente i lead ricevuti dai portali.
+                  Inquadra un codice col telefono, come su WhatsApp Web: nessun account
+                  sviluppatore da creare. L&apos;AI inizia subito a qualificare i lead dai portali.
+                </p>
+                <div className="mt-3">
+                  <QrConnect onConnected={handleGuidedConnect} />
+                </div>
+              </div>
+
+              {/* --- Collegamento ufficiale Meta: resta disponibile per chi ha
+                  già un account Business verificato. --- */}
+              <div className="rounded-xl border border-border bg-muted/20 p-4">
+                <h4 className="text-sm font-semibold text-foreground">
+                  Hai già un account Meta Business?
+                </h4>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Collega WhatsApp Cloud API, il canale ufficiale di Meta.
                 </p>
                 <div className="mt-3">
                   <MetaConnectButton onConnected={handleGuidedConnect} />

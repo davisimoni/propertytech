@@ -93,6 +93,14 @@ export function resolveWhatsAppCredentials(config: WhatsAppConfig): ResolvedWhat
     : "meta";
 
   switch (provider) {
+    case "qr":
+      // Nessun segreto da decifrare: le chiavi della sessione vivono sul
+      // microservizio, qui c'è solo il riferimento con cui interrogarlo.
+      return {
+        provider,
+        qr: config.qrSessionId ? { sessionId: config.qrSessionId } : undefined,
+      };
+
     case "twilio":
       return {
         provider,

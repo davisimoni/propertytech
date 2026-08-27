@@ -12,7 +12,7 @@
  * qui c'è solo la forma dei dati.
  */
 
-export type WhatsAppProviderId = "meta" | "twilio" | "generic";
+export type WhatsAppProviderId = "meta" | "twilio" | "generic" | "qr";
 
 export interface WhatsAppProviderMeta {
   id: WhatsAppProviderId;
@@ -26,6 +26,16 @@ export interface WhatsAppProviderMeta {
 }
 
 export const WHATSAPP_PROVIDERS: Record<WhatsAppProviderId, WhatsAppProviderMeta> = {
+  qr: {
+    id: "qr",
+    name: "Collegamento rapido con QR",
+    tagline: "Inquadri il codice col telefono, senza account sviluppatore",
+    setupHint:
+      "Nessuna credenziale da procurarsi: si inquadra il QR con WhatsApp dal telefono dell'agenzia, come su WhatsApp Web. Richiede il microservizio esterno configurato (WHATSAPP_SERVICE_URL).",
+    // I messaggi in arrivo li recapita il microservizio a questo indirizzo,
+    // non WhatsApp direttamente: il socket lo tiene aperto lui.
+    webhookPathHint: "/api/whatsapp/qr/webhook",
+  },
   meta: {
     id: "meta",
     name: "WhatsApp Cloud API (Meta)",

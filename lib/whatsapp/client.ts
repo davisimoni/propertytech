@@ -247,6 +247,11 @@ export interface ResolvedWhatsAppCredentials {
   meta?: WhatsAppCredentials;
   twilio?: TwilioCredentials;
   generic?: GenericWebhookCredentials;
+  /**
+   * Sessione abbinata via QR. Solo l'identificativo: le chiavi restano sul
+   * microservizio, che è l'unico a poter parlare con WhatsApp.
+   */
+  qr?: { sessionId: string };
 }
 
 /**
@@ -258,6 +263,8 @@ export interface ResolvedWhatsAppCredentials {
  */
 export function hasSendableCredentials(credentials: ResolvedWhatsAppCredentials): boolean {
   switch (credentials.provider) {
+    case "qr":
+      return Boolean(credentials.qr?.sessionId);
     case "twilio":
       return Boolean(credentials.twilio?.authToken);
     case "generic":
@@ -281,6 +288,29 @@ export async function sendWhatsAppMessageForProvider(
   text: string
 ): Promise<void> {
   switch (credentials.provider) {
+    case "qr": {
+      if (!credentials.qr) {
+        throw new WhatsAppSendError("Sessione WhatsApp non abbinata.", "not_configured");
+      }
+
+      // Import dinamico: `qr-service` legge l'ambiente e non deve essere
+      // caricato nelle richieste delle agenzie che usano altri provider.
+      const { sendViaQrSession, QrServiceError } = await import("./qr-service");
+      try {
+        return await sendViaQrSession(credentials.qr.sessionId, toPhone, text);
+      } catch (error) {
+        // Tradotto nell'errore di questo modulo: chi chiama gestisce già
+        // `WhatsAppSendError` e non deve conoscere il microservizio.
+        if (error instanceof QrServiceError) {
+          throw new WhatsAppSendError(
+            error.message,
+            error.code === "not_configured" ? "not_configured" : "upstream_error"
+          );
+        }
+        throw error;
+      }
+    }
+
     case "twilio":
       if (!credentials.twilio) {
         throw new WhatsAppSendError("Credenziali Twilio non configurate.", "not_configured");
