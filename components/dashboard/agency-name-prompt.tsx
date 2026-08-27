@@ -77,7 +77,7 @@ export function AgencyNamePrompt({ initialName }: { initialName: string }) {
           type="button"
           onClick={() => setDismissed(true)}
           aria-label="Chiudi, lo farò più tardi"
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground"
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground sm:h-8 sm:w-8 transition-all duration-200 hover:bg-muted hover:text-foreground"
         >
           <X className="h-4 w-4" />
         </button>

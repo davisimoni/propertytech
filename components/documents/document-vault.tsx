@@ -349,7 +349,7 @@ function DocumentRow({
           {doc.hasFile && (
             <a
               href={`/api/documents/${doc.id}`}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground transition-all duration-200 hover:bg-muted"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-border sm:h-7 sm:w-7 text-muted-foreground transition-all duration-200 hover:bg-muted"
               aria-label={`Scarica ${doc.title}`}
             >
               <Download className="h-3.5 w-3.5" aria-hidden="true" />
@@ -360,7 +360,7 @@ function DocumentRow({
             onClick={() => void remove(false)}
             disabled={isDeleting}
             aria-label={`Elimina ${doc.title}`}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground transition-all duration-200 hover:border-status-blocked/40 hover:text-status-blocked disabled:opacity-50"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-border sm:h-7 sm:w-7 text-muted-foreground transition-all duration-200 hover:border-status-blocked/40 hover:text-status-blocked disabled:opacity-50"
           >
             {isDeleting ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -512,7 +512,7 @@ function DocumentForm({
   }
 
   const inputClass =
-    "w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40";
+    "w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-base text-foreground sm:text-sm outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40";
 
   return (
     <form onSubmit={submit} className="mt-3 rounded-lg border border-border bg-muted/20 p-3">

@@ -58,7 +58,7 @@ function CopyableField({ label, value, icon: Icon }: { label: string; value: str
 }
 
 const inputClass =
-  "mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40";
+  "mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-base text-foreground sm:text-sm outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40";
 
 export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: () => void }) {
   const [config, setConfig] = useState<WhatsAppConfigView | null>(null);

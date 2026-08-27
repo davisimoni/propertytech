@@ -205,7 +205,7 @@ export function VoiceReportStudio() {
               value={propertyRef}
               onChange={(event) => setPropertyRef(event.target.value)}
               placeholder="Rif. A102 — Trilocale Via Roma 12"
-              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
+              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-base text-foreground sm:text-sm outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
             />
           </div>
 
@@ -219,7 +219,7 @@ export function VoiceReportStudio() {
               value={sellerName}
               onChange={(event) => setSellerName(event.target.value)}
               placeholder="Sig.ra Bianchi"
-              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
+              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-base text-foreground sm:text-sm outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
             />
           </div>
 
@@ -233,7 +233,7 @@ export function VoiceReportStudio() {
               value={sellerPhone}
               onChange={(event) => setSellerPhone(event.target.value)}
               placeholder="+39 333 1234567"
-              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
+              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-base text-foreground sm:text-sm outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
             />
           </div>
         </div>
@@ -310,7 +310,13 @@ export function VoiceReportStudio() {
                 }}
               />
               <FileAudio className="h-6 w-6 text-muted-foreground" />
-              <p className="text-sm text-foreground">
+              {/* Come nella scheda documenti: da telefono si tocca, non si
+                  trascina — ed è proprio da telefono che un agente carica il
+                  vocale appena registrato dopo una visita. */}
+              <p className="text-sm text-foreground sm:hidden">
+                Tocca per scegliere un file audio (MP3, WAV, M4A)
+              </p>
+              <p className="hidden text-sm text-foreground sm:block">
                 Oppure trascina qui un file audio (MP3, WAV, M4A)
               </p>
               <p className="text-xs text-muted-foreground">Massimo 25MB</p>
@@ -344,7 +350,7 @@ export function VoiceReportStudio() {
               onChange={(event) => setNotes(event.target.value)}
               rows={5}
               placeholder="Visita con la famiglia Rossi. La casa piace molto, soprattutto la luminosità del soggiorno, ma ritengono la cucina troppo piccola e il prezzo di 250.000€ fuori mercato di almeno 20.000€."
-              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
+              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-base text-foreground sm:text-sm outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
             />
           </div>
         )}

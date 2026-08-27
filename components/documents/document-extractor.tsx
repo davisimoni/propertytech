@@ -202,7 +202,14 @@ export function DocumentExtractor() {
               <FileUp className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-sm font-medium text-foreground">
+              {/* Due formulazioni per due modi di lavorare: da smartphone il
+                  trascinamento non esiste e "clicca" non descrive nulla.
+                  L'agente sul campo carica col dito, ed è quello che deve
+                  leggere per primo. */}
+              <p className="text-sm font-medium text-foreground sm:hidden">
+                Tocca per selezionare la visura in PDF
+              </p>
+              <p className="hidden text-sm font-medium text-foreground sm:block">
                 Trascina qui la visura in PDF, o clicca per selezionarla
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -541,7 +548,7 @@ function ExtractionResultView({
               }
               rows={2}
               placeholder="Dettagli su eventuali note o vincoli…"
-              className="mt-2 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
+              className="mt-2 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-base text-foreground sm:text-sm outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
             />
           </div>
         </TabPanel>

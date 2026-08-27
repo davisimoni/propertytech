@@ -87,8 +87,16 @@ body {
      tale prima che ci si clicchi dentro. Il focus alza sia il bordo sia
      l'anello, così resta evidente dove si sta scrivendo anche su schermi
      poco contrastati o alla luce del sole — l'agente lavora sul campo. */
+  /* `text-base` su mobile, `text-sm` da sm in su. Non è una preferenza
+     estetica: Safari su iOS ingrandisce automaticamente la pagina quando si
+     tocca un campo con font sotto i 16px, e l'agente si ritrova la schermata
+     zoomata e disallineata a ogni tocco, da riportare a mano ogni volta.
+     L'alternativa — bloccare lo zoom con `maximum-scale` — toglierebbe
+     l'ingrandimento anche a chi ne ha bisogno per leggere, e non è una scelta
+     che vogliamo fare al posto suo. */
   .input-field {
-    @apply w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-sm text-foreground
+    @apply w-full rounded-lg border border-border-strong bg-background px-3 py-2
+           text-base text-foreground sm:text-sm
            outline-none transition-all duration-200
            hover:border-primary/50
            focus:border-primary focus:ring-2 focus:ring-primary/40;
