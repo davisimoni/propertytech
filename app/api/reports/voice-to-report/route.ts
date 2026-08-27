@@ -13,6 +13,14 @@ import {
 } from "@/lib/ai/transcription";
 
 /**
+ * Trascrizione dell'audio più generazione del report: due chiamate lunghe in
+ * sequenza sulla stessa richiesta. Col limite predefinito di Vercel la
+ * funzione veniva troncata proprio sulle note vocali lunghe — quelle di una
+ * visita vera, non di una prova.
+ */
+export const maxDuration = 60;
+
+/**
  * Genera il report post-visita per il proprietario a partire da una nota
  * vocale (audio) o testuale dell'agente.
  *

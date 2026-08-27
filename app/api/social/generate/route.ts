@@ -7,6 +7,12 @@ import { checkFeatureAccess } from "@/lib/feature-access";
 import { socialGenerationRequestSchema } from "@/lib/ai/social-schema";
 import { generateSocialContent, SocialGenerationError } from "@/lib/ai/social-generator";
 
+/**
+ * Tre formati generati in un'unica chiamata, con 8192 token di uscita: sugli
+ * immobili descritti in dettaglio supera comodamente il limite predefinito.
+ */
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.organizationId) {

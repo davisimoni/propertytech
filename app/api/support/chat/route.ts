@@ -17,6 +17,14 @@ import {
 } from "@/lib/support/knowledge";
 
 /**
+ * Haiku e risposte brevi: raramente serve tutto questo tempo. Il limite è
+ * comunque esplicito, perché una rotta che chiama un modello senza tetto
+ * dichiarato è esattamente il caso che ci è già costato due diagnosi
+ * sbagliate.
+ */
+export const maxDuration = 60;
+
+/**
  * Assistente clienti della landing e della dashboard.
  *
  * Rotta **pubblica**: risponde anche a chi non ha un account, perché serve

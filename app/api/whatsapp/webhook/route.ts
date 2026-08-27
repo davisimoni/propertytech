@@ -10,6 +10,19 @@ import { decryptAccessToken } from "@/lib/whatsapp/credentials";
 import { sendWhatsAppMessage } from "@/lib/whatsapp/client";
 
 /**
+ * La rotta più esposta al timeout dell'intera applicazione: un solo messaggio
+ * può sommare la trascrizione di una nota vocale, la generazione della
+ * risposta con Claude e l'invio — quest'ultimo, per le agenzie collegate via
+ * QR, con una chiamata al microservizio che attende fino a 20 secondi.
+ *
+ * Senza un limite esplicito Vercel tronca la funzione, Meta non riceve il 200
+ * e **ritenta lo stesso messaggio**: il cliente si vede rispondere due volte e
+ * l'agenzia paga due volte i crediti. Un guasto che colpisce proprio i
+ * messaggi più lenti, cioè i vocali.
+ */
+export const maxDuration = 60;
+
+/**
  * Handshake di verifica webhook di Meta: risponde con hub.challenge in
  * chiaro quando il verify token corrisponde a quello dell'agenzia.
  */

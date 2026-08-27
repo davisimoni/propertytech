@@ -4,6 +4,12 @@ import { readSecret } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { importListingsFromCrm } from "@/lib/integrations/crm/listing-import";
 
+/**
+ * Scarica il feed del gestionale e lo interpreta con l'AI, per più agenzie
+ * nello stesso giro: è la rotta con la durata meno prevedibile di tutte.
+ */
+export const maxDuration = 60;
+
 /** Lo scheduler può chiamare in qualsiasi momento: niente cache. */
 export const dynamic = "force-dynamic";
 
