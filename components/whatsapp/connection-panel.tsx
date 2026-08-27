@@ -1,7 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, Check, Clipboard, Link2, Loader2, Mail, QrCode, Unplug } from "lucide-react";
+import {
+  ChevronDown,
+  Check,
+  Clipboard,
+  KeyRound,
+  Link2,
+  Loader2,
+  Mail,
+  Smartphone,
+  Unplug,
+} from "lucide-react";
 import type { WhatsAppConfigView } from "@/lib/whatsapp/view-types";
 import {
   WHATSAPP_PROVIDER_IDS,
@@ -204,8 +214,13 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
             È lo stesso inciampo del flex, un livello più su. */}
         <div className="mt-5 grid gap-6 [&>*]:min-w-0 lg:grid-cols-2">
         <div>
+          {/* Non un'icona QR: il collegamento avviene via Meta Cloud API, non
+              inquadrando un codice come su WhatsApp Web. Il QR che l'agenzia
+              trova altrove serve a un'altra cosa — farsi contattare dai
+              clienti — e mostrarne l'icona qui alimentava proprio quella
+              confusione. */}
           <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <QrCode className="h-3.5 w-3.5" />
+            <Smartphone className="h-3.5 w-3.5" />
             Abbinamento numero WhatsApp Business
           </h3>
 
@@ -466,14 +481,25 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
           <p className="mt-2 text-xs text-muted-foreground">
             Inserisci questi riferimenti nel pannello di Immobiliare.it, Idealista o Casa.it per
             ricevere i lead in tempo reale.
+            {!config.inboundEmail && (
+              <>
+                {" "}
+                L&apos;inoltro via email non è attivo su questo ambiente: usa l&apos;URL webhook qui
+                sotto, che è il canale operativo.
+              </>
+            )}
           </p>
 
           <div className="mt-3 space-y-3">
-            <CopyableField
-              label="Email dedicata per l'inoltro lead"
-              value={`inbound-${config.inboundToken}@tuosaas.it`}
-              icon={Mail}
-            />
+            {/* Mostrata solo se esiste davvero un dominio di ricezione: un
+                recapito che non riceve farebbe perdere i lead in silenzio. */}
+            {config.inboundEmail && (
+              <CopyableField
+                label="Email dedicata per l'inoltro lead"
+                value={config.inboundEmail}
+                icon={Mail}
+              />
+            )}
             <CopyableField
               label="URL Webhook portali"
               value={`${origin}/api/whatsapp/inbound-lead?token=${config.inboundToken}`}
@@ -483,7 +509,7 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
               <CopyableField
                 label="Verify Token (Meta Cloud API)"
                 value={config.webhookVerifyToken}
-                icon={QrCode}
+                icon={KeyRound}
               />
             )}
             {provider === "generic" && (

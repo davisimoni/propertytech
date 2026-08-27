@@ -72,6 +72,12 @@ export interface WhatsAppConfigView {
   genericSendUrl: string | null;
   hasGenericAuthToken: boolean;
   inboundToken: string;
+  /**
+   * Indirizzo di inoltro per i lead dai portali, oppure `null` quando non
+   * esiste un dominio di ricezione configurato. `null` significa "non
+   * mostrarlo": vedi la nota in `lib/whatsapp/config-view.ts`.
+   */
+  inboundEmail: string | null;
   webhookVerifyToken: string | null;
 }
 

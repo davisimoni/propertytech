@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { readSecret } from "@/lib/env";
 import { hasUsableAccessToken } from "./credentials";
 import { isWhatsAppProviderId, type WhatsAppProviderId } from "./provider";
 
@@ -24,6 +25,25 @@ export async function getOrCreateWhatsAppConfig(organizationId: string) {
   });
 }
 
+/**
+ * Indirizzo di inoltro per i lead dai portali, **solo se esiste davvero**.
+ *
+ * Prima veniva mostrato `inbound-<token>@tuosaas.it`: un dominio segnaposto
+ * mai registrato, senza alcun servizio di ricezione dietro. Un'agenzia che lo
+ * avesse configurato su Immobiliare.it avrebbe perso ogni lead inoltrato,
+ * **in silenzio** — nessun rimbalzo visibile, nessun errore in dashboard, solo
+ * contatti che non arrivano mai. Meglio non mostrare nulla che mostrare un
+ * recapito che non riceve.
+ *
+ * Si attiva impostando `INBOUND_EMAIL_DOMAIN` su un dominio con un servizio
+ * di inbound parsing configurato, che deve poi inoltrare a
+ * `/api/whatsapp/inbound-lead`.
+ */
+function inboundEmailAddress(inboundToken: string): string | null {
+  const domain = readSecret("INBOUND_EMAIL_DOMAIN");
+  return domain ? `inbound-${inboundToken}@${domain.replace(/^@/, "")}` : null;
+}
+
 /** Non espone mai token o Auth Token in chiaro: solo flag di presenza. */
 export function toPublicWhatsAppConfig(config: Awaited<ReturnType<typeof getOrCreateWhatsAppConfig>>) {
   const provider: WhatsAppProviderId = isWhatsAppProviderId(config.provider) ? config.provider : "meta";
@@ -43,6 +63,7 @@ export function toPublicWhatsAppConfig(config: Awaited<ReturnType<typeof getOrCr
     genericSendUrl: config.genericSendUrl,
     hasGenericAuthToken: hasUsableAccessToken(config.genericAuthToken),
     inboundToken: config.inboundToken,
+    inboundEmail: inboundEmailAddress(config.inboundToken),
     webhookVerifyToken: config.webhookVerifyToken,
   };
 }
