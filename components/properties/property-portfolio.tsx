@@ -3,16 +3,18 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { ContractType, EnergyClass, PropertyStatus, PropertyType } from "@prisma/client";
-import { Building2, ChevronDown, FileCode2, FolderOpen, Loader2, Phone, Sparkles, History } from "lucide-react";
+import { Building2, ChevronDown, FileCode2, FolderOpen, Loader2, Pencil, Phone, Sparkles, History } from "lucide-react";
 import { DocumentVault } from "@/components/documents/document-vault";
 import {
   CONTRACT_LABELS,
+  PUBLISHED_STATUSES,
   PROPERTY_TYPE_LABELS,
   formatPrice,
 } from "@/lib/listings/property-fields";
 import { PERFECT_MATCH_THRESHOLD, matchLabel } from "@/lib/matching/smart-match";
 import { GenerationHistory } from "@/components/history/generation-history";
 import { PortalFeedPanel } from "@/components/properties/portal-feed-panel";
+import { PropertyEditDialog } from "@/components/properties/property-edit-dialog";
 import { PropertyImagesEditor } from "@/components/properties/property-images-editor";
 import { PropertyStatusSelect } from "@/components/properties/property-status-select";
 import { cn } from "@/lib/utils";
@@ -40,6 +42,13 @@ interface PropertyView {
   energyClass: EnergyClass | null;
   status: PropertyStatus;
   images: string[];
+  // Campi che la finestra di modifica scrive: erano gia' restituiti dall'API,
+  // mancavano solo qui.
+  provincia: string | null;
+  indirizzo: string | null;
+  bathrooms: number | null;
+  floor: string | null;
+  description: string | null;
   matches: MatchView[];
 }
 
@@ -52,6 +61,7 @@ export function PropertyPortfolio() {
   // caricamento, per documenti che nessuno ha chiesto di vedere.
   const [openVaultId, setOpenVaultId] = useState<string | null>(null);
   const [openHistoryId, setOpenHistoryId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<PropertyView | null>(null);
 
   /**
    * Aggiorna un solo immobile in elenco.
@@ -108,7 +118,15 @@ export function PropertyPortfolio() {
 
   return (
     <div className="space-y-4">
-      <PortalFeedPanel />
+      <PortalFeedPanel
+        missingPhotos={
+          properties.filter(
+            (property) =>
+              (PUBLISHED_STATUSES as readonly PropertyStatus[]).includes(property.status) &&
+              property.images.length === 0
+          ).length
+        }
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
@@ -130,9 +148,17 @@ export function PropertyPortfolio() {
                 {CONTRACT_LABELS[property.contract]}
               </p>
             </div>
-            <p className="shrink-0 text-lg font-bold text-foreground">
-              {formatPrice(property.priceEur)}
-            </p>
+            <div className="flex shrink-0 items-center gap-2">
+              <p className="text-lg font-bold text-foreground">{formatPrice(property.priceEur)}</p>
+              <button
+                type="button"
+                onClick={() => setEditing(property)}
+                aria-label={`Modifica ${property.title}`}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border-strong text-foreground transition-all duration-200 hover:bg-muted sm:h-9 sm:w-9"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           <div className="mt-3">
@@ -286,6 +312,20 @@ export function PropertyPortfolio() {
           </div>
         </section>
       ))}
+
+      {editing ? (
+        <PropertyEditDialog
+          property={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(updated) =>
+            // Solo i campi modificati: `matches` e `images` restano quelli in
+            // memoria, che la finestra non tocca e che il server non rispedisce.
+            setProperties((current) =>
+              current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item))
+            )
+          }
+        />
+      ) : null}
     </div>
   );
 }

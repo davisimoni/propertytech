@@ -11,7 +11,16 @@ import { Check, Clipboard, Loader2, Rss, TriangleAlert } from "lucide-react";
  * in locale, in anteprima e in produzione senza dipendere da una variabile
  * d'ambiente che qualcuno dovrà ricordarsi di aggiornare.
  */
-export function PortalFeedPanel() {
+export function PortalFeedPanel({
+  /**
+   * Quanti immobili il feed pubblica senza fotografie. Calcolato dal
+   * portafoglio: e' l'unico modo perche' l'avviso sparisca da solo quando
+   * l'agenzia ha finito di caricarle.
+   */
+  missingPhotos,
+}: {
+  missingPhotos: number;
+}) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isWorking, setIsWorking] = useState(false);
@@ -143,19 +152,24 @@ export function PortalFeedPanel() {
       {error ? <p className="mt-3 text-xs text-status-blocked">{error}</p> : null}
 
       {/*
-        Detto in chiaro perché è la differenza fra "il feed non funziona" e "il
-        feed funziona ma manca un dato": senza foto i portali accettano il
-        tracciato ma l'annuncio resta senza immagini, e chi lo scopre dopo il
-        primo caricamento pensa che sia rotto.
+        Avviso legato ai dati, non fisso.
+        Prima compariva sempre, anche quando ogni annuncio aveva le sue foto:
+        un avviso che resta acceso a problema risolto insegna a ignorarlo, e la
+        volta che conta davvero nessuno lo legge. Ora conta gli immobili che il
+        feed pubblica SENZA immagini — gli unici per cui il problema esiste.
       */}
-      <p className="mt-4 flex items-start gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-        <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        <span>
-          Il feed non include ancora le fotografie: gli immobili in portafoglio non hanno un
-          archivio immagini. Prima del primo caricamento massivo, conferma il tracciato con il
-          referente tecnico del portale.
-        </span>
-      </p>
+      {missingPhotos > 0 ? (
+        <p className="mt-4 flex items-start gap-2 rounded-lg border border-status-pending/40 bg-status-pending/10 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-pending" />
+          <span>
+            {missingPhotos === 1
+              ? "Un immobile pubblicato non ha fotografie"
+              : `${missingPhotos} immobili pubblicati non hanno fotografie`}
+            : sui portali l&apos;annuncio compare in ricerca senza immagine e viene aperto molto
+            meno. Puoi aggiungerle dalla scheda, qui sotto.
+          </span>
+        </p>
+      ) : null}
     </section>
   );
 }

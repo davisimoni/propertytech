@@ -137,12 +137,15 @@ export const propertyFieldsSchema = z.object({
   zona: z.string().trim().max(80).optional(),
   indirizzo: z.string().trim().max(160).optional(),
   priceEur: z
-    .number()
+    // Messaggio anche sul tipo, non solo sui vincoli: un campo svuotato arriva
+    // come `undefined`, e senza questo l'agente leggerebbe il testo grezzo di
+    // Zod in inglese.
+    .number({ error: "Inserisci il prezzo" })
     .int("Il prezzo deve essere un numero intero")
     .positive("Il prezzo deve essere maggiore di zero")
     .max(MAX_PRICE_EUR, "Prezzo fuori scala"),
   squareMeters: z
-    .number()
+    .number({ error: "Inserisci la superficie in metri quadri" })
     .int("La superficie deve essere un numero intero")
     .positive("La superficie deve essere maggiore di zero")
     .max(MAX_SQUARE_METERS, "Superficie fuori scala"),
