@@ -12,6 +12,7 @@ import {
 } from "@/lib/listings/property-fields";
 import { PERFECT_MATCH_THRESHOLD, matchLabel } from "@/lib/matching/smart-match";
 import { GenerationHistory } from "@/components/history/generation-history";
+import { PortalFeedPanel } from "@/components/properties/portal-feed-panel";
 import { cn } from "@/lib/utils";
 
 interface MatchView {
@@ -89,6 +90,8 @@ export function PropertyPortfolio() {
 
   return (
     <div className="space-y-4">
+      <PortalFeedPanel />
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           {properties.length} immobil{properties.length === 1 ? "e" : "i"} in portafoglio

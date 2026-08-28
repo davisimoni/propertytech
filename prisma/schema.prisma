@@ -324,6 +324,22 @@ model Organization {
   /// nel corpo che spediamo.
   crmFieldMap Json?
 
+  /// Token del feed XML che i portali (Immobiliare.it, Idealista, Casa.it)
+  /// interrogano periodicamente per prelevare il portafoglio.
+  ///
+  /// Serve un segreto nell'URL perche' un crawler di portale non ha una
+  /// sessione: l'unica alternativa sarebbe un feed pubblico a indirizzo
+  /// indovinabile, cioe' il portafoglio di ogni agenzia leggibile da chiunque.
+  ///
+  /// `null` = feed mai attivato. Non si genera d'ufficio alla registrazione:
+  /// un URL che espone dati senza che nessuno l'abbia chiesto e' esattamente
+  /// il tipo di superficie che non deve esistere per gli account che non la
+  /// useranno mai.
+  ///
+  /// `@unique` non e' solo un vincolo: e' l'indice su cui la rotta pubblica
+  /// risolve l'agenzia a ogni chiamata del portale.
+  listingFeedToken String? @unique
+
   createdAt DateTime @default(now())
 
   users                User[]
