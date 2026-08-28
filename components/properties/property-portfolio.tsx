@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { ContractType, EnergyClass, PropertyType } from "@prisma/client";
+import type { ContractType, EnergyClass, PropertyStatus, PropertyType } from "@prisma/client";
 import { Building2, ChevronDown, FileCode2, FolderOpen, Loader2, Phone, Sparkles, History } from "lucide-react";
 import { DocumentVault } from "@/components/documents/document-vault";
 import {
@@ -13,6 +13,8 @@ import {
 import { PERFECT_MATCH_THRESHOLD, matchLabel } from "@/lib/matching/smart-match";
 import { GenerationHistory } from "@/components/history/generation-history";
 import { PortalFeedPanel } from "@/components/properties/portal-feed-panel";
+import { PropertyImagesEditor } from "@/components/properties/property-images-editor";
+import { PropertyStatusSelect } from "@/components/properties/property-status-select";
 import { cn } from "@/lib/utils";
 
 interface MatchView {
@@ -36,6 +38,8 @@ interface PropertyView {
   squareMeters: number;
   rooms: number | null;
   energyClass: EnergyClass | null;
+  status: PropertyStatus;
+  images: string[];
   matches: MatchView[];
 }
 
@@ -48,6 +52,20 @@ export function PropertyPortfolio() {
   // caricamento, per documenti che nessuno ha chiesto di vedere.
   const [openVaultId, setOpenVaultId] = useState<string | null>(null);
   const [openHistoryId, setOpenHistoryId] = useState<string | null>(null);
+
+  /**
+   * Aggiorna un solo immobile in elenco.
+   *
+   * Stato e fotografie si modificano dalla scheda e non ricaricano la lista:
+   * un refetch dopo ogni foto caricata farebbe ripartire anche il calcolo dei
+   * lead compatibili di trenta immobili, per un cambiamento che riguarda una
+   * riga sola.
+   */
+  function patchProperty(id: string, patch: Partial<PropertyView>) {
+    setProperties((current) =>
+      current.map((property) => (property.id === id ? { ...property, ...patch } : property))
+    );
+  }
 
   useEffect(() => {
     fetch("/api/properties")
@@ -117,6 +135,14 @@ export function PropertyPortfolio() {
             </p>
           </div>
 
+          <div className="mt-3">
+            <PropertyStatusSelect
+              propertyId={property.id}
+              status={property.status}
+              onChange={(status) => patchProperty(property.id, { status })}
+            />
+          </div>
+
           <p className="mt-2 text-sm text-muted-foreground">
             {[
               property.zona ? `${property.comune} — ${property.zona}` : property.comune,
@@ -127,6 +153,14 @@ export function PropertyPortfolio() {
               .filter(Boolean)
               .join(" · ")}
           </p>
+
+          <div className="mt-4 border-t border-border pt-3">
+            <PropertyImagesEditor
+              propertyId={property.id}
+              images={property.images}
+              onChange={(images) => patchProperty(property.id, { images })}
+            />
+          </div>
 
           <div className="mt-4 border-t border-border pt-3">
             <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

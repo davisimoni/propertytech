@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ContractType, EnergyClass, PropertyType } from "@prisma/client";
+import type { ContractType, EnergyClass, PropertyStatus, PropertyType } from "@prisma/client";
 
 /**
  * Dati strutturati dell'immobile: quelli che i portali richiedono e che il
@@ -10,6 +10,31 @@ import type { ContractType, EnergyClass, PropertyType } from "@prisma/client";
  */
 
 export const CONTRACT_TYPES: ContractType[] = ["VENDITA", "AFFITTO"];
+
+/**
+ * Stato commerciale, come lo chiama un agente.
+ *
+ * `PUBLISHED_STATUS` e' l'unico stato che il feed esporta: tenerlo qui, accanto
+ * alle etichette, evita che la UI dica una cosa e il feed ne faccia un'altra.
+ */
+export const PROPERTY_STATUS_LABELS: Record<PropertyStatus, string> = {
+  DRAFT: "Bozza",
+  ACTIVE: "In vendita",
+  RESERVED: "Sotto proposta",
+  SOLD: "Venduto",
+  ARCHIVED: "Archiviato",
+};
+
+/** Descrizione dell'effetto sui portali, mostrata nel selettore. */
+export const PROPERTY_STATUS_HINTS: Record<PropertyStatus, string> = {
+  DRAFT: "Non ancora pubblicato sui portali",
+  ACTIVE: "Pubblicato sui portali",
+  RESERVED: "Ritirato dai portali durante la trattativa",
+  SOLD: "Ritirato dai portali",
+  ARCHIVED: "Ritirato dai portali",
+};
+
+export const PUBLISHED_STATUS: PropertyStatus = "ACTIVE";
 
 export const CONTRACT_LABELS: Record<ContractType, string> = {
   VENDITA: "Vendita",

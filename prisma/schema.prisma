@@ -172,6 +172,19 @@ enum EnergyClass {
 /// PENDING è lo stato iniziale di ogni match: il sistema propone, l'agente
 /// decide. IGNORED registra un'omonimia accertata e impedisce che lo stesso
 /// abbinamento venga riproposto al prossimo caricamento della stessa visura.
+/// Stato commerciale dell'immobile.
+///
+/// Governa la visibilita' sui portali: il feed XML esporta SOLO `ACTIVE`.
+/// `DRAFT` e' la scheda non ancora pronta, `RESERVED` il compromesso in corso,
+/// `SOLD` il venduto, `ARCHIVED` il mandato chiuso o scaduto.
+enum PropertyStatus {
+  DRAFT
+  ACTIVE
+  RESERVED
+  SOLD
+  ARCHIVED
+}
+
 enum PortfolioMatchStatus {
   PENDING
   CONFIRMED
@@ -291,14 +304,14 @@ model Organization {
   /// l'autenticazione: nella maggior parte dei gestionali la stessa chiave
   /// vale per lettura e scrittura, cambia solo l'indirizzo. `null` =
   /// importazione non configurata.
-  crmListingImportUrl String?
+  crmListingImportUrl  String?
   /// Ultima sincronizzazione riuscita, mostrata in UI così l'agenzia sa se
   /// il portafoglio è aggiornato senza dover guardare i log.
   crmListingImportedAt DateTime?
   /// Tracciato personalizzato per l'import: nome del campo nel gestionale →
   /// nostro campo (direzione opposta a `crmFieldMap`). `null` = si assume che
   /// il gestionale risponda già con i nostri nomi di campo nativi.
-  crmListingFieldMap Json?
+  crmListingFieldMap   Json?
 
   /// Quale gestionale è collegato: `webhook`, `zapier`, `make`, `getrix`…
   ///
@@ -352,15 +365,16 @@ model Organization {
   voiceReports         VoiceReport[]
   portfolioMatches     PortfolioMatch[]
   properties           Property[]
+  propertyImages       PropertyImage[]
   propertyMatches      PropertyLeadMatch[]
   agencyDocuments      AgencyDocument[]
   aiGenerations        AiGeneration[]
   cancellationFeedback CancellationFeedback[]
   /// Referral in cui questa agenzia è l'invitante (può essere molti).
-  referralsSent        Referral[]              @relation("ReferralsSent")
+  referralsSent        Referral[]             @relation("ReferralsSent")
   /// Referral in cui questa agenzia è l'invitata (al massimo uno: non si può
   /// essere invitati due volte).
-  referredBy           Referral?               @relation("ReferralsReceived")
+  referredBy           Referral?              @relation("ReferralsReceived")
 }
 
 /// Programma Referral B2B: un'agenzia (Referrer) invita un'altra (Referee) col
@@ -398,19 +412,19 @@ model Referral {
 }
 
 model Subscription {
-  id                   String   @id @default(cuid())
-  status               PlanId   @default(trial)
-  stripeCustomerId     String?  @unique
-  stripeSubscriptionId String?  @unique
+  id                   String  @id @default(cuid())
+  status               PlanId  @default(trial)
+  stripeCustomerId     String? @unique
+  stripeSubscriptionId String? @unique
 
   /// Impostato quando l'agenzia conferma la disdetta (`cancel_at_period_end`
   /// su Stripe): l'abbonamento resta attivo fino a `currentPeriodEnd`, non
   /// finisce subito. Sincronizzato anche dal webhook, per restare corretto
   /// anche se la disdetta avviene dal portale clienti di Stripe.
-  cancelAtPeriodEnd Boolean   @default(false)
+  cancelAtPeriodEnd          Boolean   @default(false)
   /// Fine del periodo di fatturazione corrente, da Stripe. `null` finché non
   /// è mai arrivato un evento con questo dato.
-  currentPeriodEnd  DateTime?
+  currentPeriodEnd           DateTime?
   /// Quando è stato applicato lo sconto di retention (-50% a vita). Non è la
   /// fonte di verità del prezzo — quella resta Stripe — ma serve a sapere se
   /// è già stato offerto a questa agenzia.
@@ -493,11 +507,11 @@ model WhatsAppConfig {
   /// restano sul microservizio, qui c'è solo il riferimento con cui
   /// interrogarlo. Un'esposizione di questo campo non permette di inviare
   /// messaggi — serve comunque la chiave del servizio, che vive in ambiente.
-  qrSessionId    String?  @unique
+  qrSessionId   String?   @unique
   /// Quando la sessione è stata abbinata: utile a spiegare all'agenzia da
   /// quanto regge il collegamento, che con un client non ufficiale può
   /// cadere e richiedere una nuova scansione.
-  qrConnectedAt  DateTime?
+  qrConnectedAt DateTime?
 
   /// --- Promemoria anti no-show ---
   /// Attivo per default: il no-show è il costo operativo che questa funzione
@@ -699,11 +713,28 @@ model Property {
   /// Testo dell'annuncio generato dall'AI, riusato nel feed XML.
   description String?
 
+  /// Stato commerciale. `ACTIVE` di default: le schede gia' in portafoglio
+  /// quando questo campo e' stato introdotto erano tutte pubblicabili, e un
+  /// default diverso le avrebbe ritirate in blocco dai portali alla prima
+  /// rilettura del feed.
+  status PropertyStatus @default(ACTIVE)
+
+  /// Fotografie dell'annuncio, in ordine di pubblicazione: la prima e' la
+  /// copertina.
+  ///
+  /// Contiene **URL**, non byte. Oggi sono percorsi verso la nostra rotta
+  /// pubblica (`/api/properties/images/...`), perche' i portali scaricano le
+  /// immagini e un data URI non e' scaricabile. Il giorno in cui arrivera' un
+  /// object storage in UE, la stessa colonna conterra' i suoi URL e nient'
+  /// altro cambiera': ne' lo schema, ne' il feed, ne' la UI.
+  images String[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   organizationId String
   organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  photos         PropertyImage[]
   leadMatches    PropertyLeadMatch[]
   documents      AgencyDocument[]
   aiGenerations  AiGeneration[]
@@ -712,6 +743,9 @@ model Property {
   /// renderebbero ambiguo il feed verso i portali.
   @@unique([organizationId, reference])
   @@index([organizationId, createdAt])
+  /// Il feed dei portali filtra sempre agenzia + stato: senza questo indice
+  /// ogni lettura del feed sarebbe una scansione del portafoglio.
+  @@index([organizationId, status])
 }
 
 /// Accoppiamento fra un immobile in portafoglio e un lead le cui preferenze
@@ -722,6 +756,41 @@ model Property {
 /// intestatario è il mio contatto?" contro "questa casa piacerebbe al mio
 /// contatto?" — e tenerle separate evita che un giorno un punteggio di
 /// compatibilità venga scambiato per una conferma di identità.
+/// Byte di una fotografia dell'annuncio.
+///
+/// Sta in una tabella separata, e non in una colonna di `Property`, perche'
+/// le foto sono l'unico dato voluminoso del portafoglio: tenerle nella riga
+/// dell'immobile farebbe pagare il loro peso a **ogni** query che legge un
+/// immobile — l'elenco, lo Smart Match, il feed — anche quando le immagini
+/// non servono.
+///
+/// **Limite dichiarato**: i byte stanno in PostgreSQL, come gia' avviene per
+/// il fascicolo documentale. Regge il portafoglio di un'agenzia che parte,
+/// non un archivio a regime. La migrazione a un object storage in UE non
+/// tocchera' `Property.images`, che contiene URL: cambieranno solo gli URL.
+model PropertyImage {
+  id String @id @default(cuid())
+
+  /// Data URI completo, stesso formato di `AgencyDocument.fileDataUrl`.
+  dataUrl  String
+  mimeType String
+  byteSize Int
+
+  createdAt DateTime @default(now())
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  /// Presente anche se ricavabile da `property`: ogni tabella con dati di
+  /// tenant filtra sul proprio `organizationId` (CLAUDE.md §5), senza
+  /// dipendere da una join per l'isolamento.
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([organizationId])
+}
+
 model PropertyLeadMatch {
   id String @id @default(cuid())
 

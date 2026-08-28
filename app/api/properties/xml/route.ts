@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buildPortalFeed, portalFeedFileName } from "@/lib/listings/portal-xml";
+import { SITE_URL } from "@/lib/seo";
 
 /**
  * Feed XML degli immobili in portafoglio, pronto per i portali.
@@ -28,7 +29,14 @@ export async function GET(request: Request) {
     prisma.property.findMany({
       // organizationId sempre nel filtro: il feed di un'agenzia non può
       // contenere immobili di un'altra (CLAUDE.md §5).
-      where: { organizationId, ...(reference ? { reference } : {}) },
+      // Stesso filtro del feed automatico: questo file finisce sullo stesso
+      // pannello del portale, e senza il filtro un caricamento manuale
+      // pubblicherebbe bozze e venduti. L'export di un singolo immobile per
+      // riferimento resta invece integrale: lo si chiede esplicitamente per
+      // quella scheda, anche solo per controllarne il tracciato.
+      where: reference
+        ? { organizationId, reference }
+        : { organizationId, status: "ACTIVE" },
       orderBy: { createdAt: "desc" },
       take: 1000,
     }),
@@ -40,6 +48,7 @@ export async function GET(request: Request) {
 
   const xml = buildPortalFeed(properties, {
     agencyName: organization?.legalName || organization?.agencyName || "",
+    origin: SITE_URL,
   });
 
   return new NextResponse(xml, {

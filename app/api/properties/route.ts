@@ -48,6 +48,8 @@ export async function GET() {
       floor: property.floor,
       energyClass: property.energyClass,
       description: property.description,
+      status: property.status,
+      images: property.images,
       createdAt: property.createdAt.toISOString(),
       matches: property.leadMatches.map((match) => ({
         id: match.id,

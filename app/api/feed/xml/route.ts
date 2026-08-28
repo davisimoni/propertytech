@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { findOrganizationByFeedToken } from "@/lib/listings/feed-token";
 import { buildPortalFeed } from "@/lib/listings/portal-xml";
+import { SITE_URL } from "@/lib/seo";
 
 /**
  * Feed XML pubblico del portafoglio, per i portali immobiliari.
@@ -42,7 +43,13 @@ export async function GET(request: Request) {
     // organizationId nel filtro, sempre: è il token ad averla determinata, e
     // un feed che mescolasse due agenzie pubblicherebbe gli immobili di una
     // sotto il nome dell'altra (CLAUDE.md §5).
-    where: { organizationId: organization.id },
+    //
+    // Solo `ACTIVE`: bozze, immobili riservati, venduti e archiviati non
+    // devono comparire sui portali. E' anche il motivo per cui `status`
+    // nasce `ACTIVE` di default: con un default diverso questa riga avrebbe
+    // ritirato dalla pubblicazione, in silenzio, ogni immobile gia' in
+    // portafoglio alla prima rilettura del feed.
+    where: { organizationId: organization.id, status: "ACTIVE" },
     orderBy: { createdAt: "desc" },
     take: 1000,
   });
@@ -53,6 +60,10 @@ export async function GET(request: Request) {
   // fa disattivare l'integrazione al portale.
   const xml = buildPortalFeed(properties, {
     agencyName: organization.legalName || organization.agencyName || "",
+    // Da SITE_URL e non da `request.url`: gli URL delle foto finiscono in un
+    // documento che scarica un server terzo, e un host preso dagli header
+    // della richiesta e' influenzabile da chi la richiesta la manda.
+    origin: SITE_URL,
   });
 
   return new NextResponse(xml, {

@@ -1,5 +1,6 @@
 import type { ContractType, EnergyClass, PropertyType } from "@prisma/client";
 import { AI_DISCLAIMER_SHORT } from "@/lib/compliance";
+import { absoluteImageUrl } from "@/lib/listings/property-images";
 
 /**
  * Feed XML per i portali immobiliari.
@@ -32,6 +33,8 @@ export interface PortalListingInput {
   floor?: string | null;
   energyClass?: EnergyClass | null;
   description?: string | null;
+  /** URL delle fotografie, in ordine di pubblicazione: la prima è la copertina. */
+  images?: string[];
 }
 
 /** Vocabolario delle categorie atteso dai feed dei portali italiani. */
@@ -90,7 +93,33 @@ function tag(name: string, value: string | number | null | undefined): string {
   return `    <${name}>${escapeXml(text)}</${name}>`;
 }
 
-function listingXml(listing: PortalListingInput): string {
+/**
+ * Blocco delle fotografie.
+ *
+ * I nomi dei tag restano in italiano come il resto del documento. La struttura
+ * — contenitore più un elemento per immagine con l'URL dentro — è quella che
+ * i tracciati dei portali condividono; i nomi esatti no, e vanno confermati
+ * col referente tecnico del portale come tutto il resto del file.
+ *
+ * Gli URL sono resi **assoluti**: a scaricarli è un server del portale, che
+ * non ha idea di quale sia la nostra origine. Un percorso relativo qui
+ * produrrebbe un annuncio senza foto senza che nulla segnali un errore.
+ */
+function imagesXml(images: string[] | undefined, origin: string): string {
+  if (!images || images.length === 0) return "";
+
+  const items = images.map((image) =>
+    [
+      "      <immagine>",
+      `        <url>${escapeXml(absoluteImageUrl(image, origin))}</url>`,
+      "      </immagine>",
+    ].join("\n")
+  );
+
+  return ["    <immagini>", ...items, "    </immagini>"].join("\n");
+}
+
+function listingXml(listing: PortalListingInput, origin: string): string {
   const rows = [
     tag("riferimento", listing.reference),
     tag("titolo", listing.title),
@@ -115,7 +144,15 @@ function listingXml(listing: PortalListingInput): string {
     ? `    <descrizione>${cdata(`${listing.description.trim()}\n\n---\n${AI_DISCLAIMER_SHORT}`)}</descrizione>`
     : "";
 
-  return ["  <annuncio>", ...rows, description, "  </annuncio>"].filter(Boolean).join("\n");
+  return [
+    "  <annuncio>",
+    ...rows,
+    description,
+    imagesXml(listing.images, origin),
+    "  </annuncio>",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 /**
@@ -124,10 +161,14 @@ function listingXml(listing: PortalListingInput): string {
  * `generatedAt` è iniettabile per rendere l'output deterministico nei test:
  * un timestamp preso dall'orologio renderebbe impossibile confrontare due
  * esecuzioni.
+ *
+ * `origin` è obbligatorio e non ha un ripiego: serve a rendere assoluti gli
+ * URL delle foto, e un valore di comodo produrrebbe un feed che il portale
+ * accetta pubblicando annunci ciechi. Meglio non compilare.
  */
 export function buildPortalFeed(
   listings: PortalListingInput[],
-  options: { agencyName: string; generatedAt?: Date } = { agencyName: "" }
+  options: { agencyName: string; origin: string; generatedAt?: Date }
 ): string {
   const generatedAt = (options.generatedAt ?? new Date()).toISOString();
 
@@ -136,7 +177,7 @@ export function buildPortalFeed(
     "<annunci>",
     `  <agenzia>${escapeXml(options.agencyName)}</agenzia>`,
     `  <dataGenerazione>${generatedAt}</dataGenerazione>`,
-    ...listings.map(listingXml),
+    ...listings.map((listing) => listingXml(listing, options.origin)),
     "</annunci>",
     "",
   ].join("\n");
