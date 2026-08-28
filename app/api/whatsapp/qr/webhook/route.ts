@@ -19,6 +19,17 @@ import { handleInboundWhatsAppMessage } from "@/lib/whatsapp/inbound";
  * chiunque, invece di restare aperta.
  */
 
+/**
+ * Il percorso completo — creazione del lead, chiamata all'AI, invio della
+ * risposta — supera comodamente il limite predefinito di Vercel.
+ *
+ * Il webhook Meta lo dichiarava gia'; questa rotta e' nata dopo ed era rimasta
+ * scoperta. Senza, la funzione viene interrotta a meta': l'AI ha generato la
+ * risposta, l'invio non parte, e nei log non resta un errore ma un
+ * troncamento — cioe' il caso piu' difficile da diagnosticare.
+ */
+export const maxDuration = 60;
+
 const eventSchema = z.object({
   sessionId: z.string().min(1),
   event: z.enum(["connected", "disconnected", "message"]),

@@ -5,6 +5,7 @@ import { checkUsageLimit } from "@/lib/usage";
 import { initialDealStage } from "@/lib/leads/deal-stage";
 import { normalizePhone } from "./types";
 import { startConversation } from "./conversation";
+import { appendMessage } from "./chat-history";
 
 /**
  * Primo messaggio da un numero non ancora in archivio.
@@ -75,6 +76,28 @@ export async function createLeadFromFirstMessage(params: {
       dealStage: initialDealStage("PENDING"),
     },
   });
+
+  // Il messaggio con cui il cliente ha aperto la conversazione entra in
+  // cronologia prima dell'ingaggio.
+  //
+  // Finiva solo dentro `propertyRef`, quindi il cassetto mostrava la risposta
+  // dell'assistente senza la domanda che l'aveva provocata: una conversazione
+  // che comincia dalla seconda battuta. `appendMessage` fa upsert, quindi puo'
+  // creare la cronologia prima che l'AI scriva.
+  try {
+    await appendMessage(lead.id, {
+      sender: "user",
+      text: messageText,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    // Non blocca l'ingaggio: meglio una cronologia incompleta che un lead mai
+    // contattato.
+    console.error("[whatsapp/first-contact] Primo messaggio non registrato", {
+      leadId: lead.id,
+      error,
+    });
+  }
 
   // Crediti verificati dopo la creazione, come nel percorso dei portali: il
   // contatto non va perso perché il piano è esaurito.

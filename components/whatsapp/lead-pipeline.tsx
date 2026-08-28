@@ -138,6 +138,12 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
     []
   );
 
+  /** Toglie il lead dalla lista e chiude il cassetto dopo la cancellazione. */
+  const applyDeletion = useCallback((leadId: string) => {
+    setLeads((current) => current.filter((lead) => lead.id !== leadId));
+    setSelectedLead(null);
+  }, []);
+
   /** Sposta un lead di colonna nello stato locale, senza attendere il polling. */
   const applyStageChange = useCallback((leadId: string, dealStage: DealStage) => {
     setLeads((current) =>
@@ -438,6 +444,7 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
           onAssigned={(assignedToId, assignedToName) =>
             applyAssignment(selectedLead.id, assignedToId, assignedToName)
           }
+          onDeleted={() => applyDeletion(selectedLead.id)}
         />
       )}
     </section>
