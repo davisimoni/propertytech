@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buildPortalFeed, portalFeedFileName } from "@/lib/listings/portal-xml";
+import { PUBLISHED_STATUSES } from "@/lib/listings/property-fields";
 import { SITE_URL } from "@/lib/seo";
 
 /**
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
       // quella scheda, anche solo per controllarne il tracciato.
       where: reference
         ? { organizationId, reference }
-        : { organizationId, status: "ACTIVE" },
+        : { organizationId, status: { in: [...PUBLISHED_STATUSES] } },
       orderBy: { createdAt: "desc" },
       take: 1000,
     }),

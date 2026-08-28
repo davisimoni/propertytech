@@ -14,8 +14,10 @@ export const CONTRACT_TYPES: ContractType[] = ["VENDITA", "AFFITTO"];
 /**
  * Stato commerciale, come lo chiama un agente.
  *
- * `PUBLISHED_STATUS` e' l'unico stato che il feed esporta: tenerlo qui, accanto
- * alle etichette, evita che la UI dica una cosa e il feed ne faccia un'altra.
+ * `PUBLISHED_STATUSES` sono gli stati che il feed esporta: stanno qui, accanto
+ * alle etichette, perche' la UI e il feed devono dire la stessa cosa. Le rotte
+ * li importano invece di riscrivere il filtro, cosi' cambiare la regola resta
+ * una modifica sola.
  */
 export const PROPERTY_STATUS_LABELS: Record<PropertyStatus, string> = {
   DRAFT: "Bozza",
@@ -29,12 +31,25 @@ export const PROPERTY_STATUS_LABELS: Record<PropertyStatus, string> = {
 export const PROPERTY_STATUS_HINTS: Record<PropertyStatus, string> = {
   DRAFT: "Non ancora pubblicato sui portali",
   ACTIVE: "Pubblicato sui portali",
-  RESERVED: "Ritirato dai portali durante la trattativa",
+  RESERVED: "Resta pubblicato: raccoglie richieste di riserva",
   SOLD: "Ritirato dai portali",
   ARCHIVED: "Ritirato dai portali",
 };
 
-export const PUBLISHED_STATUS: PropertyStatus = "ACTIVE";
+/**
+ * Stati che finiscono nel feed XML verso i portali.
+ *
+ * `RESERVED` e' incluso di proposito: una proposta accettata non e' un rogito,
+ * e ritirare l'annuncio durante la trattativa significa restare senza
+ * alternative se salta. L'immobile resta visibile e continua a raccogliere
+ * richieste di riserva, che e' esattamente il motivo per cui l'agenzia lo
+ * segna "sotto proposta" invece di venduto.
+ */
+export const PUBLISHED_STATUSES = ["ACTIVE", "RESERVED"] as const satisfies readonly PropertyStatus[];
+
+export function isPublishedStatus(status: PropertyStatus): boolean {
+  return (PUBLISHED_STATUSES as readonly PropertyStatus[]).includes(status);
+}
 
 export const CONTRACT_LABELS: Record<ContractType, string> = {
   VENDITA: "Vendita",

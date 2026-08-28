@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { findOrganizationByFeedToken } from "@/lib/listings/feed-token";
 import { buildPortalFeed } from "@/lib/listings/portal-xml";
+import { PUBLISHED_STATUSES } from "@/lib/listings/property-fields";
 import { SITE_URL } from "@/lib/seo";
 
 /**
@@ -44,12 +45,15 @@ export async function GET(request: Request) {
     // un feed che mescolasse due agenzie pubblicherebbe gli immobili di una
     // sotto il nome dell'altra (CLAUDE.md §5).
     //
-    // Solo `ACTIVE`: bozze, immobili riservati, venduti e archiviati non
-    // devono comparire sui portali. E' anche il motivo per cui `status`
-    // nasce `ACTIVE` di default: con un default diverso questa riga avrebbe
-    // ritirato dalla pubblicazione, in silenzio, ogni immobile gia' in
-    // portafoglio alla prima rilettura del feed.
-    where: { organizationId: organization.id, status: "ACTIVE" },
+    // Solo gli stati pubblicabili: bozze, venduti e archiviati non devono
+    // comparire sui portali. `RESERVED` invece si', perche' una proposta
+    // accettata non e' un rogito: ritirare l'annuncio durante la trattativa
+    // lascerebbe l'agenzia senza alternative se salta.
+    //
+    // E' anche il motivo per cui `status` nasce `ACTIVE` di default: con un
+    // default diverso questa riga avrebbe ritirato dalla pubblicazione, in
+    // silenzio, ogni immobile gia' in portafoglio alla prima rilettura.
+    where: { organizationId: organization.id, status: { in: [...PUBLISHED_STATUSES] } },
     orderBy: { createdAt: "desc" },
     take: 1000,
   });

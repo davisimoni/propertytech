@@ -6,17 +6,21 @@ import { Loader2 } from "lucide-react";
 import {
   PROPERTY_STATUS_HINTS,
   PROPERTY_STATUS_LABELS,
-  PUBLISHED_STATUS,
+  isPublishedStatus,
 } from "@/lib/listings/property-fields";
 import { cn } from "@/lib/utils";
 
 const ORDER: PropertyStatus[] = ["DRAFT", "ACTIVE", "RESERVED", "SOLD", "ARCHIVED"];
 
-/** Verde solo per lo stato pubblicato: il colore deve dire "è online", non "va tutto bene". */
+/**
+ * Verde per gli stati che finiscono sui portali: il pallino dice "e' online",
+ * non "va tutto bene". `RESERVED` e' verde perche' resta pubblicato; che sia
+ * sotto proposta lo dice l'etichetta accanto, che e' li' da leggere.
+ */
 const DOT_CLASS: Record<PropertyStatus, string> = {
   DRAFT: "bg-status-pending",
   ACTIVE: "bg-status-qualified",
-  RESERVED: "bg-status-pending",
+  RESERVED: "bg-status-qualified",
   SOLD: "bg-muted-foreground",
   ARCHIVED: "bg-muted-foreground",
 };
@@ -98,7 +102,7 @@ export function PropertyStatusSelect({
       <p
         className={cn(
           "mt-1 text-xs",
-          status === PUBLISHED_STATUS ? "text-status-qualified" : "text-muted-foreground"
+          isPublishedStatus(status) ? "text-status-qualified" : "text-muted-foreground"
         )}
       >
         {PROPERTY_STATUS_HINTS[status]}
