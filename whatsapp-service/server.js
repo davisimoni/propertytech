@@ -1,4 +1,5 @@
 import express from "express";
+import { timingSafeEqual } from "node:crypto";
 import QRCode from "qrcode";
 import { describeSender, resolveSendJid } from "./jid.js";
 import {
@@ -57,9 +58,18 @@ app.get("/health", (_req, res) => {
 
 app.use((req, res, next) => {
   const bearer = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-  if (bearer !== TOKEN) return res.status(401).json({ error: "unauthorized" });
+  // Confronto a tempo costante, come fa la piattaforma sul webhook di ritorno:
+  // un confronto ingenuo trasforma il token in un oracolo misurabile.
+  const atteso = Buffer.from(TOKEN);
+  const ricevuto = Buffer.from(bearer);
+  if (ricevuto.length !== atteso.length || !timingSafeEqual(ricevuto, atteso)) {
+    return res.status(401).json({ error: "unauthorized" });
+  }
   next();
 });
+
+/** Attesa massima per una consegna alla piattaforma. */
+const NOTIFY_TIMEOUT_MS = 15_000;
 
 async function notify(payload) {
   if (!WEBHOOK) return;
@@ -72,6 +82,11 @@ async function notify(payload) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
+      // Senza timeout una piattaforma che non risponde bloccava QUESTO await
+      // a tempo indefinito. I messaggi si elaborano in sequenza dentro il
+      // gestore di `messages.upsert`: una sola consegna appesa fermava tutti i
+      // messaggi successivi di quella sessione, in silenzio.
+      signal: AbortSignal.timeout(NOTIFY_TIMEOUT_MS),
     });
   } catch (error) {
     // Non blocca: la piattaforma interroga comunque /status mentre il QR è a
@@ -81,17 +96,42 @@ async function notify(payload) {
   }
 }
 
+/** Tentativi di riconnessione consecutivi, per sessione. */
+const retryCount = new Map();
+const MAX_RETRY_DELAY_MS = 5 * 60_000;
+
+/**
+ * Attesa prima del prossimo tentativo: 3s, 6s, 12s… fino a cinque minuti.
+ *
+ * Prima era un `setTimeout` fisso di 3 secondi senza tetto: davanti a un
+ * errore persistente — numero bannato, credenziali invalidate — il servizio
+ * martellava WhatsApp venti volte al minuto per sempre, che è anche il modo
+ * migliore per peggiorare un ban.
+ */
+function retryDelay(sessionId) {
+  const tentativo = (retryCount.get(sessionId) ?? 0) + 1;
+  retryCount.set(sessionId, tentativo);
+  return Math.min(3000 * 2 ** (tentativo - 1), MAX_RETRY_DELAY_MS);
+}
+
 async function startSession(sessionId) {
   const existing = sessions.get(sessionId);
-  if (existing?.sock) return existing;
+  // `starting` e non solo `sock`: fra la creazione della voce e
+  // l'assegnazione del socket c'e' un `await`, e due chiamate ravvicinate
+  // (il polling del QR mentre arriva un riavvio) vedevano entrambe `sock`
+  // ancora null e aprivano DUE socket sulla stessa sessione. Due socket
+  // significano messaggi consegnati due volte e credenziali che si
+  // sovrascrivono a vicenda.
+  if (existing?.sock || existing?.starting) return existing;
+
+  const entry = { sock: null, qr: null, status: "pending", phoneNumber: null, starting: true };
+  sessions.set(sessionId, entry);
 
   const { state, saveCreds } = await useMultiFileAuthState(`${SESSIONS_DIR}/${sessionId}`);
 
-  const entry = { sock: null, qr: null, status: "pending", phoneNumber: null };
-  sessions.set(sessionId, entry);
-
   const sock = makeWASocket({ auth: state, printQRInTerminal: false });
   entry.sock = sock;
+  entry.starting = false;
 
   sock.ev.on("creds.update", saveCreds);
 
@@ -104,6 +144,8 @@ async function startSession(sessionId) {
       entry.status = "connected";
       entry.qr = null;
       entry.phoneNumber = sock.user?.id?.split(":")[0] ?? null;
+      // Connessione riuscita: il prossimo distacco riparte da tre secondi.
+      retryCount.delete(sessionId);
       console.log(`[${sessionId}] connesso: ${entry.phoneNumber}`);
       await notify({ sessionId, event: "connected", phoneNumber: entry.phoneNumber });
     }
@@ -118,7 +160,14 @@ async function startSession(sessionId) {
       // client non ufficiale la caduta è frequente e quasi sempre passeggera.
       if (code !== DisconnectReason.loggedOut) {
         sessions.delete(sessionId);
-        setTimeout(() => startSession(sessionId), 3000);
+        const attesa = retryDelay(sessionId);
+        console.log(`[${sessionId}] riprovo fra ${Math.round(attesa / 1000)}s`);
+        setTimeout(() => startSession(sessionId), attesa);
+      } else {
+        // Logout esplicito dal telefono: la sessione non va riaperta, e il
+        // contatore va azzerato o il prossimo abbinamento erediterebbe
+        // l'attesa accumulata da quello precedente.
+        retryCount.delete(sessionId);
       }
     }
   });

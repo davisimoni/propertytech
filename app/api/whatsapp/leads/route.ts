@@ -3,7 +3,6 @@ import type { LeadView } from "@/lib/whatsapp/view-types";
 import type { Prisma, QualificationStatus } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { parseChatMessages } from "@/lib/whatsapp/types";
 
 const VALID_STATUSES: QualificationStatus[] = [
   "PENDING",
@@ -51,7 +50,10 @@ export async function GET(request: Request) {
     orderBy,
     take: 100,
     include: {
-      chat: true,
+      // `chat` NON incluso: le trascrizioni pesano quanto tutto il resto messo
+      // insieme e questa lista si ricarica da sola ogni 15 secondi. I messaggi
+      // si chiedono all'apertura del dettaglio, da
+      // `/api/whatsapp/leads/[id]/messages`.
       // Solo i match ancora da validare: quelli confermati sono già dentro il
       // conteggio, quelli ignorati sono decisioni chiuse.
       portfolioMatches: {
@@ -110,7 +112,8 @@ export async function GET(request: Request) {
     createdAt: lead.createdAt.toISOString(),
     updatedAt: lead.updatedAt.toISOString(),
     aiEnabled: lead.aiEnabled,
-    messages: parseChatMessages(lead.chat?.messages),
+    // Riempiti dal cassetto quando lo si apre.
+    messages: [],
   }));
 
   return NextResponse.json({ leads: view });

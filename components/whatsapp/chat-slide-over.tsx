@@ -16,6 +16,7 @@ import {
 import { AddToCalendar } from "@/components/calendar/add-to-calendar";
 import { PORTAL_SOURCE_LABELS, QUALIFICATION_STATUS_LABELS } from "@/lib/whatsapp/types";
 import { STATUS_BADGE_CLASSES, type LeadView } from "@/lib/whatsapp/view-types";
+import type { ChatMessage } from "@/lib/whatsapp/types";
 import { PortfolioCard } from "./portfolio-card";
 import { LeadPreferencesCard } from "./lead-preferences-card";
 import { LeadAssignment } from "./lead-assignment";
@@ -73,9 +74,44 @@ export function ChatSlideOver({
   onDeleted,
   onAiEnabledChange,
 }: ChatSlideOverProps) {
+  /**
+   * La cronologia si carica all'apertura, non arriva con la lista.
+   *
+   * La lista si ricarica da sola ogni 15 secondi e portarsi dietro le
+   * trascrizioni di cento conversazioni a ogni giro significava trasferire
+   * megabyte per mostrare una tabella di nomi e stati.
+   */
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(true);
+  const [messagesError, setMessagesError] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let annullato = false;
+    setIsLoadingMessages(true);
+    setMessagesError(false);
+
+    fetch(`/api/whatsapp/leads/${lead.id}/messages`)
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error())))
+      .then((data: { messages: ChatMessage[] }) => {
+        if (!annullato) setMessages(data.messages);
+      })
+      .catch(() => {
+        // Errore dichiarato invece di una chat vuota: un cassetto che mostra
+        // "la conversazione non e' ancora partita" quando la richiesta e'
+        // fallita fa credere all'agente che il cliente non abbia mai scritto.
+        if (!annullato) setMessagesError(true);
+      })
+      .finally(() => {
+        if (!annullato) setIsLoadingMessages(false);
+      });
+
+    return () => {
+      annullato = true;
+    };
+  }, [lead.id]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -194,14 +230,23 @@ export function ChatSlideOver({
               </div>
             )}
 
-            {lead.messages.length === 0 ? (
+            {isLoadingMessages ? (
+              <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Carico la conversazione…
+              </p>
+            ) : messagesError ? (
+              <p className="mt-4 text-sm text-status-blocked">
+                Non è stato possibile caricare la conversazione. Chiudi e riapri il dettaglio.
+              </p>
+            ) : messages.length === 0 ? (
               <p className="mt-4 text-sm text-muted-foreground">
                 La conversazione non è ancora partita: appena WhatsApp è collegato e ci sono crediti
                 disponibili, l&apos;assistente scrive per primo e comincia a qualificare il contatto.
               </p>
             ) : (
               <div className="mt-3 space-y-3">
-                {lead.messages.map((message, index) => (
+                {messages.map((message, index) => (
                   <div
                     key={index}
                     className={cn("flex", message.sender === "bot" ? "justify-start" : "justify-end")}
@@ -279,7 +324,7 @@ export function ChatSlideOver({
           </div>
 
           <div className="border-b border-border p-4">
-            <LeadTimeline lead={lead} />
+            <LeadTimeline lead={{ ...lead, messages }} />
           </div>
 
           <div className="border-b border-border p-4">

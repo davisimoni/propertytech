@@ -56,6 +56,7 @@ interface PropertyView {
 export function PropertyPortfolio() {
   const [properties, setProperties] = useState<PropertyView[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   // Un solo fascicolo aperto per volta, e montato solo quando lo si apre:
   // altrimenti una pagina con trenta immobili farebbe trenta chiamate al
   // caricamento, per documenti che nessuno ha chiesto di vedere.
@@ -79,10 +80,12 @@ export function PropertyPortfolio() {
 
   useEffect(() => {
     fetch("/api/properties")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: { properties: PropertyView[] } | null) => {
-        if (data) setProperties(data.properties);
-      })
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error())))
+      .then((data: { properties: PropertyView[] }) => setProperties(data.properties))
+      // Errore dichiarato, non stato vuoto: mostrare "aggiungi il primo
+      // immobile" a un'agenzia che ne ha cinquanta, perche' una richiesta e'
+      // fallita, la convince di aver perso il portafoglio.
+      .catch(() => setLoadError(true))
       .finally(() => setIsLoading(false));
   }, []);
 
@@ -91,6 +94,22 @@ export function PropertyPortfolio() {
       <div className="flex items-center justify-center rounded-xl border border-border bg-card p-12">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <section className="rounded-xl border border-status-blocked/30 bg-status-blocked/10 p-6 text-center">
+        <p className="text-sm font-medium text-foreground">
+          Non è stato possibile caricare il portafoglio.
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          I tuoi immobili non sono stati toccati. Ricarica la pagina per riprovare.
+        </p>
+        <button type="button" onClick={() => window.location.reload()} className="btn-outline mx-auto mt-4 text-xs">
+          Ricarica
+        </button>
+      </section>
     );
   }
 

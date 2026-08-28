@@ -74,6 +74,9 @@ export async function GET(request: Request) {
       ...(propertyId ? { propertyId } : {}),
     },
     orderBy: [{ createdAt: "desc" }],
+    // Limite esplicito: senza, il fascicolo di un'agenzia a regime restituisce
+    // tutto in una volta e la pagina cresce senza un tetto.
+    take: 200,
     // `fileDataUrl` volutamente escluso: l'elenco di venti documenti
     // trascinerebbe decine di megabyte di base64 dentro la pagina. Il
     // contenuto si scarica uno alla volta, dalla rotta dedicata.

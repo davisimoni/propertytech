@@ -84,6 +84,14 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
   const [sortByPortfolio, setSortByPortfolio] = useState(false);
   const [view, setView] = useState<"table" | "kanban">("table");
   const [isLoading, setIsLoading] = useState(true);
+  /**
+   * Errore dell'ultimo caricamento.
+   *
+   * Distinto dall'elenco vuoto: una tabella che dice "nessun lead" perche' la
+   * richiesta e' fallita fa credere all'agenzia di aver perso i contatti, ed
+   * e' il momento in cui smette di fidarsi dello strumento.
+   */
+  const [loadError, setLoadError] = useState(false);
   const [selectedLead, setSelectedLead] = useState<LeadView | null>(null);
 
   const fetchLeads = useCallback(async (status: Filter, byPortfolio: boolean) => {
@@ -92,14 +100,26 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
     if (byPortfolio) params.set("sort", "portfolio");
 
     const query = params.toString();
-    const response = await fetch(`/api/whatsapp/leads${query ? `?${query}` : ""}`);
-    if (!response.ok) return;
-    const data: { leads: LeadView[] } = await response.json();
-    setLeads(data.leads);
-    // Mantiene il pannello di dettaglio allineato ai messaggi appena arrivati.
-    setSelectedLead((current) =>
-      current ? data.leads.find((lead) => lead.id === current.id) ?? current : null
-    );
+
+    try {
+      const response = await fetch(`/api/whatsapp/leads${query ? `?${query}` : ""}`);
+      if (!response.ok) throw new Error();
+      const data: { leads: LeadView[] } = await response.json();
+      setLeads(data.leads);
+      setLoadError(false);
+
+      // Tiene allineato il cassetto aperto: stato, budget e zona possono
+      // cambiare mentre l'agente lo sta guardando. La cronologia no, quella
+      // se la carica il cassetto per conto suo.
+      setSelectedLead((current) =>
+        current ? data.leads.find((lead) => lead.id === current.id) ?? current : null
+      );
+    } catch {
+      // Un giro di polling fallito su una lista gia' caricata non cancella
+      // nulla a schermo: si segnala e si riprova al giro dopo.
+      setLoadError(true);
+      return;
+    }
   }, []);
 
   /**
@@ -289,6 +309,13 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
           </button>
         ))}
       </div>
+
+      {loadError ? (
+        <p className="mb-3 rounded-lg border border-status-blocked/30 bg-status-blocked/10 px-3 py-2 text-xs text-status-blocked">
+          Aggiornamento non riuscito: quello che vedi potrebbe non essere aggiornato. Riprovo fra
+          poco.
+        </p>
+      ) : null}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">

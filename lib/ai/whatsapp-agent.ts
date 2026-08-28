@@ -5,7 +5,19 @@ import { z } from "zod";
 import type { ChatMessage } from "@/lib/whatsapp/types";
 import { PRIVACY_DISCLOSURE } from "@/lib/whatsapp/compliance";
 
-const client = new Anthropic();
+/**
+ * Timeout esplicito, e piu' corto del budget della funzione.
+ *
+ * Questo agente gira dentro il webhook WhatsApp, che ha `maxDuration = 60`.
+ * L'SDK, lasciato ai suoi valori predefiniti, attende molto piu' a lungo: la
+ * piattaforma uccideva la funzione prima che la chiamata rinunciasse, e
+ * `AGENT_FALLBACK_MESSAGE` — che esiste proprio perche' il cliente non resti
+ * mai senza risposta — non faceva in tempo a partire. Trenta secondi lasciano
+ * margine per generare il ripiego, scriverlo in cronologia e inviarlo.
+ */
+const AGENT_TIMEOUT_MS = 30_000;
+
+const client = new Anthropic({ timeout: AGENT_TIMEOUT_MS, maxRetries: 1 });
 
 const AGENT_MODEL = "claude-opus-5";
 
