@@ -1,5 +1,6 @@
 import express from "express";
 import QRCode from "qrcode";
+import { describeSender, resolveSendJid } from "./jid.js";
 import {
   makeWASocket,
   useMultiFileAuthState,
@@ -123,14 +124,12 @@ async function startSession(sessionId) {
       const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text || "";
       if (!text) continue;
 
+      const { jid, isLid, from } = describeSender(msg);
+
       await notify({
         sessionId,
         event: "message",
-        message: {
-          from: msg.key.remoteJid.split("@")[0],
-          text,
-          profileName: msg.pushName || undefined,
-        },
+        message: { from, jid, isLid, text, profileName: msg.pushName || undefined },
       });
     }
   });
@@ -176,12 +175,20 @@ app.post("/sessions/:id/send", async (req, res) => {
     return res.status(409).json({ error: "not_connected" });
   }
 
-  const { to, text } = req.body || {};
-  if (!to || !text) return res.status(400).json({ error: "invalid_payload" });
+  const { to, text, jid: providedJid } = req.body || {};
+  if (!text) return res.status(400).json({ error: "invalid_payload" });
+
+  const resolved = resolveSendJid({ to, jid: providedJid });
+  if (!resolved.ok) {
+    // 422 e non un invio tentato lo stesso: un indirizzo ricostruito male non
+    // fa fallire Baileys, sparisce e basta. Meglio un errore che la
+    // piattaforma vede e registra come [WA-SEND-ERROR].
+    console.error("[send] destinatario non valido:", resolved.reason);
+    return res.status(422).json({ error: "invalid_jid", detail: resolved.reason });
+  }
 
   try {
-    const jid = `${String(to).replace(/\D/g, "")}@s.whatsapp.net`;
-    await entry.sock.sendMessage(jid, { text });
+    await entry.sock.sendMessage(resolved.jid, { text });
     res.json({ ok: true });
   } catch (error) {
     console.error("[send] errore:", error.message);

@@ -194,7 +194,12 @@ export async function applyReminderReply(
   });
 
   try {
-    await sendWhatsAppMessageForProvider(resolveWhatsAppCredentials(config), lead.clientPhone, text);
+    await sendWhatsAppMessageForProvider(
+          resolveWhatsAppCredentials(config),
+          lead.clientPhone,
+          text,
+          lead.waChatJid
+        );
   } catch (error) {
     console.error("[whatsapp/reminders] Conferma non recapitata", { leadId: lead.id, error });
   }
@@ -256,7 +261,12 @@ export async function sendDueReminders(now: Date = new Date()): Promise<Reminder
       );
 
       try {
-        await sendWhatsAppMessageForProvider(resolveWhatsAppCredentials(config), lead.clientPhone, text);
+        await sendWhatsAppMessageForProvider(
+          resolveWhatsAppCredentials(config),
+          lead.clientPhone,
+          text,
+          lead.waChatJid
+        );
 
         // `reminderSentAt` è scritto solo dopo un invio riuscito: se la Cloud
         // API è giù, il prossimo giro riproverà invece di considerare

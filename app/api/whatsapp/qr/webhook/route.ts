@@ -30,6 +30,9 @@ const eventSchema = z.object({
       from: z.string().min(6),
       text: z.string(),
       profileName: z.string().optional(),
+      /** Indirizzo esatto della chat, dominio incluso. Assente dai microservizi non aggiornati. */
+      jid: z.string().min(3).optional(),
+      isLid: z.boolean().optional(),
     })
     .optional(),
 });
@@ -109,6 +112,7 @@ export async function POST(request: Request) {
       fromPhone: normalizePhone(message.from),
       text: message.text,
       profileName: message.profileName,
+      chatJid: message.jid,
     });
   } catch (error) {
     // 200 comunque: un errore nostro non deve innescare rinvii a ripetizione

@@ -147,10 +147,15 @@ export async function destroyQrSession(sessionId: string): Promise<void> {
 export async function sendViaQrSession(
   sessionId: string,
   toPhone: string,
-  text: string
+  text: string,
+  chatJid?: string | null
 ): Promise<void> {
   await callService<{ ok: boolean }>(`/sessions/${encodeURIComponent(sessionId)}/send`, {
     method: "POST",
-    body: JSON.stringify({ to: toPhone, text }),
+    // `jid` quando lo conosciamo: e' l'indirizzo esatto della chat da cui il
+    // messaggio e' arrivato, e vale sia per i numeri sia per i LID. `to` resta
+    // per i lead dei portali, dove abbiamo un numero vero e nessuna chat
+    // precedente da cui ricavare un indirizzo.
+    body: JSON.stringify({ to: toPhone, text, ...(chatJid ? { jid: chatJid } : {}) }),
   });
 }

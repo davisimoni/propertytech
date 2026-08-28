@@ -55,8 +55,9 @@ export async function createLeadFromFirstMessage(params: {
   fromPhone: string;
   profileName?: string;
   messageText: string;
+  chatJid?: string;
 }): Promise<Lead | null> {
-  const { config, agencyName, fromPhone, profileName, messageText } = params;
+  const { config, agencyName, fromPhone, profileName, messageText, chatJid } = params;
   const organizationId = config.organizationId;
   const clientPhone = normalizePhone(fromPhone);
 
@@ -65,6 +66,9 @@ export async function createLeadFromFirstMessage(params: {
       organizationId,
       clientName: resolveContactName(profileName),
       clientPhone,
+      // Indirizzo esatto della chat: senza, la risposta verrebbe spedita a un
+      // indirizzo ricostruito dalle cifre, che con un LID non esiste.
+      waChatJid: chatJid ?? null,
       portalSource: "QR_CODE",
       propertyRef: propertyRefFromMessage(messageText),
       qualificationStatus: "PENDING",

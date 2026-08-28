@@ -89,4 +89,13 @@ export interface InboundWhatsAppMessage {
   profileName?: string;
   /** Testo già risolto: per l'audio è la trascrizione, non l'id del media. */
   text: string;
+  /**
+   * Indirizzo esatto della chat (`<id>@s.whatsapp.net` o `<id>@lid`), quando
+   * il trasporto lo espone.
+   *
+   * Serve per rispondere: WhatsApp identifica molte conversazioni con un LID
+   * anziche' col numero, e ricostruire l'indirizzo dalle cifre produce in quel
+   * caso un destinatario inesistente che non fallisce e non recapita.
+   */
+  chatJid?: string;
 }

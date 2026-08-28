@@ -58,9 +58,22 @@ export async function handleInboundWhatsAppMessage(
     return;
   }
 
-  const existing = await prisma.lead.findUnique({
-    where: { organizationId_clientPhone: { organizationId: config.organizationId, clientPhone } },
-  });
+  const existing =
+    (await prisma.lead.findUnique({
+      where: { organizationId_clientPhone: { organizationId: config.organizationId, clientPhone } },
+    })) ??
+    // Ripiego sull'indirizzo della chat.
+    //
+    // Serve nella transizione: una conversazione aperta quando il mittente
+    // arrivava come LID ha una scheda con quel LID al posto del numero. Ora che
+    // il numero vero e' disponibile, cercare solo per numero non troverebbe
+    // nulla e aprirebbe una seconda scheda per la stessa persona, ricominciando
+    // la qualificazione da capo davanti a un cliente che sta gia' rispondendo.
+    (message.chatJid
+      ? await prisma.lead.findFirst({
+          where: { organizationId: config.organizationId, waChatJid: message.chatJid },
+        })
+      : null);
 
   // Numero mai visto: è la persona che ha scritto per prima (QR in vetrina,
   // sandbox Twilio, ecc.). La scheda nasce qui e la qualificazione parte
@@ -73,6 +86,7 @@ export async function handleInboundWhatsAppMessage(
         fromPhone: message.fromPhone,
         profileName: message.profileName,
         messageText: message.text,
+        chatJid: message.chatJid,
       });
     } catch (error) {
       console.error("[whatsapp/inbound] Creazione lead da primo contatto fallita", error);
@@ -80,7 +94,16 @@ export async function handleInboundWhatsAppMessage(
     return;
   }
 
-  const lead = existing;
+  // Riparazione dei lead nati prima che il JID venisse conservato, e di quelli
+  // la cui chat cambia indirizzo (WhatsApp puo' migrare un contatto a LID).
+  // Senza, una scheda creata ieri resterebbe irraggiungibile per sempre.
+  let lead = existing;
+  if (message.chatJid && existing.waChatJid !== message.chatJid) {
+    lead = await prisma.lead.update({
+      where: { id: existing.id },
+      data: { waChatJid: message.chatJid },
+    });
+  }
 
   // Un contatto già in opt-out non riceve più nulla, nemmeno se riscrive.
   if (lead.qualificationStatus === "OPT_OUT") return;

@@ -81,7 +81,12 @@ export async function startConversation(
     QUALIFICATION_QUESTIONS.mortgage
   );
 
-  await sendWhatsAppMessageForProvider(resolveWhatsAppCredentials(config), lead.clientPhone, opening);
+  await sendWhatsAppMessageForProvider(
+    resolveWhatsAppCredentials(config),
+    lead.clientPhone,
+    opening,
+    lead.waChatJid
+  );
 
   await appendMessage(lead.id, { sender: "bot", text: opening, timestamp: nowIso() });
 
@@ -115,7 +120,8 @@ export async function handleOptOut(lead: Lead, config: WhatsAppConfig): Promise<
     await sendWhatsAppMessageForProvider(
       resolveWhatsAppCredentials(config),
       lead.clientPhone,
-      OPT_OUT_CONFIRMATION
+      OPT_OUT_CONFIRMATION,
+      lead.waChatJid
     );
   } catch (error) {
     console.error("[whatsapp/conversation] Opt-out confirmation not delivered", {
@@ -231,7 +237,12 @@ export async function handleIncomingMessage(
     fieldsUpdated: Object.keys(leadUpdate),
   });
 
-  await sendWhatsAppMessageForProvider(resolveWhatsAppCredentials(config), lead.clientPhone, replyText);
+  await sendWhatsAppMessageForProvider(
+    resolveWhatsAppCredentials(config),
+    lead.clientPhone,
+    replyText,
+    lead.waChatJid
+  );
 
   await appendMessage(lead.id, { sender: "bot", text: replyText, timestamp: nowIso() });
 
@@ -287,7 +298,7 @@ export async function replyToUnsupportedMedia({
   const history = parseChatMessages(lead?.chat?.messages);
   if (!shouldSendMediaNudge(history)) return;
 
-  await sendWhatsAppMessageForProvider(credentials, fromPhone, MEDIA_NUDGE);
+  await sendWhatsAppMessageForProvider(credentials, fromPhone, MEDIA_NUDGE, lead?.waChatJid);
 
   // Registrato in cronologia solo se il lead esiste: è ciò che permette di non
   // ripetersi al messaggio successivo.

@@ -541,9 +541,24 @@ model WhatsAppConfig {
 /// `clientPhone` è unico per organizzazione: un secondo annuncio richiesto dallo
 /// stesso numero riusa il lead esistente invece di duplicarlo.
 model Lead {
-  id                  String              @id @default(uuid())
-  clientName          String
-  clientPhone         String
+  id          String @id @default(uuid())
+  clientName  String
+  clientPhone String
+
+  /// Indirizzo WhatsApp esatto della conversazione (`<id>@s.whatsapp.net`
+  /// oppure `<id>@lid`), come ricevuto dal provider.
+  ///
+  /// Esiste perche' WhatsApp non identifica piu' tutti i contatti col numero:
+  /// per molte chat consegna un LID, un identificativo opaco che NON e' un
+  /// recapito telefonico. Ricostruire l'indirizzo come `<cifre>@s.whatsapp.net`
+  /// - che e' quello che facevamo - produce in quei casi un indirizzo
+  /// inesistente: la libreria lo accetta, risponde che ha inviato, e il
+  /// messaggio non arriva a nessuno. Rispondere all'indirizzo da cui il
+  /// messaggio e' arrivato e' l'unica strada che vale in entrambi i casi.
+  ///
+  /// `null` per i lead nati da altri canali (portali, import CSV), dove il
+  /// numero e' un numero vero e l'indirizzo si costruisce senza ambiguita'.
+  waChatJid           String?
   /// Email del contatto, quando l'agenzia ce l'ha in rubrica. Il flusso
   /// WhatsApp non la usa: serve all'agente e all'esportazione verso il gestionale.
   clientEmail         String?

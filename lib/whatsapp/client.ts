@@ -285,49 +285,69 @@ export function hasSendableCredentials(credentials: ResolvedWhatsAppCredentials)
 export async function sendWhatsAppMessageForProvider(
   credentials: ResolvedWhatsAppCredentials,
   toPhone: string,
-  text: string
+  text: string,
+  chatJid?: string | null
 ): Promise<void> {
-  switch (credentials.provider) {
-    case "qr": {
-      if (!credentials.qr) {
-        throw new WhatsAppSendError("Sessione WhatsApp non abbinata.", "not_configured");
-      }
-
-      // Import dinamico: `qr-service` legge l'ambiente e non deve essere
-      // caricato nelle richieste delle agenzie che usano altri provider.
-      const { sendViaQrSession, QrServiceError } = await import("./qr-service");
-      try {
-        return await sendViaQrSession(credentials.qr.sessionId, toPhone, text);
-      } catch (error) {
-        // Tradotto nell'errore di questo modulo: chi chiama gestisce già
-        // `WhatsAppSendError` e non deve conoscere il microservizio.
-        if (error instanceof QrServiceError) {
-          throw new WhatsAppSendError(
-            error.message,
-            error.code === "not_configured" ? "not_configured" : "upstream_error"
-          );
+  try {
+    switch (credentials.provider) {
+      case "qr": {
+        if (!credentials.qr) {
+          throw new WhatsAppSendError("Sessione WhatsApp non abbinata.", "not_configured");
         }
-        throw error;
+
+        // Import dinamico: `qr-service` legge l'ambiente e non deve essere
+        // caricato nelle richieste delle agenzie che usano altri provider.
+        const { sendViaQrSession, QrServiceError } = await import("./qr-service");
+        try {
+          return await sendViaQrSession(credentials.qr.sessionId, toPhone, text, chatJid);
+        } catch (error) {
+          // Tradotto nell'errore di questo modulo: chi chiama gestisce già
+          // `WhatsAppSendError` e non deve conoscere il microservizio.
+          if (error instanceof QrServiceError) {
+            throw new WhatsAppSendError(
+              error.message,
+              error.code === "not_configured" ? "not_configured" : "upstream_error"
+            );
+          }
+          throw error;
+        }
       }
+
+      case "twilio":
+        if (!credentials.twilio) {
+          throw new WhatsAppSendError("Credenziali Twilio non configurate.", "not_configured");
+        }
+        return await sendWhatsAppMessageViaTwilio(credentials.twilio, toPhone, text);
+
+      case "generic":
+        if (!credentials.generic) {
+          throw new WhatsAppSendError("Webhook generico non configurato.", "not_configured");
+        }
+        return await sendWhatsAppMessageViaGenericWebhook(credentials.generic, toPhone, text);
+
+      case "meta":
+      default:
+        if (!credentials.meta) {
+          throw new WhatsAppSendError("Credenziali WhatsApp non configurate.", "not_configured");
+        }
+        return await sendWhatsAppMessage(credentials.meta, toPhone, text);
     }
-
-    case "twilio":
-      if (!credentials.twilio) {
-        throw new WhatsAppSendError("Credenziali Twilio non configurate.", "not_configured");
-      }
-      return sendWhatsAppMessageViaTwilio(credentials.twilio, toPhone, text);
-
-    case "generic":
-      if (!credentials.generic) {
-        throw new WhatsAppSendError("Webhook generico non configurato.", "not_configured");
-      }
-      return sendWhatsAppMessageViaGenericWebhook(credentials.generic, toPhone, text);
-
-    case "meta":
-    default:
-      if (!credentials.meta) {
-        throw new WhatsAppSendError("Credenziali WhatsApp non configurate.", "not_configured");
-      }
-      return sendWhatsAppMessage(credentials.meta, toPhone, text);
+  } catch (error) {
+    // Unico punto da cui passa ogni invio, qualunque sia il trasporto: il log
+    // sta qui e non nei singoli chiamanti, cosi' nessuna strada puo' fallire
+    // in silenzio.
+    //
+    // Niente testo del messaggio e numero troncato (CLAUDE.md §5); `hasJid`
+    // dice se stavamo rispondendo all'indirizzo esatto della chat o
+    // ricostruendolo dalle cifre, che e' la distinzione che separa un invio
+    // recapitato da uno accettato e perso.
+    console.error("[WA-SEND-ERROR]", {
+      provider: credentials.provider,
+      to: `${normalizePhone(toPhone).slice(0, 6)}…`,
+      hasJid: Boolean(chatJid),
+      code: error instanceof WhatsAppSendError ? error.code : "unknown",
+      message: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
   }
 }
