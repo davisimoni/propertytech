@@ -14,7 +14,24 @@ import { cleanTranscript } from "./transcript-quality";
  * Vincolo GDPR: scegliere un endpoint con processing in UE.
  */
 
+/**
+ * Attesa massima predefinita: generosa perche' il percorso principale e' il
+ * report post-visita, dove l'agente carica una registrazione lunga e sta
+ * guardando una barra di avanzamento.
+ */
 const STT_TIMEOUT_MS = 120_000;
+
+/**
+ * Attesa per le note vocali di WhatsApp.
+ *
+ * Molto piu' breve, e non e' un'ottimizzazione: quel percorso vive dentro un
+ * webhook con `maxDuration = 60`. Con l'attesa predefinita la funzione
+ * verrebbe uccisa dalla piattaforma prima che la trascrizione rinunci, e il
+ * cliente non riceverebbe **nulla** - ne' il testo ne' la risposta di
+ * cortesia. Venticinque secondi lasciano margine per generare la risposta e
+ * inviarla; una nota vocale vera si trascrive in pochi secondi.
+ */
+export const STT_WEBHOOK_TIMEOUT_MS = 25_000;
 
 export const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
 
@@ -78,7 +95,12 @@ export function isTranscriptionConfigured(): boolean {
  * Il buffer audio resta in memoria per la durata della chiamata e non viene mai
  * persistito: è il requisito GDPR sui dati vocali (CLAUDE.md §5).
  */
-export async function transcribeAudio(audio: Buffer, filename: string, mimeType: string): Promise<string> {
+export async function transcribeAudio(
+  audio: Buffer,
+  filename: string,
+  mimeType: string,
+  options?: { timeoutMs?: number }
+): Promise<string> {
   const provider = resolveTranscriptionProvider();
 
   if (!provider) {
@@ -101,7 +123,7 @@ export async function transcribeAudio(audio: Buffer, filename: string, mimeType:
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}` },
       body: formData,
-      signal: AbortSignal.timeout(STT_TIMEOUT_MS),
+      signal: AbortSignal.timeout(options?.timeoutMs ?? STT_TIMEOUT_MS),
     });
   } catch (error) {
     const isTimeout = error instanceof DOMException && error.name === "TimeoutError";

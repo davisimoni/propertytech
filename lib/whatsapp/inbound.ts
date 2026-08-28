@@ -3,7 +3,7 @@ import type { Organization, WhatsAppConfig } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizePhone } from "./types";
 import { isOptOutMessage } from "./compliance";
-import { handleIncomingMessage, handleOptOut } from "./conversation";
+import { handleClosedConversation, handleIncomingMessage, handleOptOut } from "./conversation";
 import { applyReminderReply, isAwaitingReminderReply, parseReminderReply } from "./reminders";
 import { createLeadFromFirstMessage } from "./first-contact";
 import { AGENT_COMMAND_REPLIES, parseAgentCommand } from "./agent-commands";
@@ -210,8 +210,20 @@ export async function handleInboundWhatsAppMessage(
         leadId: lead.id,
         organizationId: config.organizationId,
       });
+    } else if (lead.qualificationStatus === "QUALIFIED" || lead.qualificationStatus === "UNQUALIFIED") {
+      // Qualificazione conclusa: il ciclo si ferma qui. Rifarlo girare
+      // costerebbe una chiamata al modello per ogni frase successiva e, quel
+      // che e' peggio, potrebbe ribaltare un esito gia' raggiunto e gia'
+      // consegnato al gestionale.
+      await handleClosedConversation(lead, config, message.text);
     } else {
-      await handleIncomingMessage(lead, config, config.organization.agencyName, message.text);
+      await handleIncomingMessage(
+        lead,
+        config,
+        config.organization.agencyName,
+        message.text,
+        config.organization
+      );
     }
   } catch (error) {
     console.error("[whatsapp/inbound] Message handling failed", { leadId: lead.id, error });

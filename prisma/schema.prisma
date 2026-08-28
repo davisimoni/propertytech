@@ -264,11 +264,31 @@ model Organization {
 
   /// Ragione sociale completa, usata nell'intestazione dei PDF consegnati a
   /// proprietari e clienti. Distinta da `agencyName`, che è il nome d'uso.
-  legalName   String?
+  legalName String?
+
+  /// --- Scheda agenzia: cio' che l'assistente puo' dire al cliente ---
+  ///
+  /// Campi liberi e non strutturati di proposito. Un'agenzia con due sedi e
+  /// l'apertura del sabato a settimane alterne non entra in uno schema, e uno
+  /// schema che non la contiene la costringe a scrivere qualcosa di falso.
+  /// Il testo finisce nel prompt cosi' com'e', dove serve solo che sia
+  /// leggibile.
+  ///
+  /// Tutti facoltativi: l'assistente dice "le faccio richiamare da un agente"
+  /// per cio' che non sa, che e' sempre meglio di un orario inventato.
+  address        String?
+  publicPhone    String?
+  /// Orari di apertura dell'ufficio, es. "Lun-Ven 9-13 e 15-19, Sab 9-12".
+  officeHours    String?
+  /// Fasce in cui l'agenzia fa visitare gli immobili, se diverse dall'ufficio.
+  visitHours     String?
+  /// Note libere: domande ricorrenti, zone servite, servizi offerti.
+  /// E' la "FAQ" dell'agenzia, in prosa.
+  knowledgeNotes String?
   /// Logo dell'agenzia come data URI (immagine piccola, in linea).
   /// Salvato nel database anziché su filesystem perché il deploy è serverless
   /// e non ha storage persistente; la dimensione è limitata a monte.
-  logoDataUrl String?
+  logoDataUrl    String?
 
   /// Accettazione dell'accordo sul trattamento dei dati (DPA).
   ///

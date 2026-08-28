@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { readSecret } from "@/lib/env";
 import { normalizePhone } from "@/lib/whatsapp/types";
 import { handleInboundWhatsAppMessage } from "@/lib/whatsapp/inbound";
+import { transcribeVoiceBuffer } from "@/lib/whatsapp/voice-note";
+import { replyToUntranscribableVoiceNote, VOICE_TOO_LONG_REPLY } from "@/lib/whatsapp/voice-reply";
 
 /**
  * Eventi dal microservizio: esito dell'abbinamento e messaggi in arrivo.
@@ -40,6 +42,12 @@ const eventSchema = z.object({
     .object({
       from: z.string().min(6),
       text: z.string(),
+      /** Nota vocale: byte in base64, trascritti qui prima della qualificazione. */
+      audio: z
+        .object({ data: z.string().min(16), mimeType: z.string().min(3) })
+        .optional(),
+      /** Vocale troppo lungo per essere consegnato: si risponde senza trascrivere. */
+      audioTooLarge: z.boolean().optional(),
       profileName: z.string().optional(),
       /** Indirizzo esatto della chat, dominio incluso. Assente dai microservizi non aggiornati. */
       jid: z.string().min(3).optional(),
@@ -120,10 +128,47 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "missing_message" }, { status: 400 });
   }
 
+  /**
+   * Nota vocale → testo, prima di toccare la qualificazione.
+   *
+   * Su WhatsApp rispondere a voce e' normale, e un vocale non trascritto
+   * interromperebbe il flusso proprio nel momento in cui il cliente sta
+   * collaborando. Se la trascrizione non riesce non si resta in silenzio: si
+   * risponde chiedendo di scrivere — chi ha appena parlato al telefono
+   * interpreta il silenzio come un numero non attivo.
+   */
+  let messageText = message.text;
+
+  if (message.audioTooLarge) {
+    await replyToUntranscribableVoiceNote(config, message, VOICE_TOO_LONG_REPLY);
+    return NextResponse.json({ status: "ok" });
+  }
+
+  if (message.audio) {
+    const outcome = await transcribeVoiceBuffer(
+      Buffer.from(message.audio.data, "base64"),
+      "nota-vocale.ogg",
+      message.audio.mimeType
+    );
+
+    if (!outcome.ok) {
+      console.warn("[WA-VOICE-NOTE] Trascrizione non riuscita", { reason: outcome.reason });
+      await replyToUntranscribableVoiceNote(config, message, outcome.reply);
+      return NextResponse.json({ status: "ok" });
+    }
+
+    console.info("[WA-VOICE-NOTE]", { chars: outcome.text.length });
+    messageText = outcome.text;
+  }
+
+  if (!messageText.trim()) {
+    return NextResponse.json({ status: "ok" });
+  }
+
   try {
     await handleInboundWhatsAppMessage(config, {
       fromPhone: normalizePhone(message.from),
-      text: message.text,
+      text: messageText,
       profileName: message.profileName,
       chatJid: message.jid,
       fromAgent: message.fromAgent,

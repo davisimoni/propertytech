@@ -7,7 +7,7 @@ import { resolveCalendarProvider } from "@/lib/calendar/provider";
 import { hasSendableCredentials, sendWhatsAppMessageForProvider } from "./client";
 import { appendMessage } from "./chat-history";
 import { buildOpeningMessage, OPT_OUT_CONFIRMATION } from "./compliance";
-import { generateAgentReply, AGENT_FALLBACK_MESSAGE } from "@/lib/ai/whatsapp-agent";
+import { generateAgentReply, AGENT_FALLBACK_MESSAGE, type AgencyProfile } from "@/lib/ai/whatsapp-agent";
 import { deliverLeadToCrm } from "@/lib/integrations/crm-webhook";
 import { notifyHotLead } from "@/lib/notifications/hot-lead";
 import { QUALIFICATION_QUESTIONS } from "./questions";
@@ -152,7 +152,8 @@ export async function handleIncomingMessage(
   lead: Lead,
   config: WhatsAppConfig,
   agencyName: string,
-  incomingText: string
+  incomingText: string,
+  agencyProfile?: AgencyProfile
 ): Promise<void> {
   const history = await appendMessage(lead.id, {
     sender: "user",
@@ -182,6 +183,7 @@ export async function handleIncomingMessage(
       propertyRef: lead.propertyRef,
       history,
       availableSlots: availableSlots.map(formatSlotForChat),
+      agencyProfile,
     });
 
     replyText = agentReply.reply;
@@ -195,23 +197,36 @@ export async function handleIncomingMessage(
       detectedCountFromQualification(agentReply.mustSellFirst)
     );
 
-    leadUpdate = {
-      mortgageApproved: agentReply.mortgageApproved,
-      mustSellFirst: agentReply.mustSellFirst,
-      timeframe: agentReply.timeframe,
-      budget: agentReply.budget ?? lead.budget,
-      // `??` e non sovrascrittura secca, come per il budget: se il cliente ha
-      // nominato la zona a inizio conversazione e non la ripete più, i turni
-      // successivi restituiscono null e la cancellerebbero.
-      preferredZone: agentReply.preferredZone ?? lead.preferredZone,
-      qualificationStatus:
-        agentReply.outcome === "CONTINUE" ? "IN_PROGRESS" : agentReply.outcome,
-      ownedPropertiesCount,
-      sellerCategory: deriveSellerCategory(ownedPropertiesCount),
-    };
+    if (agentReply.offTopic) {
+      // Messaggio che non parla di immobili: si risponde e basta.
+      //
+      // Nessun campo scritto in scheda e nessun avanzamento di stato: da una
+      // pubblicita' o da un numero sbagliato non si ricava un budget, e
+      // marcarlo UNQUALIFIED riempirebbe la pipeline dell'agenzia di contatti
+      // che nessuno ha mai valutato. `leadUpdate` resta vuoto, quindi piu'
+      // avanti non parte nemmeno la consegna al gestionale.
+      console.info("[WA-OFF-TOPIC]", { leadId: lead.id });
+    } else {
+      leadUpdate = {
+        mortgageApproved: agentReply.mortgageApproved,
+        mustSellFirst: agentReply.mustSellFirst,
+        timeframe: agentReply.timeframe,
+        budget: agentReply.budget ?? lead.budget,
+        // `??` e non sovrascrittura secca, come per il budget: se il cliente ha
+        // nominato la zona a inizio conversazione e non la ripete più, i turni
+        // successivi restituiscono null e la cancellerebbero.
+        preferredZone: agentReply.preferredZone ?? lead.preferredZone,
+        qualificationStatus:
+          agentReply.outcome === "CONTINUE" ? "IN_PROGRESS" : agentReply.outcome,
+        ownedPropertiesCount,
+        sellerCategory: deriveSellerCategory(ownedPropertiesCount),
+      };
+    }
 
+    // Nessun appuntamento da un messaggio fuori contesto: uno slot occupato
+    // per una pubblicita' e' tempo dell'agente tolto a un cliente vero.
     const chosen =
-      agentReply.selectedSlotIndex !== null
+      !agentReply.offTopic && agentReply.selectedSlotIndex !== null
         ? availableSlots[agentReply.selectedSlotIndex - 1]
         : undefined;
 
@@ -281,6 +296,60 @@ export async function handleIncomingMessage(
       await notifyHotLead(updated);
     }
   }
+}
+
+/** Messaggio di chiusura: la qualificazione e' finita, tocca a una persona. */
+export const CONVERSATION_CLOSED_MESSAGE =
+  "La ringrazio, ho gia' tutto quello che serve. Un nostro agente la contattera' a breve per i prossimi passi.";
+
+/**
+ * Risponde a un cliente la cui qualificazione e' gia' conclusa.
+ *
+ * # Perche' il ciclo deve fermarsi
+ *
+ * Finora l'agente AI ripartiva a ogni messaggio, anche su un lead gia'
+ * QUALIFIED. Due conseguenze, entrambe silenziose: una chiamata al modello per
+ * ogni frase che il cliente scrive dopo aver finito, e soprattutto la
+ * possibilita' che l'esito **si ribalti** — una risposta successiva
+ * interpretata male trasformava un lead qualificato in UNQUALIFIED, cancellando
+ * un risultato gia' raggiunto e gia' consegnato al gestionale.
+ *
+ * # Perche' non si tace e basta
+ *
+ * Il messaggio del cliente entra sempre in cronologia, cosi' l'agente lo
+ * trova. La risposta di chiusura parte **una volta sola**: se l'ultimo
+ * messaggio inviato era gia' quello, si resta in silenzio. Un assistente che
+ * ripete la stessa frase a ogni riga e' peggio di uno che non risponde.
+ */
+export async function handleClosedConversation(
+  lead: Lead,
+  config: WhatsAppConfig,
+  incomingText: string
+): Promise<void> {
+  const history = await appendMessage(lead.id, {
+    sender: "user",
+    text: incomingText,
+    timestamp: nowIso(),
+  });
+
+  const lastBot = [...history].reverse().find((message) => message.sender === "bot");
+  if (lastBot?.text === CONVERSATION_CLOSED_MESSAGE) return;
+
+  const credentials = resolveWhatsAppCredentials(config);
+  if (!hasSendableCredentials(credentials)) return;
+
+  await sendWhatsAppMessageForProvider(
+    credentials,
+    lead.clientPhone,
+    CONVERSATION_CLOSED_MESSAGE,
+    lead.waChatJid
+  );
+
+  await appendMessage(lead.id, {
+    sender: "bot",
+    text: CONVERSATION_CLOSED_MESSAGE,
+    timestamp: nowIso(),
+  });
 }
 
 /**

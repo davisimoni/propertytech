@@ -1,7 +1,11 @@
 import "server-only";
 import { downloadWhatsAppMedia, MediaDownloadError } from "./media";
 import { decryptAccessToken } from "./credentials";
-import { isTranscriptionConfigured, transcribeAudio } from "@/lib/ai/transcription";
+import {
+  isTranscriptionConfigured,
+  transcribeAudio,
+  STT_WEBHOOK_TIMEOUT_MS,
+} from "@/lib/ai/transcription";
 import { cleanTranscript } from "@/lib/ai/transcript-quality";
 
 /**
@@ -35,6 +39,56 @@ const REPLIES = {
 } as const;
 
 /**
+ * Trascrive byte audio gia' in nostro possesso.
+ *
+ * Separata dal percorso Meta perche' i due trasporti procurano l'audio in modi
+ * diversi: da Meta si scarica con un token, dal collegamento via QR i byte li
+ * ha gia' il microservizio e ce li consegna nel webhook. Da qui in poi il
+ * trattamento e' identico, ed e' giusto che lo sia: la pulizia della
+ * trascrizione e le risposte al cliente non devono dipendere da come e'
+ * arrivato il file.
+ */
+export async function transcribeVoiceBuffer(
+  audio: Buffer,
+  filename: string,
+  mimeType: string
+): Promise<VoiceNoteOutcome> {
+  if (!isTranscriptionConfigured()) {
+    return { ok: false, reason: "stt_not_configured", reply: REPLIES.notConfigured };
+  }
+
+  if (audio.length > MAX_AUDIO_BYTES) {
+    return { ok: false, reason: "too_large", reply: REPLIES.tooLarge };
+  }
+
+  try {
+    const raw = await transcribeAudio(audio, filename, mimeType, {
+      timeoutMs: STT_WEBHOOK_TIMEOUT_MS,
+    });
+
+    // Stesso filtro dei report post-visita: su un audio breve o silenzioso
+    // Whisper inventa frasi plausibili, e qualificare un lead su parole che il
+    // cliente non ha mai detto e' peggio che non trascrivere affatto.
+    const cleaned = cleanTranscript(raw);
+
+    if (!cleaned.text.trim()) {
+      return { ok: false, reason: "empty_transcript", reply: REPLIES.unreadable };
+    }
+
+    return { ok: true, text: cleaned.text.trim() };
+  } catch {
+    // Nessun dettaglio e nessun contenuto nei log: e' la voce di una persona.
+    console.error("[whatsapp/voice-note] Trascrizione non riuscita", {
+      reason: "transcription_failed",
+    });
+    return { ok: false, reason: "transcription_failed", reply: REPLIES.failed };
+  }
+}
+
+/** Tetto ai byte audio accettati dal webhook: una nota vocale vera sta molto sotto. */
+export const MAX_AUDIO_BYTES = 6 * 1024 * 1024;
+
+/**
  * Scarica, trascrive e ripulisce una nota vocale.
  *
  * Non lancia mai: qualunque errore diventa una risposta sensata per il cliente.
@@ -58,7 +112,9 @@ export async function transcribeVoiceNote(
 
   try {
     const media = await downloadWhatsAppMedia(mediaId, accessToken);
-    const raw = await transcribeAudio(media.buffer, media.filename, media.mimeType);
+    const raw = await transcribeAudio(media.buffer, media.filename, media.mimeType, {
+      timeoutMs: STT_WEBHOOK_TIMEOUT_MS,
+    });
 
     // Stesso filtro dei report post-visita: su un audio breve o silenzioso
     // Whisper inventa frasi plausibili ("Sottotitoli e revisione a cura di…"),

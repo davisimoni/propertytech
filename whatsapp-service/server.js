@@ -5,7 +5,17 @@ import {
   makeWASocket,
   useMultiFileAuthState,
   DisconnectReason,
+  downloadMediaMessage,
 } from "@whiskeysockets/baileys";
+
+/**
+ * Tetto ai byte di una nota vocale.
+ *
+ * Allineato al limite di 4,5 MB sul corpo di una funzione serverless: in
+ * base64 i byte crescono di circa un terzo, quindi un file piu' grande non
+ * arriverebbe comunque a destinazione.
+ */
+const MAX_AUDIO_BYTES = 3 * 1024 * 1024;
 
 /**
  * Microservizio di sessione WhatsApp per PropertyTech.
@@ -121,8 +131,47 @@ async function startSession(sessionId) {
       // uno-a-uno con un cliente.
       if (msg.key.remoteJid?.endsWith("@g.us")) continue;
 
-      const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text || "";
-      if (!text) continue;
+      const testo = msg.message?.conversation || msg.message?.extendedTextMessage?.text || "";
+      const audioMsg = msg.message?.audioMessage || null;
+
+      // Nota vocale: su WhatsApp rispondere a voce e' normale, e finora questi
+      // messaggi venivano scartati qui dentro senza che nessuno lo sapesse. Il
+      // cliente parlava e riceveva silenzio.
+      //
+      // I byte li scarichiamo noi e li consegniamo alla piattaforma, che ha la
+      // configurazione della trascrizione: il microservizio non deve conoscere
+      // ne' il fornitore STT ne' le sue chiavi.
+      let audio = null;
+      let audioTooLarge = false;
+      if (!testo && audioMsg && !msg.key.fromMe) {
+        // Tetto allineato al limite di 4,5 MB sul corpo delle richieste
+        // serverless: in base64 i byte crescono di un terzo, quindi oltre
+        // questa soglia la consegna fallirebbe comunque, e fallirebbe DOPO
+        // aver scaricato il file.
+        if ((audioMsg.fileLength || 0) > MAX_AUDIO_BYTES) {
+          audioTooLarge = true;
+        } else {
+          try {
+            const buffer = await downloadMediaMessage(msg, "buffer", {});
+            if (buffer.length > MAX_AUDIO_BYTES) {
+              audioTooLarge = true;
+            } else {
+              audio = {
+                data: buffer.toString("base64"),
+                mimeType: (audioMsg.mimetype || "audio/ogg").split(";")[0],
+              };
+            }
+          } catch (error) {
+            console.error("[audio] download non riuscito:", error.message);
+            audioTooLarge = true;
+          }
+        }
+      }
+
+      // Senza testo e senza audio non c'e' nulla da qualificare.
+      if (!testo && !audio && !audioTooLarge) continue;
+
+      const text = testo;
 
       // I messaggi scritti dall'agenzia si scartano, TRANNE i comandi.
       //
@@ -165,6 +214,10 @@ async function startSession(sessionId) {
           isLid,
           fromAgent,
           text,
+          // Presenti solo per le note vocali: la piattaforma trascrive e usa
+          // il testo, oppure risponde che non e' riuscita ad ascoltarle.
+          ...(audio ? { audio } : {}),
+          ...(audioTooLarge ? { audioTooLarge: true } : {}),
           profileName: msg.pushName || undefined,
         },
       });

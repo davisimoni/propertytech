@@ -7,6 +7,7 @@ import { PlanGrid } from "@/components/billing/plan-grid";
 import { CheckoutOutcomeBanner } from "@/components/billing/checkout-outcome-banner";
 import { UsageWidget } from "@/components/billing/usage-widget";
 import { BrandingPanel } from "@/components/settings/branding-panel";
+import { AgencyProfilePanel } from "@/components/settings/agency-profile-panel";
 import { IntegrationPanel } from "@/components/settings/integration-panel";
 import { ReferralPanel } from "@/components/settings/referral-panel";
 import { TeamPanel } from "@/components/settings/team-panel";
@@ -46,7 +47,12 @@ export default async function SettingsPage() {
 
       <Suspense>
         <SettingsTabs
-          profile={<BrandingPanel />}
+          profile={
+            <div className="space-y-4">
+              <BrandingPanel />
+              <AgencyProfilePanel />
+            </div>
+          }
           team={
             <>
               <Link

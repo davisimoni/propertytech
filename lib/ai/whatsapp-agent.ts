@@ -53,6 +53,11 @@ export const agentReplySchema = z.object({
     .describe(
       "Zona, quartiere o comune che il cliente dice di cercare, se lo menziona spontaneamente (es. 'Navigli', 'zona centro'). NON chiederlo: null se non emerge da solo."
     ),
+  offTopic: z
+    .boolean()
+    .describe(
+      "true se il messaggio del cliente non riguarda la ricerca di un immobile (saluto casuale, pubblicita', numero sbagliato, messaggio personale, provocazione). false in tutti gli altri casi, anche quando il cliente fa una domanda di servizio sull'agenzia."
+    ),
   outcome: z
     .enum(["CONTINUE", "QUALIFIED", "UNQUALIFIED"])
     .describe(
@@ -79,6 +84,46 @@ export class WhatsAppAgentError extends Error {
   }
 }
 
+/** Scheda dell'agenzia che l'assistente puo' riferire al cliente. */
+export interface AgencyProfile {
+  address?: string | null;
+  publicPhone?: string | null;
+  officeHours?: string | null;
+  visitHours?: string | null;
+  knowledgeNotes?: string | null;
+}
+
+/**
+ * Sezione con i dati dell'agenzia.
+ *
+ * Vengono elencati **solo i campi compilati**: una riga "Indirizzo: non
+ * disponibile" nel prompt e' un invito a inventarlo, mentre l'assenza della
+ * riga si accompagna all'istruzione esplicita di far richiamare un agente.
+ *
+ * Se l'agenzia non ha compilato nulla la sezione sparisce del tutto, e resta
+ * solo la regola: non si risponde a domande di servizio a cui non sappiamo
+ * rispondere.
+ */
+function buildAgencySection(agencyName: string, profile: AgencyProfile | undefined): string {
+  const righe = [
+    profile?.address ? `- Indirizzo: ${profile.address}` : null,
+    profile?.publicPhone ? `- Telefono: ${profile.publicPhone}` : null,
+    profile?.officeHours ? `- Orari ufficio: ${profile.officeHours}` : null,
+    profile?.visitHours ? `- Orari per le visite: ${profile.visitHours}` : null,
+    profile?.knowledgeNotes ? `- Note: ${profile.knowledgeNotes}` : null,
+  ].filter(Boolean);
+
+  if (righe.length === 0) {
+    return `# Dati dell'agenzia
+Non hai alcun dato su sede, orari o recapiti di ${agencyName}. Se il cliente li chiede, rispondi che glieli fara' avere un agente e riprendi da dove eravate: non tentare una risposta approssimativa.`;
+  }
+
+  return `# Dati dell'agenzia (${agencyName})
+${righe.join("\n")}
+
+Usa SOLO queste informazioni per rispondere a domande di servizio (dove siete, quando siete aperti, che numero avete). Per qualsiasi cosa non elencata qui, di' che un agente lo richiamera': un orario o un indirizzo sbagliato fa presentare una persona davanti a una porta chiusa.`;
+}
+
 function buildSlotSection(availableSlots: string[]): string {
   if (availableSlots.length === 0) {
     return `# Agenda
@@ -98,7 +143,8 @@ function buildSystemPrompt(
   agencyName: string,
   propertyRef: string,
   clientName: string,
-  availableSlots: string[]
+  availableSlots: string[],
+  profile: AgencyProfile | undefined
 ): string {
   return `Sei l'assistente virtuale dell'agenzia immobiliare italiana "${agencyName}". Stai qualificando via WhatsApp il potenziale acquirente ${clientName}, che ha richiesto informazioni sull'immobile "${propertyRef}" tramite un portale immobiliare.
 
@@ -118,11 +164,24 @@ QUALIFIED se: (mutuo deliberato OPPURE liquidità immediata) E (non deve vendere
 UNQUALIFIED in tutti gli altri casi.
 
 # Messaggio finale
+Appena conosci tutte e 3 le variabili, la qualificazione e' FINITA: non fare altre domande, chiudi.
 - Se QUALIFIED: ringrazia e proponi di fissare una visita seguendo la sezione Agenda qui sotto.
 - Se UNQUALIFIED: ringrazia cordialmente, spiega che un agente lo ricontatterà appena disponibile. Non dire mai che non è idoneo o che non è qualificato.
 - Se CONTINUE: il messaggio deve contenere la domanda successiva.
 
+${buildAgencySection(agencyName, profile)}
+
 ${buildSlotSection(availableSlots)}
+
+# Domande di servizio
+Se il cliente chiede dove siete, quando siete aperti o come contattarvi, rispondi con i dati sopra e SUBITO DOPO riprendi la domanda di qualificazione a cui non ti ha ancora risposto. Non e' un fuori tema: e' una persona che si sta orientando, e lasciarla senza risposta per insistere con le domande la fa smettere di scrivere.
+
+# Messaggi fuori contesto
+Alcuni messaggi non riguardano la ricerca di una casa: pubblicita', catene, numeri sbagliati, messaggi personali, provocazioni.
+- Imposta offTopic a true e lascia TUTTE le variabili strutturate a null: non dedurre nulla da un messaggio che non parla di immobili.
+- Rispondi UNA volta, in modo breve e cortese, dicendo che questo e' il canale dell'agenzia per le richieste sugli immobili.
+- NON riproporre le domande di qualificazione e non insistere. Se la persona ha sbagliato numero, continuare a chiederle il budget e' molesto.
+- Lascia outcome a CONTINUE: un messaggio fuori tema non e' un giudizio sul cliente, e marcarlo UNQUALIFIED sporcherebbe la pipeline dell'agenzia con contatti mai valutati davvero.
 
 # Vincoli
 - Non inventare mai dettagli sull'immobile (prezzo, metratura, disponibilità): non li conosci.
@@ -141,14 +200,15 @@ export async function generateAgentReply(params: {
   propertyRef: string;
   history: ChatMessage[];
   availableSlots: string[];
+  agencyProfile?: AgencyProfile;
 }): Promise<AgentReply> {
-  const { agencyName, clientName, propertyRef, history, availableSlots } = params;
+  const { agencyName, clientName, propertyRef, history, availableSlots, agencyProfile } = params;
 
   const response = await client.messages
     .parse({
       model: AGENT_MODEL,
       max_tokens: 2048,
-      system: buildSystemPrompt(agencyName, propertyRef, clientName, availableSlots),
+      system: buildSystemPrompt(agencyName, propertyRef, clientName, availableSlots, agencyProfile),
       output_config: {
         effort: "low",
         format: zodOutputFormat(agentReplySchema),
