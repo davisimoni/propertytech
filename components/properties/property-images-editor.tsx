@@ -39,12 +39,6 @@ async function downscaleToDataUrl(file: File): Promise<string> {
   }
 }
 
-/** Estrae l'id dal percorso `/api/images/<id>`; `null` per gli URL esterni. */
-function imageIdFromPath(path: string): string | null {
-  const match = path.match(/^\/api\/images\/([^/?#]+)$/);
-  return match?.[1] ?? null;
-}
-
 export function PropertyImagesEditor({
   propertyId,
   images,
@@ -102,14 +96,17 @@ export function PropertyImagesEditor({
     }
   }
 
-  async function mutate(method: "DELETE" | "PATCH", imageId: string, fallback: string) {
+  // Si identifica la foto con l'URL memorizzato e non con un id: con l'object
+  // storage attivo una foto non ha una riga nel database, e i pulsanti
+  // sparirebbero per meta' dell'archivio.
+  async function mutate(method: "DELETE" | "PATCH", image: string, fallback: string) {
     setError(null);
     setIsBusy(true);
     try {
       const response = await fetch(`/api/properties/${propertyId}/images`, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageId }),
+        body: JSON.stringify({ image }),
       });
       if (!response.ok) throw new Error();
       const data = (await response.json()) as { images: string[] };
@@ -159,9 +156,7 @@ export function PropertyImagesEditor({
         </p>
       ) : (
         <ul className="mt-2 flex flex-wrap gap-2">
-          {images.map((image, index) => {
-            const imageId = imageIdFromPath(image);
-            return (
+          {images.map((image, index) => (
               <li
                 key={image}
                 className="relative h-20 w-20 overflow-hidden rounded-lg border border-border bg-muted"
@@ -184,10 +179,10 @@ export function PropertyImagesEditor({
                 ) : null}
 
                 <div className="absolute inset-x-0 bottom-0 flex justify-end gap-1 bg-gradient-to-t from-black/70 to-transparent p-1">
-                  {index !== 0 && imageId ? (
+                  {index !== 0 ? (
                     <button
                       type="button"
-                      onClick={() => mutate("PATCH", imageId, "Copertina non aggiornata.")}
+                      onClick={() => mutate("PATCH", image, "Copertina non aggiornata.")}
                       disabled={isBusy}
                       aria-label={`Usa la foto ${index + 1} come copertina`}
                       className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-black/50 text-white transition-colors hover:bg-black/75 disabled:opacity-50"
@@ -195,21 +190,18 @@ export function PropertyImagesEditor({
                       <Star className="h-3.5 w-3.5" />
                     </button>
                   ) : null}
-                  {imageId ? (
-                    <button
-                      type="button"
-                      onClick={() => mutate("DELETE", imageId, "Foto non rimossa.")}
-                      disabled={isBusy}
-                      aria-label={`Elimina la foto ${index + 1}`}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-black/50 text-white transition-colors hover:bg-status-blocked disabled:opacity-50"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => mutate("DELETE", image, "Foto non rimossa.")}
+                    disabled={isBusy}
+                    aria-label={`Elimina la foto ${index + 1}`}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-black/50 text-white transition-colors hover:bg-status-blocked disabled:opacity-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </li>
-            );
-          })}
+          ))}
         </ul>
       )}
 

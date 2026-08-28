@@ -6,9 +6,77 @@ import { isOptOutMessage } from "./compliance";
 import { handleIncomingMessage, handleOptOut } from "./conversation";
 import { applyReminderReply, isAwaitingReminderReply, parseReminderReply } from "./reminders";
 import { createLeadFromFirstMessage } from "./first-contact";
+import { AGENT_COMMAND_REPLIES, parseAgentCommand } from "./agent-commands";
+import { sendWhatsAppMessageForProvider } from "./client";
+import { resolveWhatsAppCredentials } from "./credentials";
+import { recordClientMessage } from "./conversation";
 import type { InboundWhatsAppMessage } from "./provider";
 
 export type WhatsAppConfigWithOrganization = WhatsAppConfig & { organization: Organization };
+
+/**
+ * Applica un comando scritto dall'agente dentro la chat (`!pausa`,
+ * `!riprendi`).
+ *
+ * La conversazione si identifica **dal JID della chat**, non dal mittente: in
+ * un messaggio scritto dall'agenzia il mittente è l'agenzia, mentre l'indirizzo
+ * della chat resta quello del cliente ed è l'unica cosa che dice *quale*
+ * conversazione mettere in pausa. Il numero resta come ripiego per i trasporti
+ * che non espongono un JID.
+ */
+async function applyAgentCommand(
+  config: WhatsAppConfigWithOrganization,
+  message: InboundWhatsAppMessage,
+  clientPhone: string
+): Promise<void> {
+  const command = parseAgentCommand(message.text);
+  if (!command) return;
+
+  const lead =
+    (message.chatJid
+      ? await prisma.lead.findFirst({
+          where: { organizationId: config.organizationId, waChatJid: message.chatJid },
+        })
+      : null) ??
+    (await prisma.lead.findUnique({
+      where: { organizationId_clientPhone: { organizationId: config.organizationId, clientPhone } },
+    }));
+
+  if (!lead) {
+    console.warn("[WA-AGENT-COMMAND] Comando su una chat senza scheda", {
+      organizationId: config.organizationId,
+      command,
+    });
+    return;
+  }
+
+  if (command !== "help") {
+    await prisma.lead.update({
+      where: { id: lead.id },
+      data: { aiEnabled: command === "resume_ai" },
+    });
+  }
+
+  console.info("[WA-AGENT-COMMAND]", {
+    leadId: lead.id,
+    organizationId: config.organizationId,
+    command,
+  });
+
+  // La conferma torna nella stessa chat: senza, l'agente non ha modo di sapere
+  // se il comando è stato capito, e scoprirebbe di no solo vedendo l'assistente
+  // rispondere sopra di lui.
+  try {
+    await sendWhatsAppMessageForProvider(
+      resolveWhatsAppCredentials(config),
+      lead.clientPhone,
+      AGENT_COMMAND_REPLIES[command],
+      lead.waChatJid ?? message.chatJid
+    );
+  } catch (error) {
+    console.error("[WA-AGENT-COMMAND] Conferma non inviata", { leadId: lead.id, error });
+  }
+}
 
 /**
  * Orchestrazione condivisa fra tutti i provider di trasporto.
@@ -39,6 +107,20 @@ export async function handleInboundWhatsAppMessage(
     from: `${clientPhone.slice(0, 6)}…`,
     chars: message.text.length,
   });
+
+  /**
+   * Comando dell'agente, scritto dentro la chat col cliente.
+   *
+   * Va risolto **prima** della guardia anti-loop, perché è per definizione un
+   * messaggio che arriva dall'agenzia: la guardia lo scarterebbe. È anche
+   * l'unico caso in cui accettiamo qualcosa scritto dal numero dell'agenzia,
+   * ed è per questo che il microservizio ci inoltra solo i messaggi che sono
+   * un comando e nient'altro.
+   */
+  if (message.fromAgent) {
+    await applyAgentCommand(config, message, clientPhone);
+    return;
+  }
 
   /**
    * Guardia anti-loop: un messaggio che arriva dal numero **dell'agenzia
@@ -115,6 +197,19 @@ export async function handleInboundWhatsAppMessage(
       await handleOptOut(lead, config);
     } else if (reminderReply) {
       await applyReminderReply(lead, config, reminderReply);
+    } else if (!lead.aiEnabled) {
+      // Conversazione presa in carico da una persona: l'assistente tace, ma il
+      // messaggio entra comunque in cronologia. L'agente che risponde dal
+      // telefono deve ritrovare in scheda tutto quello che il cliente ha
+      // scritto, altrimenti la chat nella nostra interfaccia diventa una copia
+      // parziale e inaffidabile di quella vera.
+      //
+      // Nessun credito consumato: non abbiamo generato né inviato nulla.
+      await recordClientMessage(lead, message.text);
+      console.info("[WA-AI-PAUSED]", {
+        leadId: lead.id,
+        organizationId: config.organizationId,
+      });
     } else {
       await handleIncomingMessage(lead, config, config.organization.agencyName, message.text);
     }

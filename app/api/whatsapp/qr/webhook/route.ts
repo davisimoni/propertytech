@@ -44,6 +44,8 @@ const eventSchema = z.object({
       /** Indirizzo esatto della chat, dominio incluso. Assente dai microservizi non aggiornati. */
       jid: z.string().min(3).optional(),
       isLid: z.boolean().optional(),
+      /** Comando scritto dall'agenzia dentro la chat, non messaggio del cliente. */
+      fromAgent: z.boolean().optional(),
     })
     .optional(),
 });
@@ -124,6 +126,7 @@ export async function POST(request: Request) {
       text: message.text,
       profileName: message.profileName,
       chatJid: message.jid,
+      fromAgent: message.fromAgent,
     });
   } catch (error) {
     // 200 comunque: un errore nostro non deve innescare rinvii a ripetizione

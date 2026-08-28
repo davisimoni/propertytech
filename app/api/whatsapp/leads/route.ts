@@ -109,6 +109,7 @@ export async function GET(request: Request) {
     crmDeliveredAt: lead.crmDeliveredAt?.toISOString() ?? null,
     createdAt: lead.createdAt.toISOString(),
     updatedAt: lead.updatedAt.toISOString(),
+    aiEnabled: lead.aiEnabled,
     messages: parseChatMessages(lead.chat?.messages),
   }));
 

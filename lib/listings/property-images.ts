@@ -91,3 +91,15 @@ export function absoluteImageUrl(value: string, origin: string): string {
   if (/^https?:\/\//i.test(value)) return value;
   return `${origin.replace(/\/+$/, "")}${value.startsWith("/") ? "" : "/"}${value}`;
 }
+
+/** Estensione di file per i tipi ammessi, usata nella chiave dell'oggetto. */
+export function extensionForMimeType(mimeType: string): string {
+  switch (mimeType.toLowerCase()) {
+    case "image/png":
+      return "png";
+    case "image/webp":
+      return "webp";
+    default:
+      return "jpg";
+  }
+}

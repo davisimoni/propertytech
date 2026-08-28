@@ -117,19 +117,56 @@ async function startSession(sessionId) {
     if (type !== "notify") return;
 
     for (const msg of messages) {
-      // Si ignorano i messaggi inviati da noi e quelli dei gruppi: la
-      // qualificazione riguarda conversazioni uno-a-uno con un cliente.
-      if (msg.key.fromMe || msg.key.remoteJid?.endsWith("@g.us")) continue;
+      // I gruppi restano fuori: la qualificazione riguarda conversazioni
+      // uno-a-uno con un cliente.
+      if (msg.key.remoteJid?.endsWith("@g.us")) continue;
 
       const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text || "";
       if (!text) continue;
 
-      const { jid, isLid, from } = describeSender(msg);
+      // I messaggi scritti dall'agenzia si scartano, TRANNE i comandi.
+      //
+      // L'agente mette in pausa l'assistente scrivendo `!pausa` dentro la chat
+      // col cliente: e' un messaggio `fromMe`, e con il filtro secco di prima
+      // non sarebbe mai arrivato alla piattaforma. Passa solo cio' che comincia
+      // con `!` ed e' una parola sola: tutto il resto che l'agente scrive al
+      // cliente resta affar suo e non ci riguarda.
+      const fromAgent = Boolean(msg.key.fromMe);
+      const looksLikeCommand = /^![\p{L}\p{N}-]+$/u.test(text.trim());
+      if (fromAgent && !looksLikeCommand) continue;
+
+      // Si consegna il JID COMPLETO, dominio incluso.
+      //
+      // WhatsApp non identifica piu' tutti i contatti col numero di telefono:
+      // per molte chat `remoteJid` e' un LID (`<id>@lid`), un identificativo
+      // opaco. Tagliando via il dominio non si distingue piu' un numero da un
+      // LID, e in risposta si finisce per costruire `<lid>@s.whatsapp.net`:
+      // un indirizzo che non esiste, che Baileys accetta senza errore e che
+      // non recapita nulla.
+      //
+      // `senderPn`, quando la libreria lo espone, contiene il numero vero
+      // dietro al LID: e' l'unico modo di avere un recapito utilizzabile
+      // dall'agenzia (richiamare, esportare nel gestionale).
+      const jid = msg.key.remoteJid;
+      const senderPn = msg.key.senderPn || msg.key.participantPn || null;
+      const phoneFromPn = senderPn ? String(senderPn).split("@")[0] : null;
+      const isLid = jid.endsWith("@lid");
 
       await notify({
         sessionId,
         event: "message",
-        message: { from, jid, isLid, text, profileName: msg.pushName || undefined },
+        message: {
+          // `from` resta il campo storico. Con un LID e senza `senderPn` non
+          // abbiamo un numero: si manda comunque l'identificativo, perche' e'
+          // cio' che tiene insieme la conversazione, ma il JID viaggia a
+          // parte ed e' quello che conta per rispondere.
+          from: phoneFromPn || jid.split("@")[0],
+          jid,
+          isLid,
+          fromAgent,
+          text,
+          profileName: msg.pushName || undefined,
+        },
       });
     }
   });

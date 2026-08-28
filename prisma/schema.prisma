@@ -558,7 +558,18 @@ model Lead {
   ///
   /// `null` per i lead nati da altri canali (portali, import CSV), dove il
   /// numero e' un numero vero e l'indirizzo si costruisce senza ambiguita'.
-  waChatJid           String?
+  waChatJid String?
+
+  /// Risposta automatica dell'assistente su questa conversazione.
+  ///
+  /// `false` = presa in carico da una persona. L'AI non genera e non invia piu'
+  /// nulla, ma i messaggi in arrivo continuano a essere registrati in
+  /// cronologia: l'agente che subentra deve vedere cosa il cliente ha scritto
+  /// mentre l'assistente taceva.
+  ///
+  /// Default `true` per non cambiare il comportamento delle conversazioni gia'
+  /// aperte quando questo campo e' stato introdotto.
+  aiEnabled           Boolean             @default(true)
   /// Email del contatto, quando l'agenzia ce l'ha in rubrica. Il flusso
   /// WhatsApp non la usa: serve all'agente e all'esportazione verso il gestionale.
   clientEmail         String?

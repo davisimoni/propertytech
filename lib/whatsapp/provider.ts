@@ -98,4 +98,11 @@ export interface InboundWhatsAppMessage {
    * caso un destinatario inesistente che non fallisce e non recapita.
    */
   chatJid?: string;
+  /**
+   * Vero quando a scrivere e' stata l'agenzia, non il cliente.
+   *
+   * Arriva solo per i comandi (`!pausa`): i messaggi che l'agente scrive
+   * davvero al cliente non ci vengono inoltrati.
+   */
+  fromAgent?: boolean;
 }

@@ -22,6 +22,7 @@ import { LeadAssignment } from "./lead-assignment";
 import { LeadTimeline } from "@/components/whatsapp/lead-timeline";
 import { DocumentVault } from "@/components/documents/document-vault";
 import { CrmExportCard } from "./crm-export-card";
+import { AiHandoverToggle } from "./ai-handover-toggle";
 import { cn } from "@/lib/utils";
 
 function TriStateRow({ label, value }: { label: string; value: boolean | null }) {
@@ -59,6 +60,8 @@ interface ChatSlideOverProps {
   onAssigned: (assignedToId: string | null, assignedToName: string | null) => void;
   /** Risalita della cancellazione: la lista toglie la riga e il cassetto si chiude. */
   onDeleted: () => void;
+  /** Risalita della presa in carico umana. */
+  onAiEnabledChange: (aiEnabled: boolean) => void;
 }
 
 export function ChatSlideOver({
@@ -68,6 +71,7 @@ export function ChatSlideOver({
   onMatchResolved,
   onAssigned,
   onDeleted,
+  onAiEnabledChange,
 }: ChatSlideOverProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -169,6 +173,16 @@ export function ChatSlideOver({
               <MessageSquare className="h-3.5 w-3.5" />
               Conversazione WhatsApp
             </h3>
+
+            {/* Sopra le bolle: e' l'informazione che decide se l'agente puo'
+                scrivere lui senza che l'assistente gli risponda sopra. */}
+            <div className="mt-3">
+              <AiHandoverToggle
+                leadId={lead.id}
+                aiEnabled={lead.aiEnabled}
+                onChange={onAiEnabledChange}
+              />
+            </div>
 
             {lead.qualificationStatus === "OPT_OUT" && (
               <div className="mt-3 flex items-start gap-2 rounded-lg border border-status-blocked/30 bg-status-blocked/10 p-3 text-xs text-status-blocked">

@@ -43,6 +43,8 @@ export interface LeadView {
   crmDeliveredAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Assistente attivo su questa conversazione; `false` = presa in carico da una persona. */
+  aiEnabled: boolean;
   messages: ChatMessage[];
 }
 

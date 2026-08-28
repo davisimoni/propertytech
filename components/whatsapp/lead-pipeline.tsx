@@ -144,6 +144,37 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
     setSelectedLead(null);
   }, []);
 
+  /**
+   * Apre direttamente la scheda indicata da `?lead=` nell'indirizzo.
+   *
+   * E' il link che parte nell'avviso di lead caldo: chi lo riceve sul telefono
+   * deve trovarsi davanti quella conversazione, non una lista in cui cercare
+   * il nome. Scatta una volta sola — `openedFromUrl` — altrimenti ogni giro di
+   * polling riaprirebbe il cassetto sopra a quello che l'agente sta guardando.
+   */
+  const [openedFromUrl, setOpenedFromUrl] = useState(false);
+  useEffect(() => {
+    if (openedFromUrl || leads.length === 0) return;
+
+    const wanted = new URLSearchParams(window.location.search).get("lead");
+    if (!wanted) {
+      setOpenedFromUrl(true);
+      return;
+    }
+
+    const target = leads.find((lead) => lead.id === wanted);
+    if (target) setSelectedLead(target);
+    setOpenedFromUrl(true);
+  }, [leads, openedFromUrl]);
+
+  /** Riflette subito la presa in carico umana. */
+  const applyAiEnabled = useCallback((leadId: string, aiEnabled: boolean) => {
+    setLeads((current) =>
+      current.map((lead) => (lead.id === leadId ? { ...lead, aiEnabled } : lead))
+    );
+    setSelectedLead((current) => (current?.id === leadId ? { ...current, aiEnabled } : current));
+  }, []);
+
   /** Sposta un lead di colonna nello stato locale, senza attendere il polling. */
   const applyStageChange = useCallback((leadId: string, dealStage: DealStage) => {
     setLeads((current) =>
@@ -445,6 +476,7 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
             applyAssignment(selectedLead.id, assignedToId, assignedToName)
           }
           onDeleted={() => applyDeletion(selectedLead.id)}
+          onAiEnabledChange={(aiEnabled) => applyAiEnabled(selectedLead.id, aiEnabled)}
         />
       )}
     </section>

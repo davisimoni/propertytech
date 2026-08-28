@@ -9,6 +9,7 @@ import { appendMessage } from "./chat-history";
 import { buildOpeningMessage, OPT_OUT_CONFIRMATION } from "./compliance";
 import { generateAgentReply, AGENT_FALLBACK_MESSAGE } from "@/lib/ai/whatsapp-agent";
 import { deliverLeadToCrm } from "@/lib/integrations/crm-webhook";
+import { notifyHotLead } from "@/lib/notifications/hot-lead";
 import { QUALIFICATION_QUESTIONS } from "./questions";
 import {
   detectedCountFromQualification,
@@ -129,6 +130,18 @@ export async function handleOptOut(lead: Lead, config: WhatsAppConfig): Promise<
       error,
     });
   }
+}
+
+/**
+ * Registra un messaggio del cliente senza far intervenire l'assistente.
+ *
+ * Serve quando la conversazione e' stata presa in carico da una persona
+ * (`aiEnabled: false`): la chat che l'agente legge in scheda deve restare
+ * completa anche mentre l'AI tace, altrimenti diventa una copia parziale di
+ * quella vera e non ci si puo' fare affidamento.
+ */
+export async function recordClientMessage(lead: Lead, text: string): Promise<void> {
+  await appendMessage(lead.id, { sender: "user", text, timestamp: nowIso() });
 }
 
 /**
@@ -260,6 +273,12 @@ export async function handleIncomingMessage(
       lead.qualificationStatus !== "QUALIFIED"
     ) {
       await deliverLeadToCrm(updated, "lead.qualified");
+
+      // Stessa transizione, stessa regola: non blocca e non lancia. Sequenziale
+      // e non in parallelo perche' il gestionale ha la precedenza — se una
+      // delle due deve arrivare prima e' quella che porta il lead dove
+      // l'agenzia lavora davvero.
+      await notifyHotLead(updated);
     }
   }
 }

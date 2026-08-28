@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -62,4 +63,39 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   });
 
   return NextResponse.json({ deleted: true });
+}
+
+const patchSchema = z.object({ aiEnabled: z.boolean() });
+
+/**
+ * Accende o spegne l'assistente su una conversazione (handover umano).
+ *
+ * E' la stessa cosa che fa `!pausa` dalla chat WhatsApp, dal lato della
+ * scrivania: chi lavora in ufficio non deve aprire WhatsApp sul telefono per
+ * prendere in carico un cliente.
+ */
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user?.organizationId) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await context.params;
+  const parsed = patchSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "invalid_request" }, { status: 400 });
+  }
+
+  // updateMany con l'organizationId nel filtro: l'id da solo permetterebbe di
+  // mettere in pausa l'assistente di un'altra agenzia (CLAUDE.md §5).
+  const result = await prisma.lead.updateMany({
+    where: { id, organizationId: session.user.organizationId },
+    data: { aiEnabled: parsed.data.aiEnabled },
+  });
+
+  if (result.count === 0) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  return NextResponse.json({ aiEnabled: parsed.data.aiEnabled });
 }
