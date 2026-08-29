@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type DragEvent } from "react";
-import { Check, ClipboardList, FileAudio, Loader2, Printer, Send, Sparkles, X } from "lucide-react";
+import { Check, ClipboardList, FileAudio, Home, Loader2, MessageCircle, Printer, Send, Sparkles, Users, X } from "lucide-react";
 import { UpgradeLimitModal } from "@/components/billing/upgrade-limit-modal";
 import { ShareActions } from "@/components/shared/share-actions";
 import { AiDisclaimer } from "@/components/shared/ai-disclaimer";
@@ -36,6 +36,13 @@ const SENTIMENT_CLASSES: Record<string, string> = {
 
 export function VoiceReportStudio() {
   const [mode, setMode] = useState<InputMode>("audio");
+  /**
+   * Scheda attiva del report generato.
+   *
+   * Parte da "owner" perche' e' quella che serve subito dopo una visita: il
+   * messaggio da mandare al proprietario.
+   */
+  const [tab, setTab] = useState<"owner" | "team">("owner");
   const [propertyRef, setPropertyRef] = useState("");
   const [sellerName, setSellerName] = useState("");
   const [sellerPhone, setSellerPhone] = useState("");
@@ -378,240 +385,364 @@ export function VoiceReportStudio() {
       </section>
 
       {report && (
-        <section id="seller-report" className="rounded-xl border border-border bg-card p-4 md:p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">Report per il proprietario</h2>
-              <p className="text-xs text-muted-foreground">{propertyRef}</p>
-            </div>
-            <span
-              className={cn(
-                "rounded-full px-2.5 py-1 text-xs font-medium",
-                INTEREST_CLASSES[report.interestLevel]
+        <div className="space-y-4">
+          {/*
+            Barra di navigazione: badge di riepilogo e due schede.
+            `print:hidden` perche' la stampa produce il documento per il
+            proprietario, e una barra di navigazione non appartiene a un PDF
+            che esce dall'agenzia.
+          */}
+          <section className="rounded-xl border border-border bg-card p-4 md:p-5 print:hidden">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-xs font-medium",
+                  INTEREST_CLASSES[report.interestLevel]
+                )}
+              >
+                Interesse: {report.interestLevel}
+              </span>
+
+              {/*
+                Il badge dei visitatori compare SOLO se il numero e' stato
+                detto nella nota. Un conteggio dedotto dal modello finirebbe
+                qui come un fatto, e l'agente lo riferirebbe al proprietario
+                come se l'avesse contato lui.
+              */}
+              {report.visitorCount !== null && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                  <Users className="h-3.5 w-3.5" />
+                  {report.visitorCount === 1
+                    ? "1 visitatore"
+                    : `${report.visitorCount} visitatori`}
+                </span>
               )}
+
+              {propertyRef.trim() && (
+                <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                  <Home className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{propertyRef.trim()}</span>
+                </span>
+              )}
+            </div>
+
+            {/*
+              Due schede e non due sezioni impilate: la sintesi interna
+              contiene le obiezioni riportate senza addolcirle, e finche' stava
+              sotto al report del proprietario bastava uno scorrimento
+              distratto - o uno screenshot - per mostrargliela.
+            */}
+            <div
+              role="tablist"
+              aria-label="Sezioni del report"
+              className="mt-4 flex gap-1 rounded-lg border border-border p-1"
             >
-              Interesse {report.interestLevel}
-            </span>
-          </div>
-
-          <p className="mt-4 text-sm text-foreground">{report.visitSummary}</p>
-
-          <div className="mt-5">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Feedback della visita
-            </h3>
-            <ul className="mt-2 space-y-2">
-              {report.feedback.map((item, index) => (
-                <li key={index} className="rounded-lg border border-border p-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-medium text-foreground">
-                      {FEEDBACK_CATEGORY_LABELS[item.category]}
-                    </span>
-                    <span
-                      className={cn(
-                        "rounded-full px-2 py-0.5 text-[10px] font-medium",
-                        SENTIMENT_CLASSES[item.sentiment]
-                      )}
-                    >
-                      {SENTIMENT_LABELS[item.sentiment]}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground">{item.detail}</p>
-                </li>
+              {(
+                [
+                  { id: "owner", label: "💬 Per il Proprietario" },
+                  { id: "team", label: "🔒 Per il Team Agenzia" },
+                ] as const
+              ).map((scheda) => (
+                <button
+                  key={scheda.id}
+                  type="button"
+                  role="tab"
+                  id={`tab-${scheda.id}`}
+                  aria-selected={tab === scheda.id}
+                  aria-controls={`pannello-${scheda.id}`}
+                  onClick={() => setTab(scheda.id)}
+                  className={cn(
+                    "flex-1 rounded-md px-3 py-2 text-xs font-medium transition-all duration-200 sm:text-sm",
+                    tab === scheda.id
+                      ? "bg-brand-gradient text-white shadow-sm"
+                      : "text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  {scheda.label}
+                </button>
               ))}
-            </ul>
-          </div>
+            </div>
+          </section>
 
-          {report.priceObservation && (
+          {/*
+            Pannello del proprietario.
+            `hidden print:block` e non `hidden` secco: il pulsante Stampa deve
+            produrre questo documento anche se l'agente si trova sull'altra
+            scheda, altrimenti stamperebbe una pagina vuota.
+          */}
+          <section
+            id="seller-report"
+            role="tabpanel"
+            aria-labelledby="tab-owner"
+            className={cn(
+              "rounded-xl border border-border bg-card p-4 md:p-5",
+              tab !== "owner" && "hidden print:block"
+            )}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-foreground">Report per il proprietario</h2>
+                <p className="truncate text-xs text-muted-foreground">{propertyRef}</p>
+              </div>
+              <span
+                className={cn(
+                  "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium",
+                  INTEREST_CLASSES[report.interestLevel]
+                )}
+              >
+                Interesse {report.interestLevel}
+              </span>
+            </div>
+
+            {/*
+              MESSAGGIO PRONTO in cima e non in fondo: e' la cosa che l'agente
+              viene a prendere. Bordo verde come il pulsante di WhatsApp, cosi'
+              si riconosce senza leggere l'intestazione.
+            */}
+            <div className="mt-4 rounded-xl border-2 border-status-qualified/40 bg-status-qualified/5 p-3 md:p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <h3 className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-status-qualified">
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  Messaggio pronto da inviare
+                </h3>
+                {/* Stesso testo che l'invio automatico aggiunge in coda: copia
+                    e inoltro manuale non devono uscire senza disclaimer. */}
+                <ShareActions
+                  text={`${report.sellerMessage}\n\n---\n${AI_DISCLAIMER_SHORT}`}
+                  copyLabel="Copia Testo"
+                  className="shrink-0 print:hidden"
+                />
+              </div>
+              <p className="mt-3 whitespace-pre-wrap rounded-lg bg-card p-3 text-sm leading-relaxed text-foreground shadow-sm">
+                {report.sellerMessage}
+              </p>
+            </div>
+
             <div className="mt-5">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Osservazione sul prezzo
+                Come &egrave; andata la visita
               </h3>
-              <p className="mt-1 text-sm text-foreground">{report.priceObservation}</p>
+              {/*
+                Un paragrafo per capoverso invece di un blocco unico: la
+                sintesi si legge fra una visita e l'altra, spesso dal telefono.
+              */}
+              <div className="mt-2 space-y-2">
+                {report.visitSummary
+                  .split(/\n{2,}|\n/)
+                  .map((capoverso) => capoverso.trim())
+                  .filter(Boolean)
+                  .map((capoverso, index) => (
+                    <p key={index} className="text-sm leading-relaxed text-foreground">
+                      {capoverso}
+                    </p>
+                  ))}
+              </div>
             </div>
-          )}
 
-          <div className="mt-5">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Azioni consigliate
-            </h3>
-            <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-foreground">
-              {report.recommendedActions.map((action, index) => (
-                <li key={index}>{action}</li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="mt-5 rounded-lg border border-border bg-muted/40 p-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Messaggio pronto per il proprietario
-            </h3>
-            <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{report.sellerMessage}</p>
-            {/* Stesso testo che l'invio automatico aggiunge in coda: copia e
-                inoltro manuale non devono uscire senza disclaimer. */}
-            <ShareActions
-              text={`${report.sellerMessage}\n\n---\n${AI_DISCLAIMER_SHORT}`}
-              copyLabel="Copia Testo"
-              className="mt-3 print:hidden"
-            />
-          </div>
-
-          {/* Senza `print:hidden`: il PDF consegnato al proprietario deve
-              riportare il disclaimer, perché è il documento che circola
-              fuori dall'agenzia. */}
-          <AiDisclaimer className="mt-5" />
-
-          {transcript && (
-            <details className="mt-4 print:hidden">
-              <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-                Mostra la trascrizione della nota originale
-              </summary>
-              <p className="mt-2 whitespace-pre-wrap rounded-lg border border-border p-3 text-xs text-muted-foreground">
-                {transcript}
-              </p>
-            </details>
-          )}
-
-          <div className="mt-5 flex flex-wrap gap-2 print:hidden">
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={isSending || sent}
-              className="inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 disabled:opacity-50"
-            >
-              {isSending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : sent ? (
-                <Check className="h-4 w-4" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-              {sent ? "Report inviato" : "Invia Report al Proprietario via WhatsApp"}
-            </button>
-
-            {/* Il report è già in memoria: il PDF si costruisce da lì, senza
-                tornare al server per rileggere quello che si ha davanti. */}
-            {report && (
-              <DownloadPdfButton
-                buildDocument={(branding) =>
-                  SellerReportDocument({
-                    branding,
-                    report,
-                    propertyRef: propertyRef.trim() || "Immobile",
-                    sellerName: sellerName.trim() || null,
-                  })
-                }
-                fileName={sellerReportFileName({ propertyRef, sellerName })}
-                label="Scarica Report PDF"
-              />
-            )}
-
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
-            >
-              <Printer className="h-4 w-4" />
-              Stampa
-            </button>
-          </div>
-        </section>
-      )}
-
-      {/* --- Sintesi interna per l'agente e il team ---
-          `print:hidden` non è un dettaglio estetico: il pulsante Stampa serve
-          a produrre il documento per il proprietario, e qui dentro ci sono le
-          obiezioni riportate senza addolcirle. Fuori dalla sezione
-          `#seller-report` anche nel DOM, così non può finire in una stampa
-          parziale di quel blocco. */}
-      {report && (
-        <section className="rounded-xl border border-dashed border-border bg-muted/20 p-4 md:p-5 print:hidden">
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-              <ClipboardList className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-foreground">Sintesi interna per il team</h2>
-              <p className="text-xs text-muted-foreground">
-                Solo per te e i tuoi collaboratori: non entra nel PDF, nella stampa né nel
-                messaggio inviato al proprietario.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <div>
+            <div className="mt-5">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Punti chiave
+                Feedback della visita
               </h3>
-              <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-foreground">
-                {report.agentSummary.keyPoints.map((point, index) => (
-                  <li key={index}>{point}</li>
+              <ul className="mt-2 space-y-2">
+                {report.feedback.map((item, index) => (
+                  <li key={index} className="rounded-lg border border-border p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-medium text-foreground">
+                        {FEEDBACK_CATEGORY_LABELS[item.category]}
+                      </span>
+                      <span
+                        className={cn(
+                          "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                          SENTIMENT_CLASSES[item.sentiment]
+                        )}
+                      >
+                        {SENTIMENT_LABELS[item.sentiment]}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">{item.detail}</p>
+                  </li>
                 ))}
               </ul>
             </div>
 
-            <div>
+            {report.priceObservation && (
+              <div className="mt-5">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Osservazione sul prezzo
+                </h3>
+                <p className="mt-1 text-sm text-foreground">{report.priceObservation}</p>
+              </div>
+            )}
+
+            <div className="mt-5">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Obiezioni del cliente
+                Azioni consigliate
               </h3>
-              {report.agentSummary.objections.length > 0 ? (
+              <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-foreground">
+                {report.recommendedActions.map((action, index) => (
+                  <li key={index}>{action}</li>
+                ))}
+              </ul>
+            </div>
+            {/* Senza `print:hidden`: il PDF consegnato al proprietario deve
+                riportare il disclaimer, perche' e' il documento che circola
+                fuori dall'agenzia. */}
+            <AiDisclaimer className="mt-5" />
+
+            {transcript && (
+              <details className="mt-4 print:hidden">
+                <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                  Mostra la trascrizione della nota originale
+                </summary>
+                <p className="mt-2 whitespace-pre-wrap rounded-lg border border-border p-3 text-xs text-muted-foreground">
+                  {transcript}
+                </p>
+              </details>
+            )}
+
+            <div className="mt-5 flex flex-wrap gap-2 print:hidden">
+              <button
+                type="button"
+                onClick={handleSend}
+                disabled={isSending || sent}
+                className="inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 disabled:opacity-50"
+              >
+                {isSending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : sent ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                {sent ? "Report inviato" : "Invia Report al Proprietario via WhatsApp"}
+              </button>
+
+              {/* Il report è già in memoria: il PDF si costruisce da lì, senza
+                  tornare al server per rileggere quello che si ha davanti. */}
+              {report && (
+                <DownloadPdfButton
+                  buildDocument={(branding) =>
+                    SellerReportDocument({
+                      branding,
+                      report,
+                      propertyRef: propertyRef.trim() || "Immobile",
+                      sellerName: sellerName.trim() || null,
+                    })
+                  }
+                  fileName={sellerReportFileName({ propertyRef, sellerName })}
+                  label="Scarica Report PDF"
+                />
+              )}
+
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+              >
+                <Printer className="h-4 w-4" />
+                Stampa
+              </button>
+            </div>
+          </section>
+
+          <section
+            role="tabpanel"
+            aria-labelledby="tab-team"
+            className={cn(
+              // `print:hidden` senza condizioni: qui dentro ci sono le
+              // obiezioni riportate senza addolcirle, e la stampa produce il
+              // documento che va al proprietario.
+              "rounded-xl border border-dashed border-border bg-muted/20 p-4 md:p-5 print:hidden",
+              tab !== "team" && "hidden"
+            )}
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <ClipboardList className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-foreground">Sintesi interna per il team</h2>
+                <p className="text-xs text-muted-foreground">
+                  Solo per te e i tuoi collaboratori: non entra nel PDF, nella stampa né nel
+                  messaggio inviato al proprietario.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Punti chiave
+                </h3>
                 <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-foreground">
-                  {report.agentSummary.objections.map((objection, index) => (
-                    <li key={index}>{objection}</li>
+                  {report.agentSummary.keyPoints.map((point, index) => (
+                    <li key={index}>{point}</li>
                   ))}
                 </ul>
-              ) : (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Nessuna obiezione emersa dalla nota.
-                </p>
-              )}
+              </div>
+
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Obiezioni del cliente
+                </h3>
+                {report.agentSummary.objections.length > 0 ? (
+                  <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-foreground">
+                    {report.agentSummary.objections.map((objection, index) => (
+                      <li key={index}>{objection}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Nessuna obiezione emersa dalla nota.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Feedback tecnico
+                </h3>
+                {report.agentSummary.technicalFeedback.length > 0 ? (
+                  <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-foreground">
+                    {report.agentSummary.technicalFeedback.map((item, index) => (
+                      <li key={index}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Nessun rilievo tecnico nella nota.
+                  </p>
+                )}
+              </div>
+
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-primary">
+                  Prossima azione
+                </h3>
+                <p className="mt-1 text-sm text-foreground">{report.agentSummary.nextAction}</p>
+              </div>
             </div>
 
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Feedback tecnico
-              </h3>
-              {report.agentSummary.technicalFeedback.length > 0 ? (
-                <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-foreground">
-                  {report.agentSummary.technicalFeedback.map((item, index) => (
-                    <li key={index}>{item}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Nessun rilievo tecnico nella nota.
-                </p>
-              )}
-            </div>
-
-            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-primary">
-                Prossima azione
-              </h3>
-              <p className="mt-1 text-sm text-foreground">{report.agentSummary.nextAction}</p>
-            </div>
-          </div>
-
-          <ShareActions
-            text={[
-              `Sintesi interna — ${propertyRef}`,
-              "",
-              "Punti chiave:",
-              ...report.agentSummary.keyPoints.map((point) => `- ${point}`),
-              ...(report.agentSummary.objections.length > 0
-                ? ["", "Obiezioni:", ...report.agentSummary.objections.map((item) => `- ${item}`)]
-                : []),
-              ...(report.agentSummary.technicalFeedback.length > 0
-                ? ["", "Feedback tecnico:", ...report.agentSummary.technicalFeedback.map((item) => `- ${item}`)]
-                : []),
-              "",
-              `Prossima azione: ${report.agentSummary.nextAction}`,
-            ].join("\n")}
-            copyLabel="Copia sintesi"
-            className="mt-4"
-          />
-        </section>
+            <ShareActions
+              text={[
+                `Sintesi interna — ${propertyRef}`,
+                "",
+                "Punti chiave:",
+                ...report.agentSummary.keyPoints.map((point) => `- ${point}`),
+                ...(report.agentSummary.objections.length > 0
+                  ? ["", "Obiezioni:", ...report.agentSummary.objections.map((item) => `- ${item}`)]
+                  : []),
+                ...(report.agentSummary.technicalFeedback.length > 0
+                  ? ["", "Feedback tecnico:", ...report.agentSummary.technicalFeedback.map((item) => `- ${item}`)]
+                  : []),
+                "",
+                `Prossima azione: ${report.agentSummary.nextAction}`,
+              ].join("\n")}
+              copyLabel="Copia sintesi"
+              className="mt-4"
+            />
+          </section>
+        </div>
       )}
 
       {locked && (

@@ -31,6 +31,13 @@ export const voiceReportSchema = z.object({
   interestLevel: z
     .enum(["alto", "medio", "basso"])
     .describe("Livello di interesse reale del potenziale acquirente, dedotto dalla nota."),
+  visitorCount: z
+    .number()
+    .int()
+    .nullable()
+    .describe(
+      "Quante persone hanno partecipato alla visita, SOLO se il numero e' detto esplicitamente nella nota (es. 'sono venuti in quattro'). null se non e' dichiarato: non dedurlo e non stimarlo."
+    ),
   feedback: z
     .array(
       z.object({
