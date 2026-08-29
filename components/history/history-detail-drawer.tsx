@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Check, Clipboard, FileText, Loader2, Trash2, X } from "lucide-react";
 import { HISTORY_KIND_LABELS, type HistoryEntry } from "@/lib/history/entries";
 import { downloadText, fileNameFromTitle, outputToText } from "@/lib/history/output-text";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { useToast } from "@/components/shared/toast-provider";
 import { FormattedOutput } from "./formatted-output";
 
 const DATE_FORMAT = new Intl.DateTimeFormat("it-IT", {
@@ -44,6 +46,8 @@ export function HistoryDetailDrawer({
   const [copied, setCopied] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     let annullato = false;
@@ -84,6 +88,7 @@ export function HistoryDetailDrawer({
     try {
       await navigator.clipboard.writeText(testo);
       setCopied(true);
+      showToast("Testo copiato negli appunti.", "success");
       setTimeout(() => setCopied(false), 2000);
     } catch {
       setActionError("Copia non riuscita.");
@@ -91,19 +96,18 @@ export function HistoryDetailDrawer({
   }
 
   async function remove() {
-    // Stessa conferma dell'elenco: la cronologia è la sola copia di
-    // un'elaborazione già pagata a credito.
-    if (!window.confirm(`Eliminare "${entry.title}" dalla cronologia?`)) return;
-
     setIsDeleting(true);
     setActionError(null);
     try {
       const response = await fetch(`/api/history/${entry.id}`, { method: "DELETE" });
       if (!response.ok) throw new Error();
+      showToast("Elaborazione eliminata.", "success");
       onDeleted();
     } catch {
       setActionError("Eliminazione non riuscita.");
+      showToast("Eliminazione non riuscita.", "error");
       setIsDeleting(false);
+      setConfirming(false);
     }
   }
 
@@ -164,7 +168,7 @@ export function HistoryDetailDrawer({
 
           <button
             type="button"
-            onClick={remove}
+            onClick={() => setConfirming(true)}
             disabled={isDeleting}
             className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-status-blocked transition-all duration-200 hover:bg-status-blocked/10 disabled:opacity-50 sm:h-9"
           >
@@ -196,6 +200,18 @@ export function HistoryDetailDrawer({
           ) : null}
         </div>
       </div>
+
+      {confirming && (
+        <ConfirmDialog
+          title={`Eliminare "${entry.title}"?`}
+          description="La cronologia e' la sola copia di questa elaborazione, gia' pagata a credito. Rigenerarla ne consumera' un altro."
+          confirmLabel="Elimina"
+          cancelLabel="Torna indietro"
+          isWorking={isDeleting}
+          onConfirm={remove}
+          onCancel={() => setConfirming(false)}
+        />
+      )}
     </div>
   );
 }

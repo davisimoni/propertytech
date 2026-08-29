@@ -7,6 +7,8 @@ import {
   IMAGE_TARGET_LONG_EDGE,
   MAX_IMAGES_PER_PROPERTY,
 } from "@/lib/listings/property-images";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { useToast } from "@/components/shared/toast-provider";
 
 /**
  * Riduce la foto **prima** di spedirla.
@@ -51,6 +53,9 @@ export function PropertyImagesEditor({
   const inputRef = useRef<HTMLInputElement>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Foto in attesa di conferma: una cancellazione non si annulla. */
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   const remaining = MAX_IMAGES_PER_PROPERTY - images.length;
 
@@ -111,10 +116,13 @@ export function PropertyImagesEditor({
       if (!response.ok) throw new Error();
       const data = (await response.json()) as { images: string[] };
       onChange(data.images);
+      showToast(method === "DELETE" ? "Foto eliminata." : "Copertina aggiornata.", "success");
     } catch {
       setError(fallback);
+      showToast(fallback, "error");
     } finally {
       setIsBusy(false);
+      setConfirming(null);
     }
   }
 
@@ -159,7 +167,7 @@ export function PropertyImagesEditor({
           {images.map((image, index) => (
               <li
                 key={image}
-                className="relative h-20 w-20 overflow-hidden rounded-lg border border-border bg-muted"
+                className="relative h-24 w-24 overflow-hidden rounded-lg border border-border bg-muted sm:h-20 sm:w-20"
               >
                 {/* Immagine in una griglia di gestione: il testo alternativo
                     utile è la posizione, non una descrizione della casa che
@@ -185,17 +193,17 @@ export function PropertyImagesEditor({
                       onClick={() => mutate("PATCH", image, "Copertina non aggiornata.")}
                       disabled={isBusy}
                       aria-label={`Usa la foto ${index + 1} come copertina`}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-black/50 text-white transition-colors hover:bg-black/75 disabled:opacity-50"
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-md bg-black/50 text-white transition-colors hover:bg-black/75 disabled:opacity-50 sm:h-7 sm:w-7"
                     >
                       <Star className="h-3.5 w-3.5" />
                     </button>
                   ) : null}
                   <button
                     type="button"
-                    onClick={() => mutate("DELETE", image, "Foto non rimossa.")}
+                    onClick={() => setConfirming(image)}
                     disabled={isBusy}
                     aria-label={`Elimina la foto ${index + 1}`}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-black/50 text-white transition-colors hover:bg-status-blocked disabled:opacity-50"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-md bg-black/50 text-white transition-colors hover:bg-status-blocked disabled:opacity-50 sm:h-7 sm:w-7"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -203,6 +211,18 @@ export function PropertyImagesEditor({
               </li>
           ))}
         </ul>
+      )}
+
+      {confirming && (
+        <ConfirmDialog
+          title="Eliminare questa fotografia?"
+          description="Sparisce dalla scheda e dal feed verso i portali. Per rimetterla dovrai caricarla di nuovo."
+          confirmLabel="Elimina la foto"
+          cancelLabel="Torna indietro"
+          isWorking={isBusy}
+          onConfirm={() => mutate("DELETE", confirming, "Foto non rimossa.")}
+          onCancel={() => setConfirming(null)}
+        />
       )}
 
       {error ? <p className="mt-2 text-xs text-status-blocked">{error}</p> : null}

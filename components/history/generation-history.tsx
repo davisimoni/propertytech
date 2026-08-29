@@ -16,6 +16,8 @@ import {
   type HistoryKind,
 } from "@/lib/history/entries";
 import { downloadText, fileNameFromTitle, outputToText } from "@/lib/history/output-text";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { useToast } from "@/components/shared/toast-provider";
 import { HistoryDetailDrawer } from "./history-detail-drawer";
 
 /**
@@ -51,6 +53,8 @@ export function GenerationHistory({
 }: GenerationHistoryProps) {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [opened, setOpened] = useState<HistoryEntry | null>(null);
+  const [confirming, setConfirming] = useState<HistoryEntry | null>(null);
+  const { showToast } = useToast();
   const [cursor, setCursor] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -117,6 +121,7 @@ export function GenerationHistory({
 
       const detail = (await response.json()) as { output: unknown };
       await navigator.clipboard.writeText(outputToText(detail.output));
+      showToast("Testo copiato negli appunti.", "success");
       setCopiedId(entry.id);
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
@@ -127,10 +132,6 @@ export function GenerationHistory({
   }
 
   async function remove(entry: HistoryEntry) {
-    // Conferma esplicita: la cronologia è la sola copia di un'elaborazione già
-    // pagata a credito, e un tocco per sbaglio sul telefono la porterebbe via.
-    if (!window.confirm(`Eliminare "${entry.title}" dalla cronologia?`)) return;
-
     setBusyId(entry.id);
 
     try {
@@ -235,7 +236,7 @@ export function GenerationHistory({
 
               <button
                 type="button"
-                onClick={() => remove(entry)}
+                onClick={() => setConfirming(entry)}
                 disabled={busyId === entry.id}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-status-blocked transition-all duration-200 hover:bg-status-blocked/10 disabled:opacity-50"
               >
@@ -250,6 +251,21 @@ export function GenerationHistory({
           </li>
         ))}
       </ul>
+
+      {confirming && (
+        <ConfirmDialog
+          title={`Eliminare "${confirming.title}"?`}
+          description="La cronologia e' la sola copia di questa elaborazione, gia' pagata a credito. Rigenerarla ne consumera' un altro."
+          confirmLabel="Elimina"
+          cancelLabel="Torna indietro"
+          isWorking={busyId === confirming.id}
+          onConfirm={async () => {
+            await remove(confirming);
+            setConfirming(null);
+          }}
+          onCancel={() => setConfirming(null)}
+        />
+      )}
 
       {opened && (
         <HistoryDetailDrawer

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Bot, Check, Loader2 } from "lucide-react";
+import { useToast } from "@/components/shared/toast-provider";
 
 interface AgencyProfile {
   address: string | null;
@@ -70,6 +71,7 @@ export function AgencyProfilePanel() {
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   const load = useCallback(async () => {
     try {
@@ -100,9 +102,11 @@ export function AgencyProfilePanel() {
       });
       if (!response.ok) throw new Error();
       setSaved(true);
+      showToast("Scheda agenzia salvata.", "success");
       setTimeout(() => setSaved(false), 2500);
     } catch {
       setError("Salvataggio non riuscito. Riprova.");
+      showToast("Salvataggio non riuscito.", "error");
     } finally {
       setIsSaving(false);
     }
@@ -167,7 +171,7 @@ export function AgencyProfilePanel() {
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <button type="button" onClick={save} disabled={isSaving} className="btn-brand text-xs disabled:opacity-50">
           {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-          Salva scheda agenzia
+          {isSaving ? "Salvataggio in corso…" : "Salva scheda agenzia"}
         </button>
         {saved ? (
           <span className="inline-flex items-center gap-1.5 text-xs text-status-qualified">

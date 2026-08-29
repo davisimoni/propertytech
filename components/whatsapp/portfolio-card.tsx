@@ -265,7 +265,7 @@ export function PortfolioCard({ lead, onUpdated, onMatchResolved }: PortfolioCar
               onClick={save}
               disabled={isSaving}
               aria-label="Salva immobili posseduti"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-gradient text-white transition-all duration-200 hover:brightness-110 disabled:opacity-50"
+              className="inline-flex h-11 w-11 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-brand-gradient text-white transition-all duration-200 hover:brightness-110 disabled:opacity-50"
             >
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             </button>
@@ -274,7 +274,7 @@ export function PortfolioCard({ lead, onUpdated, onMatchResolved }: PortfolioCar
               onClick={() => setIsEditing(false)}
               disabled={isSaving}
               aria-label="Annulla modifica"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-all duration-200 hover:bg-muted disabled:opacity-50"
+              className="inline-flex h-11 w-11 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-all duration-200 hover:bg-muted disabled:opacity-50"
             >
               <X className="h-4 w-4" />
             </button>

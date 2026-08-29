@@ -12,6 +12,8 @@ import {
   Users,
   Send,
 } from "lucide-react";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { useToast } from "@/components/shared/toast-provider";
 import { cn } from "@/lib/utils";
 
 interface Member {
@@ -61,6 +63,9 @@ export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  /** Collaboratore in attesa di conferma: rimuoverne uno non si annulla. */
+  const [confirming, setConfirming] = useState<Member | null>(null);
+  const { showToast } = useToast();
 
   const isOwner = currentRole === "OWNER";
 
@@ -100,6 +105,12 @@ export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
         sent: body.emailOutcome === "sent",
         url: body.inviteUrl as string | undefined,
       });
+      showToast(
+        body.emailOutcome === "sent"
+          ? `Invito inviato a ${email.trim()}.`
+          : "Invito creato, ma l'email non è partita: manda tu il link.",
+        body.emailOutcome === "sent" ? "success" : "error"
+      );
       setEmail("");
       await load();
     } catch {
@@ -128,6 +139,12 @@ export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
         sent: body.emailOutcome === "sent",
         url: body.inviteUrl as string | undefined,
       });
+      showToast(
+        body.emailOutcome === "sent"
+          ? `Invito rinviato a ${member.email}.`
+          : "Invito rigenerato, ma l'email non è partita.",
+        body.emailOutcome === "sent" ? "success" : "error"
+      );
       await load();
     } catch {
       setError("Errore di rete durante l'invio.");
@@ -136,7 +153,8 @@ export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
     }
   }
 
-  async function remove(id: string) {
+  async function remove(member: Member) {
+    const id = member.id;
     setRemovingId(id);
     setError(null);
 
@@ -149,11 +167,17 @@ export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
         return;
       }
 
+      showToast(
+        member.isPending ? "Invito annullato." : "Collaboratore rimosso.",
+        "success"
+      );
       await load();
     } catch {
       setError("Errore di rete durante la rimozione.");
+      showToast("Rimozione non riuscita.", "error");
     } finally {
       setRemovingId(null);
+      setConfirming(null);
     }
   }
 
@@ -242,7 +266,7 @@ export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
                 {isOwner && member.id !== currentUserId && (
                   <button
                     type="button"
-                    onClick={() => remove(member.id)}
+                    onClick={() => setConfirming(member)}
                     disabled={removingId === member.id}
                     aria-label={`${member.isPending ? "Annulla l'invito a" : "Rimuovi"} ${fullName || member.email}`}
                     className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border text-muted-foreground transition-all duration-200 hover:border-status-blocked/40 hover:text-status-blocked disabled:opacity-50 sm:h-8 sm:w-8"
@@ -353,6 +377,26 @@ export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
             </>
           )}
         </div>
+      )}
+
+      {confirming && (
+        <ConfirmDialog
+          title={
+            confirming.isPending
+              ? `Annullare l'invito a ${confirming.email}?`
+              : `Rimuovere ${confirming.email}?`
+          }
+          description={
+            confirming.isPending
+              ? "Il link che ha ricevuto smette di funzionare. Potrai invitarlo di nuovo in qualsiasi momento."
+              : "Perde subito l'accesso ai lead, agli immobili e all'agenda dell'agenzia. I dati che ha creato restano."
+          }
+          confirmLabel={confirming.isPending ? "Annulla l'invito" : "Rimuovi"}
+          cancelLabel="Torna indietro"
+          isWorking={removingId === confirming.id}
+          onConfirm={() => remove(confirming)}
+          onCancel={() => setConfirming(null)}
+        />
       )}
 
       {error && (

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Check, Clipboard, Loader2, Rss, TriangleAlert } from "lucide-react";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { useToast } from "@/components/shared/toast-provider";
 
 /**
  * Riquadro di configurazione del feed XML verso i portali.
@@ -27,6 +29,9 @@ export function PortalFeedPanel({
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [origin, setOrigin] = useState("");
+  /** Revoca in attesa di conferma: spegne il feed su tutti i portali. */
+  const [confirmingRevoke, setConfirmingRevoke] = useState(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -57,14 +62,20 @@ export function PortalFeedPanel({
       if (!response.ok) throw new Error();
       const data = (await response.json()) as { token: string | null };
       setToken(data.token);
+      showToast(
+        method === "POST" ? "Feed attivato." : "Feed revocato: l'indirizzo non risponde più.",
+        "success"
+      );
     } catch {
       setError(
         method === "POST"
           ? "Attivazione non riuscita. Riprova."
           : "Revoca non riuscita. Riprova."
       );
+      showToast("Operazione non riuscita. Riprova.", "error");
     } finally {
       setIsWorking(false);
+      setConfirmingRevoke(false);
     }
   }
 
@@ -73,6 +84,7 @@ export function PortalFeedPanel({
   async function copy() {
     await navigator.clipboard.writeText(feedUrl);
     setCopied(true);
+    showToast("Indirizzo del feed copiato.", "success");
     setTimeout(() => setCopied(false), 2000);
   }
 
@@ -124,7 +136,7 @@ export function PortalFeedPanel({
 
           <button
             type="button"
-            onClick={() => mutate("DELETE")}
+            onClick={() => setConfirmingRevoke(true)}
             disabled={isWorking}
             className="text-xs font-medium text-muted-foreground underline underline-offset-4 transition-colors hover:text-status-blocked disabled:opacity-50"
           >
@@ -158,6 +170,18 @@ export function PortalFeedPanel({
         volta che conta davvero nessuno lo legge. Ora conta gli immobili che il
         feed pubblica SENZA immagini — gli unici per cui il problema esiste.
       */}
+      {confirmingRevoke && (
+        <ConfirmDialog
+          title="Revocare l'indirizzo del feed?"
+          description="I portali che lo interrogano smettono di ricevere il portafoglio e ritirano gli annunci pubblicati. Potrai generarne uno nuovo, ma dovrai riconfigurarlo su ogni pannello."
+          confirmLabel="Revoca l'indirizzo"
+          cancelLabel="Torna indietro"
+          isWorking={isWorking}
+          onConfirm={() => mutate("DELETE")}
+          onCancel={() => setConfirmingRevoke(false)}
+        />
+      )}
+
       {missingPhotos > 0 ? (
         <p className="mt-4 flex items-start gap-2 rounded-lg border border-status-pending/40 bg-status-pending/10 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
           <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-pending" />

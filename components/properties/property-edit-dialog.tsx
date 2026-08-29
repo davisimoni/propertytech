@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { ContractType, EnergyClass, PropertyType } from "@prisma/client";
 import { Loader2, X } from "lucide-react";
+import { useToast } from "@/components/shared/toast-provider";
 import {
   CONTRACT_LABELS,
   ENERGY_CLASSES,
@@ -84,6 +85,7 @@ export function PropertyEditDialog({
   });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -141,6 +143,7 @@ export function PropertyEditDialog({
       }
 
       if (data?.property) onSaved(data.property);
+      showToast("Scheda immobile aggiornata.", "success");
       onClose();
     } catch {
       setError("Salvataggio non riuscito. Riprova.");
@@ -399,7 +402,7 @@ export function PropertyEditDialog({
           </button>
           <button type="button" onClick={save} disabled={isSaving} className="btn-brand text-xs disabled:opacity-50">
             {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-            Salva modifiche
+            {isSaving ? "Salvataggio in corso…" : "Salva modifiche"}
           </button>
         </footer>
       </div>

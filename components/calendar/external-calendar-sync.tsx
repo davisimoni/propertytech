@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AlertTriangle, CalendarSync, Check, Loader2, Unplug } from "lucide-react";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { useToast } from "@/components/shared/toast-provider";
 import type {
   CalendarConnectionsResponse,
   CalendarConnectionView,
@@ -135,6 +137,9 @@ export function ExternalCalendarSync() {
   const [connections, setConnections] = useState<CalendarConnectionView[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [pending, setPending] = useState<string | null>(null);
+  /** Calendario in attesa di conferma: scollegarlo ferma la sincronizzazione. */
+  const [confirming, setConfirming] = useState<CalendarConnectionView["provider"] | null>(null);
+  const { showToast } = useToast();
 
   // Due parametri con due significati distinti: `?calendar=` è l'esito del
   // flusso OAuth (connesso, annullato, stato scaduto), `?error=` dice che il
@@ -160,10 +165,19 @@ export function ExternalCalendarSync() {
   async function disconnect(provider: CalendarConnectionView["provider"]) {
     setPending(provider);
     try {
-      await fetch(`/api/calendar/connections?provider=${provider}`, { method: "DELETE" });
+      const response = await fetch(`/api/calendar/connections?provider=${provider}`, {
+        method: "DELETE",
+      });
+      // Prima l'esito veniva ignorato del tutto: una disconnessione fallita
+      // lasciava il calendario collegato e l'agente convinto del contrario.
+      if (!response.ok) throw new Error();
       await load();
+      showToast("Calendario scollegato.", "success");
+    } catch {
+      showToast("Non è stato possibile scollegare il calendario. Riprova.", "error");
     } finally {
       setPending(null);
+      setConfirming(null);
     }
   }
 
@@ -232,9 +246,9 @@ export function ExternalCalendarSync() {
                   </p>
                   <button
                     type="button"
-                    onClick={() => disconnect(provider)}
+                    onClick={() => setConfirming(provider)}
                     disabled={pending === provider}
-                    className="inline-flex w-fit items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50"
+                    className="inline-flex h-11 w-fit items-center gap-2 rounded-lg border border-border px-3 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50 sm:h-9"
                   >
                     {pending === provider ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -280,6 +294,18 @@ export function ExternalCalendarSync() {
           );
         })}
       </div>
+      {confirming && (
+        <ConfirmDialog
+          title="Scollegare il calendario?"
+          description="Gli appuntamenti fissati dall'assistente smettono di comparire sulla tua agenda esterna. Quelli gia' creati restano dove sono, e potrai ricollegarlo quando vuoi."
+          confirmLabel="Scollega"
+          cancelLabel="Torna indietro"
+          isWorking={pending === confirming}
+          onConfirm={() => disconnect(confirming)}
+          onCancel={() => setConfirming(null)}
+        />
+      )}
+
     </section>
   );
 }

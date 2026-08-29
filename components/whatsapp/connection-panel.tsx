@@ -23,6 +23,8 @@ import {
   MetaConnectButton,
 } from "@/components/whatsapp/meta-connect-button";
 import { QrConnect } from "@/components/whatsapp/qr-connect";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { useToast } from "@/components/shared/toast-provider";
 import { cn } from "@/lib/utils";
 
 function CopyableField({ label, value, icon: Icon }: { label: string; value: string; icon: typeof Mail }) {
@@ -48,7 +50,7 @@ function CopyableField({ label, value, icon: Icon }: { label: string; value: str
           type="button"
           onClick={copy}
           aria-label={`Copia ${label}`}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-foreground transition-all duration-200 hover:bg-muted"
+          className="inline-flex h-11 w-11 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg border border-border text-foreground transition-all duration-200 hover:bg-muted"
         >
           {copied ? <Check className="h-4 w-4 text-status-qualified" /> : <Clipboard className="h-4 w-4" />}
         </button>
@@ -70,6 +72,15 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
   // Token) non devono comparire alla prima apertura della schermata, solo a
   // chi sceglie esplicitamente di configurare le credenziali a mano.
   const [showAdvanced, setShowAdvanced] = useState(false);
+  /**
+   * Disconnessione in attesa di conferma.
+   *
+   * E' l'azione piu' costosa dell'intera applicazione: staccare WhatsApp
+   * spegne la qualificazione automatica, e da quel momento i messaggi dei
+   * clienti restano senza risposta finche' qualcuno non se ne accorge.
+   */
+  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
+  const { showToast } = useToast();
 
   // --- Meta ---
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -131,10 +142,13 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
         }
         setConfig((await response.json()) as WhatsAppConfigView);
         onConnectionChange?.();
+        showToast("WhatsApp disconnesso: l'assistente non risponde piu'.", "success");
       } catch {
         setError("Errore di rete durante la disconnessione.");
+        showToast("Disconnessione non riuscita.", "error");
       } finally {
         setIsSaving(false);
+        setConfirmingDisconnect(false);
       }
       return;
     }
@@ -218,7 +232,8 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
         : Boolean(accessToken && phoneAccountId);
 
   return (
-    <section className="rounded-xl border border-border bg-card p-4 md:p-5">
+    <>
+      <section className="rounded-xl border border-border bg-card p-4 md:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-foreground">Configurazione WhatsApp &amp; Webhook Portali</h2>
         <span
@@ -294,7 +309,7 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
               </div>
               <button
                 type="button"
-                onClick={() => save(true)}
+                onClick={() => setConfirmingDisconnect(true)}
                 disabled={isSaving}
                 className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50"
               >
@@ -603,6 +618,19 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
           </p>
         </div>
       </div>
-    </section>
+      </section>
+
+      {confirmingDisconnect && (
+        <ConfirmDialog
+          title="Disconnettere WhatsApp?"
+          description="L'assistente smette di rispondere ai clienti che scrivono, e i messaggi in arrivo restano senza risposta finche' non ricolleghi il numero. Le conversazioni gia' salvate restano."
+          confirmLabel="Disconnetti"
+          cancelLabel="Torna indietro"
+          isWorking={isSaving}
+          onConfirm={() => save(true)}
+          onCancel={() => setConfirmingDisconnect(false)}
+        />
+      )}
+    </>
   );
 }

@@ -52,7 +52,7 @@ export function QuickActions() {
                 onClick={() => setBlockedFeature(action.feature)}
                 className="flex items-start gap-3 rounded-xl border border-dashed border-border p-4 text-left opacity-60 transition-all duration-200 hover:bg-muted"
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <div className="flex h-11 w-11 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                   <Icon className="h-4 w-4" />
                 </div>
                 <div>

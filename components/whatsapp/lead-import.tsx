@@ -193,7 +193,7 @@ export function LeadImport({
           type="button"
           onClick={close}
           aria-label="Chiudi importazione"
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-all duration-200 hover:bg-muted"
+          className="inline-flex h-11 w-11 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-all duration-200 hover:bg-muted"
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>

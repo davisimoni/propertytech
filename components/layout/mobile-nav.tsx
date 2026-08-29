@@ -25,7 +25,7 @@ export function MobileNav() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Apri menu di navigazione"
-        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
       >
         <Menu className="h-4 w-4" />
       </button>
@@ -49,7 +49,7 @@ export function MobileNav() {
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Chiudi menu di navigazione"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all duration-200 hover:bg-muted"
+                className="inline-flex h-11 w-11 sm:h-8 sm:w-8 items-center justify-center rounded-lg transition-all duration-200 hover:bg-muted"
               >
                 <X className="h-4 w-4" />
               </button>
