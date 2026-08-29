@@ -1,0 +1,111 @@
+import Link from "next/link";
+import { KeyRound, Lock, MapPin, ShieldCheck, UserCog } from "lucide-react";
+import { Reveal } from "./reveal";
+
+/**
+ * Sezione sicurezza e conformità.
+ *
+ * # Perché sta dopo i moduli e prima dei prezzi
+ *
+ * A questo punto della pagina l'agente ha capito cosa fa il software e sta per
+ * guardare quanto costa. Nel mezzo passa l'obiezione che ferma davvero chi
+ * gestisce dati di clienti: *dove finiscono i numeri di telefono e i codici
+ * fiscali che questo sistema legge?*
+ *
+ * Lasciarla senza risposta significa che se la porrà davanti al prezzo, dove
+ * pesa il doppio.
+ *
+ * # Perché è specifica e non rassicurante
+ *
+ * "Sicurezza di livello enterprise" non dice niente e chiunque può scriverlo.
+ * Ogni voce qui sotto è un fatto verificabile del prodotto: la regione dei
+ * server, cosa viene cifrato, cosa succede a chi revoca il consenso.
+ */
+
+const GARANZIE = [
+  {
+    icon: MapPin,
+    title: "Server e dati in Unione Europea",
+    body: "Database e calcolo restano a Francoforte. Nessuna elaborazione fuori dall'UE: né i nomi dei tuoi clienti, né i telefoni, né i codici fiscali che leggiamo dalle visure.",
+  },
+  {
+    icon: Lock,
+    title: "Credenziali cifrate a riposo",
+    body: "Il collegamento WhatsApp e le chiavi dei gestionali sono cifrati in AES-256. Chi leggesse una copia del database non troverebbe nulla di utilizzabile.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "GDPR nel flusso, non nel disclaimer",
+    body: "Il primo messaggio a un contatto porta l'informativa e il modo per cancellarsi. Chi risponde STOP esce subito e non riceve più nulla, nemmeno un promemoria.",
+  },
+  {
+    icon: UserCog,
+    title: "Titolare e collaboratori, ruoli distinti",
+    body: "Il titolare invita gli agenti via email e assegna i contatti. Ognuno segue i propri lead e riceve solo i propri avvisi; il titolare vede tutto.",
+  },
+  {
+    icon: KeyRound,
+    title: "Accesso protetto e recuperabile",
+    body: "Recupero password con link valido un'ora e usabile una volta sola, avviso via email a ogni accesso da un dispositivo nuovo.",
+  },
+];
+
+export function TrustSection() {
+  return (
+    <section
+      id="sicurezza"
+      className="scroll-mt-20 border-t border-border py-20"
+      aria-labelledby="sicurezza-titolo"
+    >
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <div className="mx-auto max-w-2xl text-center">
+          <span className="block text-xs font-semibold uppercase tracking-widest text-primary">
+            Sicurezza e conformità
+          </span>
+          <h2
+            id="sicurezza-titolo"
+            className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl"
+          >
+            I dati dei tuoi clienti non escono dall&apos;Europa
+          </h2>
+          <p className="mt-3 text-muted-foreground">
+            Tratti dati di persone che ti hanno dato fiducia. Ecco cosa facciamo perché resti
+            meritata.
+          </p>
+        </div>
+
+        {/*
+          Griglia che degrada per gradi: tre colonne su schermo largo, due su
+          tablet, una sul telefono. Le cinque voci non stanno mai su una riga
+          sola, quindi l'ultima riga resta spaiata: `lg:last:col-span-1` non
+          serve — la si lascia allineata a sinistra, che è come si legge.
+        */}
+        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {GARANZIE.map((garanzia, index) => {
+            const Icon = garanzia.icon;
+            return (
+              <Reveal key={garanzia.title} delayMs={index * 70} className="flex">
+                <div className="flex w-full flex-col rounded-xl border border-border bg-card p-5">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <h3 className="mt-4 text-sm font-semibold text-foreground">{garanzia.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    {garanzia.body}
+                  </p>
+                </div>
+              </Reveal>
+            );
+          })}
+        </div>
+
+        <p className="mt-8 text-center text-sm text-muted-foreground">
+          Alla registrazione accetti l&apos;accordo sul trattamento dei dati ex art. 28 GDPR.{" "}
+          <Link href="/privacy" className="font-medium text-primary hover:underline">
+            Leggi l&apos;informativa completa
+          </Link>
+        </p>
+      </div>
+    </section>
+  );
+}

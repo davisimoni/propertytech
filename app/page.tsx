@@ -14,6 +14,8 @@ import { LandingFooter } from "@/components/landing/site-footer";
 import { PricingSection } from "@/components/landing/pricing-section";
 import { StatsSection } from "@/components/landing/stats-section";
 import { HowItWorksSection } from "@/components/landing/how-it-works-section";
+import { TrustSection } from "@/components/landing/trust-section";
+import { FinalCtaSection } from "@/components/landing/final-cta-section";
 import { buildStructuredData, SEO } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -56,12 +58,20 @@ export default async function LandingPage() {
             piattaforma vuole sapere quanto lavoro gli costa, prima di
             guardare quanto costa in euro. */}
         <HowItWorksSection />
+        {/* Fra il "come funziona" e il prezzo: e' il punto in cui l'agente si
+            chiede dove finiscano i dati dei suoi clienti, e lasciarlo senza
+            risposta significa che se lo chiedera' davanti alla cifra. */}
+        <TrustSection />
         <PricingSection isLoggedIn={Boolean(session?.user)} />
         <FaqSection />
         {/* Ultima sezione prima del footer: chi è arrivato in fondo alle FAQ
             senza convertirsi ha una domanda specifica, e questo è il punto in
             cui gliela si può far scrivere. */}
         <ContactSection />
+        {/* Ultimo invito: chi arriva qui ha letto tutto e si trova a fondo
+            pagina, dove l'unica cosa raggiungibile sarebbe il footer.
+            Rimandarlo in cima per cliccare e' attrito pagato per niente. */}
+        <FinalCtaSection isLoggedIn={Boolean(session?.user)} />
       </main>
       <LandingFooter />
       <SupportWidget />

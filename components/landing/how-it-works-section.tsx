@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Building2, CalendarCheck, MessagesSquare, Target } from "lucide-react";
+import { ArrowRight, Building2, MessagesSquare, Target } from "lucide-react";
 import { Reveal } from "@/components/landing/reveal";
 
 /**
@@ -29,39 +29,29 @@ const STEPS: Step[] = [
     duration: "2 minuti",
     title: "Colleghi il numero WhatsApp dell'agenzia",
     action:
-      "Ti registri e incolli le credenziali WhatsApp Business dalla schermata Qualifica Lead. Copi l'indirizzo che ti diamo e lo consegni a Immobiliare.it, Idealista o al tuo gestionale.",
+      "Inquadri un codice QR dalla schermata Qualifica Lead, come fai con WhatsApp Web. Poi apri l'agenda alle fasce in cui fai vedere gli immobili.",
     outcome:
-      "Da quel momento ogni notizia che arriva dai portali entra in piattaforma, giorno e notte.",
+      "Da quel momento ogni notizia che arriva dai portali entra in piattaforma, giorno e notte, festivi compresi.",
   },
   {
     number: "2",
-    icon: CalendarCheck,
-    duration: "5 minuti",
-    title: "Apri l'agenda alle visite",
+    icon: Target,
+    duration: "da lì in poi, da sola",
+    title: "L'assistente qualifica, fissa e propone",
     action:
-      "Indichi le fasce in cui sei disponibile per far vedere gli immobili. Puoi cambiarle quando vuoi.",
+      "Carichi gli incarichi: trascini il PDF di una visura o incolli il link di un annuncio già online. Bastano quattro righe se parti da zero.",
     outcome:
-      "L'assistente risponde al contatto in pochi secondi, capisce se ha il mutuo, se deve vendere prima e in quanto tempo vuole chiudere, poi gli propone i tuoi orari liberi e fissa l'appuntamento. Ti arriva già in agenda.",
+      "Chi scrive riceve risposta in pochi secondi e viene qualificato — mutuo, vendita da fare prima, tempistiche — poi si vede proporre i tuoi orari liberi. Nel frattempo la piattaforma incrocia quel contatto con tutto il tuo portafoglio e ti manda gli immobili che gli somigliano.",
   },
   {
     number: "3",
     icon: Building2,
-    duration: "1 minuto a immobile",
-    title: "Carichi gli incarichi e le visure",
+    duration: "il tempo che resta",
+    title: "Tu fai le visite e chiudi",
     action:
-      "Trascini il PDF della visura o incolli il link di un annuncio già online. Se parti da zero, bastano quattro righe sull'immobile.",
+      "Ricevi in agenda solo appuntamenti con persone qualificate. Dopo la visita racconti a voce com'è andata, trenta secondi.",
     outcome:
-      "Ottieni intestatari, quote e dati catastali in chiaro, il testo per i portali, il post social, lo script del Reel e il feed XML da caricare. L'immobile entra nel tuo portafoglio.",
-  },
-  {
-    number: "4",
-    icon: Target,
-    duration: "automatico",
-    title: "L'AI abbina, tu chiudi",
-    action:
-      "Registri in scheda le preferenze dei clienti che segui: zona, budget, tipologia, metratura minima.",
-    outcome:
-      "Ogni volta che entra un immobile, la piattaforma ti dice quali clienti in archivio potrebbero comprarlo e perché. Dopo ogni visita racconti a voce com'è andata e il proprietario riceve il report.",
+      "Il proprietario riceve il report che fa rinnovare il mandato, i promemoria evitano i mancati arrivi, e gli incarichi in scadenza te li ricorda la piattaforma. Restano quindici ore a settimana che prima passavi a filtrare curiosi.",
   },
 ];
 

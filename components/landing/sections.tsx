@@ -5,10 +5,12 @@ import {
   Check,
   Clock,
   FileSearch2,
+  FileSignature,
   MessagesSquare,
   Mic,
   MoonStar,
   PenLine,
+  Radar,
   Share2,
   Sparkles,
   TrendingDown,
@@ -232,6 +234,19 @@ const MODULES = [
   },
   {
     number: "02",
+    slug: "modulo-matching",
+    icon: Radar,
+    title: "Il portafoglio si incrocia da solo con i clienti",
+    tag: "In tempo reale",
+    body: "Appena un contatto finisce di dirti cosa cerca, la piattaforma passa in rassegna tutti gli immobili che hai a catalogo e ti manda quelli che corrispondono davvero. Funziona anche al contrario: carichi una nuova acquisizione e scopri subito chi in archivio la stava aspettando.",
+    points: [
+      "Solo gli abbinamenti sopra l'80%: nessuna lista da spulciare",
+      "Proponi la casa su WhatsApp con un tocco, testo già pronto",
+      "Gli immobili senza mandato valido restano fuori dalle proposte",
+    ],
+  },
+  {
+    number: "03",
     slug: "modulo-visure",
     icon: FileSearch2,
     title: "Visure e atti letti al posto tuo",
@@ -244,7 +259,7 @@ const MODULES = [
     ],
   },
   {
-    number: "03",
+    number: "04",
     slug: "modulo-annunci",
     icon: Share2,
     title: "Un incarico, tutti i canali pronti",
@@ -257,7 +272,7 @@ const MODULES = [
     ],
   },
   {
-    number: "04",
+    number: "05",
     slug: "modulo-report",
     icon: Mic,
     title: "Il proprietario aggiornato dopo ogni visita",
@@ -267,6 +282,19 @@ const MODULES = [
       "Racconti la visita a voce, senza scrivere una riga",
       "Il proprietario vede che stai lavorando sul suo immobile",
       "Report con il tuo logo, inviato con un tocco",
+    ],
+  },
+  {
+    number: "06",
+    slug: "modulo-incarichi",
+    icon: FileSignature,
+    title: "Nessun incarico ti scade più alle spalle",
+    tag: "Controllo quotidiano",
+    body: "Registri tipo di mandato, scadenza, provvigione concordata e dove sono le chiavi. Ogni mattina la piattaforma controlla il portafoglio e ti scrive quali incarichi stanno per scadere, a 60 e a 30 giorni — con il tempo per richiamare il proprietario prima che ci pensi un'altra agenzia.",
+    points: [
+      "Avviso via email prima della scadenza, non dopo",
+      "Provvigione e ubicazione chiavi sempre in scheda",
+      "Un incarico scaduto esce da solo dai portali",
     ],
   },
 ];
@@ -281,7 +309,7 @@ export function SolutionSection() {
             La soluzione
           </span>
           <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Quattro assistenti che lavorano per la tua agenzia
+            Sei assistenti che lavorano per la tua agenzia
           </h2>
           <p className="mt-3 text-muted-foreground">
             Ognuno si prende un compito che oggi ti ruba tempo e te lo restituisce già fatto.
