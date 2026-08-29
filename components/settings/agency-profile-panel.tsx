@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { UserRole } from "@prisma/client";
 import { Bot, Check, Loader2 } from "lucide-react";
 import { useToast } from "@/components/shared/toast-provider";
 
@@ -59,7 +60,11 @@ const CAMPI: {
  * orario inventato pur di riempire una casella manda una persona davanti a una
  * porta chiusa.
  */
-export function AgencyProfilePanel() {
+export function AgencyProfilePanel({ currentRole }: { currentRole: UserRole }) {
+  // Indirizzo e orari sono cio' che l'assistente riferisce ai clienti a nome
+  // dell'agenzia: un orario sbagliato manda una persona davanti a una porta
+  // chiusa.
+  const isOwner = currentRole === "OWNER";
   const [profile, setProfile] = useState<AgencyProfile>({
     address: null,
     publicPhone: null,
@@ -169,10 +174,12 @@ export function AgencyProfilePanel() {
       </div>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
+{isOwner ? (
         <button type="button" onClick={save} disabled={isSaving} className="btn-brand text-xs disabled:opacity-50">
           {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
           {isSaving ? "Salvataggio in corso…" : "Salva scheda agenzia"}
         </button>
+        ) : null}
         {saved ? (
           <span className="inline-flex items-center gap-1.5 text-xs text-status-qualified">
             <Check className="h-3.5 w-3.5" />
@@ -182,6 +189,12 @@ export function AgencyProfilePanel() {
       </div>
 
       {error ? <p className="mt-3 text-xs text-status-blocked">{error}</p> : null}
+      {!isOwner ? (
+        <p className="mt-4 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          Questi dati li modifica il titolare dell&apos;agenzia: qui li vedi in sola lettura.
+        </p>
+      ) : null}
+
     </section>
   );
 }

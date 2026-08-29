@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { UserRole } from "@prisma/client";
 import Image from "next/image";
 import { Check, ImageUp, Loader2, Palette, Trash2 } from "lucide-react";
 
@@ -15,7 +16,10 @@ const MAX_LOGO_BYTES = 280 * 1024;
 
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
-export function BrandingPanel() {
+export function BrandingPanel({ currentRole }: { currentRole: UserRole }) {
+  // Ragione sociale e logo finiscono sui PDF che escono dall'agenzia: sono
+  // la sua identita', non un'impostazione di lavoro quotidiano.
+  const isOwner = currentRole === "OWNER";
   const [branding, setBranding] = useState<BrandingView | null>(null);
   const [legalName, setLegalName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -201,6 +205,12 @@ export function BrandingPanel() {
           Salvato
         </p>
       )}
+      {!isOwner ? (
+        <p className="mt-4 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          Questi dati li modifica il titolare dell&apos;agenzia: qui li vedi in sola lettura.
+        </p>
+      ) : null}
+
     </section>
   );
 }

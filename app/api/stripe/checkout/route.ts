@@ -57,6 +57,16 @@ export async function POST(request: Request) {
     );
   }
 
+  // Avviare un abbonamento impegna l'agenzia a pagare: `cancel` e `retention`
+  // lo chiedevano gia', questa rotta no, e un collaboratore poteva far
+  // partire un piano da 499 euro al mese.
+  if (session.user.role !== "OWNER") {
+    return NextResponse.json(
+      { error: "forbidden", message: "Solo il titolare puo' gestire l'abbonamento." },
+      { status: 403 }
+    );
+  }
+
   const organizationId = session.user.organizationId;
 
   const organization = await prisma.organization.findUnique({

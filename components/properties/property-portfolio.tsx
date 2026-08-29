@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type {
+  UserRole,
   ContractType,
   EnergyClass,
   ListingType,
@@ -65,7 +66,7 @@ interface PropertyView {
 }
 
 /** Portafoglio immobili con i "Match Perfetti" calcolati sui lead qualificati. */
-export function PropertyPortfolio() {
+export function PropertyPortfolio({ currentRole }: { currentRole: UserRole }) {
   const [properties, setProperties] = useState<PropertyView[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -150,6 +151,7 @@ export function PropertyPortfolio() {
   return (
     <div className="space-y-4">
       <PortalFeedPanel
+        currentRole={currentRole}
         missingPhotos={
           properties.filter(
             (property) =>

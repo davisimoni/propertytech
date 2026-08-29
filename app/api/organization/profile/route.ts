@@ -46,6 +46,16 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
+  // Indirizzo, orari e note sono cio' che l'assistente riferisce ai clienti a
+  // nome dell'agenzia: un orario sbagliato manda una persona davanti a una
+  // porta chiusa, e la responsabilita' e' del titolare.
+  if (session.user.role !== "OWNER") {
+    return NextResponse.json(
+      { error: "forbidden", message: "Solo il titolare puo' modificare la scheda agenzia." },
+      { status: 403 }
+    );
+  }
+
   const parsed = profileSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid_request" }, { status: 400 });

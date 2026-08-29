@@ -75,10 +75,22 @@ export async function POST() {
  * pannello del portale, il feed resta muto e gli annunci vengono ritirati.
  */
 export async function DELETE() {
-  const organizationId = await requireOrganizationId();
-  if (!organizationId) {
+  const session = await auth();
+  if (!session?.user?.organizationId) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+
+  // Revocare il token ferma il feed verso i portali per TUTTA l'agenzia: gli
+  // annunci vengono ritirati alla rilettura successiva. Non e' una modifica
+  // che puo' fare chi gestisce un singolo immobile.
+  if (session.user.role !== "OWNER") {
+    return NextResponse.json(
+      { error: "forbidden", message: "Solo il titolare puo' revocare il feed verso i portali." },
+      { status: 403 }
+    );
+  }
+
+  const organizationId = session.user.organizationId;
 
   await prisma.organization.update({
     where: { id: organizationId },

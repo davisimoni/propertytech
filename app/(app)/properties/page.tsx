@@ -1,6 +1,14 @@
+import { auth } from "@/auth";
 import { PropertyPortfolio } from "@/components/properties/property-portfolio";
 
-export default function PropertiesPage() {
+/**
+ * Il ruolo si legge qui e scende come proprieta': i componenti client non
+ * hanno accesso alla sessione, e senza il ruolo mostrerebbero all'agente
+ * comandi che il server rifiuta con un 403.
+ */
+export default async function PropertiesPage() {
+  const session = await auth();
+
   return (
     <div className="space-y-6">
       <div>
@@ -11,7 +19,7 @@ export default function PropertiesPage() {
         </p>
       </div>
 
-      <PropertyPortfolio />
+      <PropertyPortfolio currentRole={session?.user?.role ?? "AGENT"} />
     </div>
   );
 }

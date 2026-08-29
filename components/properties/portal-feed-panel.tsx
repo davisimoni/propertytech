@@ -1,5 +1,7 @@
 "use client";
 
+import type { UserRole } from "@prisma/client";
+
 import { useCallback, useEffect, useState } from "react";
 import { Check, Clipboard, Loader2, Rss, TriangleAlert } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -20,9 +22,15 @@ export function PortalFeedPanel({
    * l'agenzia ha finito di caricarle.
    */
   missingPhotos,
+  currentRole,
 }: {
   missingPhotos: number;
+  currentRole: UserRole;
 }) {
+  // Attivare e revocare il feed vale per TUTTA l'agenzia: la revoca ritira gli
+  // annunci dai portali alla rilettura successiva. Il comando compare solo a
+  // chi puo' eseguirlo, invece di mostrare un pulsante che riceve un 403.
+  const isOwner = currentRole === "OWNER";
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isWorking, setIsWorking] = useState(false);
@@ -134,30 +142,41 @@ export function PortalFeedPanel({
             portafoglio. Condividilo solo con i portali.
           </p>
 
-          <button
-            type="button"
-            onClick={() => setConfirmingRevoke(true)}
-            disabled={isWorking}
-            className="text-xs font-medium text-muted-foreground underline underline-offset-4 transition-colors hover:text-status-blocked disabled:opacity-50"
-          >
-            {isWorking ? "Revoca in corso…" : "Revoca l'indirizzo"}
-          </button>
+          {isOwner ? (
+            <button
+              type="button"
+              onClick={() => setConfirmingRevoke(true)}
+              disabled={isWorking}
+              className="text-xs font-medium text-muted-foreground underline underline-offset-4 transition-colors hover:text-status-blocked disabled:opacity-50"
+            >
+              {isWorking ? "Revoca in corso…" : "Revoca l'indirizzo"}
+            </button>
+          ) : null}
         </div>
       ) : (
         <div className="mt-4">
-          <button
-            type="button"
-            onClick={() => mutate("POST")}
-            disabled={isWorking}
-            className="btn-brand text-xs disabled:opacity-50"
-          >
-            {isWorking ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Rss className="h-3.5 w-3.5" />
-            )}
-            Attiva il feed
-          </button>
+          {isOwner ? (
+            <button
+              type="button"
+              onClick={() => mutate("POST")}
+              disabled={isWorking}
+              className="btn-brand text-xs disabled:opacity-50"
+            >
+              {isWorking ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Rss className="h-3.5 w-3.5" />
+              )}
+              Attiva il feed
+            </button>
+          ) : (
+            // Detto e non nascosto: un collaboratore che non trova il feed
+            // penserebbe che la funzione non esista, e lo chiederebbe a noi
+            // invece che al proprio titolare.
+            <p className="text-xs text-muted-foreground">
+              Il feed verso i portali lo attiva il titolare dell&apos;agenzia.
+            </p>
+          )}
         </div>
       )}
 

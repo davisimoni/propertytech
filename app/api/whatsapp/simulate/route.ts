@@ -21,6 +21,15 @@ const simulateSchema = z.object({
  * API, non crea né aggiorna alcun Lead o WhatsAppChat, e non consuma crediti
  * WhatsApp — quei crediti misurano conversazioni con clienti veri.
  */
+/**
+ * Chiama il modello: sopra il limite predefinito di Vercel.
+ *
+ * Era l'unica rotta che invoca l'AI rimasta senza dichiarazione. Senza,
+ * l'anteprima della conversazione veniva interrotta a meta' e l'agente vedeva
+ * il simulatore restare in caricamento all'infinito, senza errore.
+ */
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.organizationId) {

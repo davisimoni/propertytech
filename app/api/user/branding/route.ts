@@ -90,6 +90,15 @@ export async function PUT(request: Request) {
     );
   }
 
+  // Ragione sociale e logo finiscono sui PDF che escono dall'agenzia: sono
+  // l'identita' con cui si presenta, non un'impostazione di lavoro.
+  if (session.user.role !== "OWNER") {
+    return NextResponse.json(
+      { error: "forbidden", message: "Solo il titolare puo' modificare i dati dell'agenzia." },
+      { status: 403 }
+    );
+  }
+
   const updated = await prisma.organization.update({
     where: { id: session.user.organizationId },
     data: {

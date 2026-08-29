@@ -49,8 +49,8 @@ export default async function SettingsPage() {
         <SettingsTabs
           profile={
             <div className="space-y-4">
-              <BrandingPanel />
-              <AgencyProfilePanel />
+              <BrandingPanel currentRole={session?.user?.role ?? "AGENT"} />
+              <AgencyProfilePanel currentRole={session?.user?.role ?? "AGENT"} />
             </div>
           }
           team={
