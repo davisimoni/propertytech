@@ -37,7 +37,18 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     take: 10,
     include: {
       property: {
-        select: { id: true, reference: true, title: true, priceEur: true, status: true },
+        select: {
+          id: true,
+          reference: true,
+          title: true,
+          priceEur: true,
+          status: true,
+          comune: true,
+          zona: true,
+          // Solo la copertina: le altre foto non servono a una riga di elenco,
+          // e l'array intero su dieci abbinamenti sarebbe carico inutile.
+          images: true,
+        },
       },
     },
   });
@@ -52,6 +63,9 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       title: match.property.title,
       priceEur: match.property.priceEur,
       status: match.property.status,
+      comune: match.property.comune,
+      zona: match.property.zona,
+      images: match.property.images.slice(0, 1),
       score: match.score,
       reasons: match.reasons,
     })),

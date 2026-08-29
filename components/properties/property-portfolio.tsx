@@ -2,8 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { ContractType, EnergyClass, PropertyStatus, PropertyType } from "@prisma/client";
-import { Building2, ChevronDown, FileCode2, FolderOpen, Loader2, Pencil, Phone, Sparkles, History } from "lucide-react";
+import type {
+  ContractType,
+  EnergyClass,
+  ListingType,
+  PropertyStatus,
+  PropertyType,
+} from "@prisma/client";
+import { Building2, ChevronDown, FileCode2, FolderOpen, History, Loader2, Pencil, Phone, Sparkles, UserRound } from "lucide-react";
 import { DocumentVault } from "@/components/documents/document-vault";
 import {
   CONTRACT_LABELS,
@@ -17,6 +23,7 @@ import { PortalFeedPanel } from "@/components/properties/portal-feed-panel";
 import { PropertyEditDialog } from "@/components/properties/property-edit-dialog";
 import { PropertyImagesEditor } from "@/components/properties/property-images-editor";
 import { PropertyStatusSelect } from "@/components/properties/property-status-select";
+import { MandateBadge } from "@/components/properties/mandate-badge";
 import { cn } from "@/lib/utils";
 
 interface MatchView {
@@ -42,6 +49,11 @@ interface PropertyView {
   energyClass: EnergyClass | null;
   status: PropertyStatus;
   images: string[];
+  listingType: ListingType | null;
+  mandateExpiration: string | null;
+  commissionRate: number | null;
+  keysInOffice: boolean;
+  keysLocation: string | null;
   // Campi che la finestra di modifica scrive: erano gia' restituiti dall'API,
   // mancavano solo qui.
   provincia: string | null;
@@ -180,6 +192,14 @@ export function PropertyPortfolio() {
             </div>
           </div>
 
+          <MandateBadge
+            listingType={property.listingType}
+            mandateExpiration={property.mandateExpiration}
+            commissionRate={property.commissionRate}
+            keysInOffice={property.keysInOffice}
+            keysLocation={property.keysLocation}
+          />
+
           <div className="mt-3">
             <PropertyStatusSelect
               propertyId={property.id}
@@ -208,15 +228,24 @@ export function PropertyPortfolio() {
           </div>
 
           <div className="mt-4 border-t border-border pt-3">
+            {/* "Clienti interessati" e non "lead compatibili": e' come li
+                chiama un agente, ed e' anche cio' che sono — persone che
+                cercano esattamente questo, non righe di un abbinamento. */}
             <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <Sparkles className="h-3.5 w-3.5" />
-              Lead compatibili
+              <UserRound className="h-3.5 w-3.5" />
+              Clienti interessati
+              {property.matches.length > 0 ? (
+                <span className="ml-1 rounded-full bg-status-qualified/10 px-1.5 py-0.5 text-[10px] font-semibold text-status-qualified">
+                  {property.matches.length}
+                </span>
+              ) : null}
             </h3>
 
             {property.matches.length === 0 ? (
               <p className="mt-2 text-sm text-muted-foreground">
-                Ancora nessuna affinità per questo immobile. I match nascono dalle preferenze
-                registrate in scheda lead — zona, budget, tipologia: apri un lead qualificato,
+                Nessun cliente in archivio cerca qualcosa del genere. Gli abbinamenti nascono
+                dalle preferenze registrate in scheda contatto — zona, budget, tipologia: apri un
+                lead qualificato,
                 compila &quot;Preferenze di ricerca&quot; e il confronto parte da solo.
               </p>
             ) : (

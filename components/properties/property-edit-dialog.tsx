@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { ContractType, EnergyClass, PropertyType } from "@prisma/client";
-import { Loader2, X } from "lucide-react";
+import type { ContractType, EnergyClass, ListingType, PropertyType } from "@prisma/client";
+import { LISTING_TYPE_HINTS, LISTING_TYPE_LABELS } from "@/lib/listings/mandate";
+import { FileSignature, KeyRound, Loader2, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/components/shared/toast-provider";
 import {
   CONTRACT_LABELS,
@@ -28,6 +30,12 @@ export interface EditableProperty {
   floor: string | null;
   energyClass: EnergyClass | null;
   description: string | null;
+  listingType: ListingType | null;
+  /** ISO completo dal server; il campo data del browser ne usa i primi 10 caratteri. */
+  mandateExpiration: string | null;
+  commissionRate: number | null;
+  keysInOffice: boolean;
+  keysLocation: string | null;
 }
 
 /** Numero dal campo, o `undefined` se lasciato vuoto. */
@@ -36,6 +44,20 @@ function toNumber(value: string): number | undefined {
   if (!clean) return undefined;
   const parsed = Number.parseInt(clean, 10);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+/**
+ * Numero con decimali, per la provvigione.
+ *
+ * Separato da `toNumber`, che fa `parseInt`: una provvigione del 3,5%
+ * diventerebbe 3. Si accetta anche la virgola, che e' come la scrive un
+ * agente italiano.
+ */
+function toDecimal(value: string): number | null {
+  const clean = value.trim().replace(",", ".");
+  if (!clean) return null;
+  const parsed = Number.parseFloat(clean);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 /** Testo, o `undefined` se vuoto: i campi facoltativi tornano a `null` sul server. */
@@ -82,7 +104,14 @@ export function PropertyEditDialog({
     floor: property.floor ?? "",
     energyClass: property.energyClass ?? "",
     description: property.description ?? "",
+    listingType: property.listingType ?? "",
+    // `<input type="date">` accetta solo `YYYY-MM-DD`: passargli un ISO
+    // completo lo lascia vuoto senza dire perche'.
+    mandateExpiration: property.mandateExpiration?.slice(0, 10) ?? "",
+    commissionRate: property.commissionRate === null ? "" : String(property.commissionRate),
+    keysLocation: property.keysLocation ?? "",
   });
+  const [keysInOffice, setKeysInOffice] = useState(property.keysInOffice);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
@@ -123,6 +152,16 @@ export function PropertyEditDialog({
           floor: toText(form.floor),
           energyClass: toText(form.energyClass),
           description: toText(form.description),
+          listingType: form.listingType || null,
+          mandateExpiration: form.mandateExpiration || null,
+          // `toNumber` fa parseInt e perderebbe il 3,5%: la provvigione ha
+          // decimali per definizione.
+          commissionRate: toDecimal(form.commissionRate),
+          keysInOffice,
+          // Le note sulle chiavi non hanno senso senza le chiavi: se il
+          // toggle e' spento si azzerano, invece di restare a indicare
+          // l'ubicazione di qualcosa che non abbiamo.
+          keysLocation: keysInOffice ? toText(form.keysLocation) ?? null : null,
         }),
       });
 
@@ -390,6 +429,120 @@ export function PropertyEditDialog({
               <p className="mt-1 text-xs text-muted-foreground">
                 È il testo che finisce nel feed verso i portali.
               </p>
+            </div>
+          </div>
+
+          {/*
+            Sezione a sé, separata dal resto da una riga: i dati dell'incarico
+            non descrivono l'immobile ma il rapporto con il proprietario, e
+            mescolarli ai metri quadri li fa saltare a chi compila di fretta.
+          */}
+          <div className="mt-6 border-t border-border pt-5">
+            <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <FileSignature className="h-3.5 w-3.5" />
+              Dati mandato e incarico
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Facoltativi. La scadenza però conta: superata,{" "}
+              <span className="font-medium text-foreground">
+                l&apos;immobile esce dal feed verso i portali
+              </span>{" "}
+              — senza mandato valido non si può pubblicizzare.
+            </p>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="ed-incarico" className="text-xs font-medium text-foreground">
+                  Tipo di incarico
+                </label>
+                <select
+                  id="ed-incarico"
+                  className="input-field mt-1"
+                  value={form.listingType}
+                  onChange={(e) => set("listingType", e.target.value)}
+                >
+                  <option value="">Non indicato</option>
+                  {(["ESCLUSIVA", "NON_ESCLUSIVA", "SELEZIONE"] as const).map((value) => (
+                    <option key={value} value={value}>
+                      {LISTING_TYPE_LABELS[value]}
+                    </option>
+                  ))}
+                </select>
+                {form.listingType ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {LISTING_TYPE_HINTS[form.listingType as ListingType]}
+                  </p>
+                ) : null}
+              </div>
+
+              <div>
+                <label htmlFor="ed-scadenza" className="text-xs font-medium text-foreground">
+                  Scadenza incarico
+                </label>
+                <input
+                  id="ed-scadenza"
+                  type="date"
+                  className="input-field mt-1"
+                  value={form.mandateExpiration}
+                  onChange={(e) => set("mandateExpiration", e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="ed-provvigione" className="text-xs font-medium text-foreground">
+                  Provvigione agenzia (%)
+                </label>
+                <input
+                  id="ed-provvigione"
+                  inputMode="decimal"
+                  placeholder="es. 3 oppure 3,5"
+                  className="input-field mt-1"
+                  value={form.commissionRate}
+                  onChange={(e) => set("commissionRate", e.target.value)}
+                />
+              </div>
+
+              <div>
+                <span className="text-xs font-medium text-foreground">Chiavi</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={keysInOffice}
+                  onClick={() => setKeysInOffice((current) => !current)}
+                  className={cn(
+                    "mt-1 flex h-11 w-full items-center gap-2 rounded-lg border px-3 text-sm transition-all duration-200 sm:h-10",
+                    keysInOffice
+                      ? "border-status-qualified/40 bg-status-qualified/10 text-foreground"
+                      : "border-border-strong text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  <KeyRound
+                    className={cn(
+                      "h-4 w-4 shrink-0",
+                      keysInOffice ? "text-status-qualified" : "text-muted-foreground"
+                    )}
+                  />
+                  {keysInOffice ? "Chiavi in agenzia" : "Chiavi non in agenzia"}
+                </button>
+              </div>
+
+              {/* Il campo ubicazione compare solo con le chiavi in agenzia:
+                  chiedere dove sono chiavi che non abbiamo e' una domanda
+                  senza risposta. */}
+              {keysInOffice ? (
+                <div className="sm:col-span-2">
+                  <label htmlFor="ed-chiavi" className="text-xs font-medium text-foreground">
+                    Ubicazione e note
+                  </label>
+                  <input
+                    id="ed-chiavi"
+                    placeholder="es. cassetta 12, oppure: le ha il portiere"
+                    className="input-field mt-1"
+                    value={form.keysLocation}
+                    onChange={(e) => set("keysLocation", e.target.value)}
+                  />
+                </div>
+              ) : null}
             </div>
           </div>
 

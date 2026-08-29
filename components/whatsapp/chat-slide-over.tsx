@@ -19,6 +19,7 @@ import { STATUS_BADGE_CLASSES, type LeadView } from "@/lib/whatsapp/view-types";
 import type { ChatMessage } from "@/lib/whatsapp/types";
 import { PortfolioCard } from "./portfolio-card";
 import { LeadPreferencesCard } from "./lead-preferences-card";
+import { LeadMatchesCard } from "./lead-matches-card";
 import { LeadAssignment } from "./lead-assignment";
 import { LeadTimeline } from "@/components/whatsapp/lead-timeline";
 import { DocumentVault } from "@/components/documents/document-vault";
@@ -307,8 +308,14 @@ export function ChatSlideOver({
             </div>
           </div>
 
+          {/* Subito dopo le preferenze: sono i criteri da cui questi
+              abbinamenti nascono, e leggerli di seguito ha senso. */}
           <div className="border-b border-border p-4">
             <LeadPreferencesCard lead={lead} />
+          </div>
+
+          <div className="border-b border-border p-4">
+            <LeadMatchesCard leadId={lead.id} clientName={lead.clientName} />
           </div>
 
           <div className="border-b border-border p-4">
