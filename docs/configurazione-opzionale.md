@@ -79,3 +79,15 @@ problema che si scopre solo alla migrazione successiva.
 
 Vedi `whatsapp-service/README.md`. Senza, l'interfaccia non propone il
 collegamento via QR invece di offrire un pulsante che non può funzionare.
+
+---
+
+## Nota: gli inviti al team usano lo stesso seam
+
+`RESEND_API_KEY` e `NOTIFICATIONS_FROM_EMAIL` servono anche all'email di invito
+dei collaboratori (`/settings` → Team).
+
+**Senza le variabili l'invito non si perde**: viene comunque creato e
+l'interfaccia mostra il link da mandare a mano, com'era prima. È un ripiego
+dichiarato, non il percorso normale — il token in chiaro esiste solo in quella
+risposta, quindi senza il link quell'invito sarebbe irrecuperabile.

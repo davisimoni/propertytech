@@ -10,6 +10,7 @@ import {
   Trash2,
   UserPlus,
   Users,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,9 +24,17 @@ interface Member {
   inviteExpiresAt: string | null;
 }
 
-interface PendingInvite {
+/**
+ * Esito dell'ultimo invito spedito.
+ *
+ * `url` c'e' **solo** quando l'email non e' partita: il server lo restituisce
+ * come ripiego perche' il token in chiaro non e' ricostruibile, e senza il
+ * link quell'invito sarebbe perso.
+ */
+interface InviteResult {
   email: string;
-  url: string;
+  sent: boolean;
+  url?: string;
 }
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -47,7 +56,8 @@ export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
 
   const [email, setEmail] = useState("");
   const [isInviting, setIsInviting] = useState(false);
-  const [invite, setInvite] = useState<PendingInvite | null>(null);
+  const [invite, setInvite] = useState<InviteResult | null>(null);
+  const [resendingId, setResendingId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -85,13 +95,44 @@ export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
         return;
       }
 
-      setInvite({ email: email.trim(), url: body.inviteUrl as string });
+      setInvite({
+        email: email.trim(),
+        sent: body.emailOutcome === "sent",
+        url: body.inviteUrl as string | undefined,
+      });
       setEmail("");
       await load();
     } catch {
       setError("Errore di rete durante l'invito.");
     } finally {
       setIsInviting(false);
+    }
+  }
+
+  async function resend(member: Member) {
+    setResendingId(member.id);
+    setError(null);
+    setInvite(null);
+
+    try {
+      const response = await fetch(`/api/team/${member.id}/resend`, { method: "POST" });
+      const body = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setError(body.message ?? "Invio non riuscito.");
+        return;
+      }
+
+      setInvite({
+        email: member.email,
+        sent: body.emailOutcome === "sent",
+        url: body.inviteUrl as string | undefined,
+      });
+      await load();
+    } catch {
+      setError("Errore di rete durante l'invio.");
+    } finally {
+      setResendingId(null);
     }
   }
 
@@ -117,7 +158,7 @@ export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
   }
 
   async function copyLink() {
-    if (!invite) return;
+    if (!invite?.url) return;
     await navigator.clipboard.writeText(invite.url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -176,13 +217,35 @@ export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
                   {member.isPending ? "Invito da accettare" : ROLE_LABELS[member.role]}
                 </span>
 
+                {/*
+                  Rinvio disponibile solo su un invito ancora da accettare:
+                  su un collaboratore attivo rimetterebbe l'account in attesa,
+                  e chi ha perso la password deve passare dal recupero.
+                */}
+                {isOwner && member.isPending && (
+                  <button
+                    type="button"
+                    onClick={() => resend(member)}
+                    disabled={resendingId === member.id}
+                    aria-label={`Rinvia l'invito a ${member.email}`}
+                    className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:text-foreground disabled:opacity-50 sm:h-8"
+                  >
+                    {resendingId === member.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Send className="h-3.5 w-3.5" />
+                    )}
+                    Rinvia email
+                  </button>
+                )}
+
                 {isOwner && member.id !== currentUserId && (
                   <button
                     type="button"
                     onClick={() => remove(member.id)}
                     disabled={removingId === member.id}
-                    aria-label={`Rimuovi ${fullName || member.email}`}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-all duration-200 hover:border-status-blocked/40 hover:text-status-blocked disabled:opacity-50"
+                    aria-label={`${member.isPending ? "Annulla l'invito a" : "Rimuovi"} ${fullName || member.email}`}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border text-muted-foreground transition-all duration-200 hover:border-status-blocked/40 hover:text-status-blocked disabled:opacity-50 sm:h-8 sm:w-8"
                   >
                     {removingId === member.id ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -233,32 +296,62 @@ export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
       )}
 
       {invite && (
-        <div className="mt-4 rounded-lg border border-status-qualified/30 bg-status-qualified/10 p-4">
-          <p className="text-sm font-medium text-foreground">
-            Invito pronto per {invite.email}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Copia il link e mandaglielo su WhatsApp o via email. Vale 7 giorni e{" "}
-            <span className="font-medium text-foreground">non sarà più visibile</span> dopo che
-            avrai lasciato questa pagina.
-          </p>
-          <div className="mt-2 flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded-lg border border-border bg-card px-3 py-2 text-xs text-foreground">
-              {invite.url}
-            </code>
-            <button
-              type="button"
-              onClick={copyLink}
-              aria-label="Copia il link di invito"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-foreground transition-all duration-200 hover:bg-muted"
-            >
-              {copied ? (
-                <Check className="h-4 w-4 text-status-qualified" />
-              ) : (
-                <Clipboard className="h-4 w-4" />
-              )}
-            </button>
-          </div>
+        <div
+          className={cn(
+            "mt-4 rounded-lg border p-4",
+            invite.sent
+              ? "border-status-qualified/30 bg-status-qualified/10"
+              : "border-status-pending/40 bg-status-pending/10"
+          )}
+        >
+          {invite.sent ? (
+            <>
+              <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                <Check className="h-4 w-4 shrink-0 text-status-qualified" />
+                Invito inviato con successo a {invite.email}!
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Riceverà un&apos;email con il link per creare la password. Vale 7 giorni; se non la
+                trova, controlli lo spam oppure usa &quot;Rinvia email&quot; qui sotto.
+              </p>
+            </>
+          ) : (
+            <>
+              {/*
+                Ripiego, non percorso normale: si arriva qui solo se il
+                fornitore di posta non e' configurato o ha rifiutato. L'invito
+                e' comunque valido, e senza questo link andrebbe perso — il
+                token in chiaro non e' piu' ricostruibile.
+              */}
+              <p className="text-sm font-medium text-foreground">
+                Invito creato per {invite.email}, ma l&apos;email non è partita
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Mandagli tu questo link: vale 7 giorni e{" "}
+                <span className="font-medium text-foreground">non sarà più visibile</span> dopo che
+                avrai lasciato questa pagina.
+              </p>
+              {invite.url ? (
+                <div className="mt-2 flex items-center gap-2">
+                  <code className="min-w-0 flex-1 truncate rounded-lg border border-border bg-card px-3 py-2 text-xs text-foreground">
+                    {invite.url}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={copyLink}
+                    aria-label="Copia il link di invito"
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border text-foreground transition-all duration-200 hover:bg-muted sm:h-9 sm:w-9"
+                  >
+                    {copied ? (
+                      <Check className="h-4 w-4 text-status-qualified" />
+                    ) : (
+                      <Clipboard className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              ) : null}
+            </>
+          )}
         </div>
       )}
 

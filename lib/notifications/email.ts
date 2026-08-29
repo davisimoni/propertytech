@@ -41,8 +41,16 @@ export type EmailOutcome = "sent" | "not_configured" | "failed";
 export interface EmailMessage {
   to: string;
   subject: string;
-  /** Corpo in testo semplice: leggibile ovunque e senza sorprese di rendering. */
+  /**
+   * Corpo in testo semplice.
+   *
+   * Sempre presente, anche quando c'e' l'HTML: e' quello che leggono i client
+   * che l'HTML non lo mostrano, ed e' anche cio' che finisce nei filtri
+   * antispam. Un'email con il solo HTML parte con una penalizzazione.
+   */
   text: string;
+  /** Corpo HTML facoltativo, per le email che hanno bisogno di un pulsante. */
+  html?: string;
 }
 
 /** Vero quando il seam e' configurato: la UI puo' dire se le notifiche partiranno. */
@@ -81,6 +89,7 @@ export async function sendEmail(message: EmailMessage): Promise<EmailOutcome> {
         to: [message.to],
         subject: message.subject,
         text: message.text,
+        ...(message.html ? { html: message.html } : {}),
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });

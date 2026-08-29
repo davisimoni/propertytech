@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buildInviteUrl, generateInvite } from "@/lib/team/invitations";
 import { SITE_URL } from "@/lib/seo";
+import { sendInviteEmail } from "@/lib/team/invite-email";
 import { PLANS, type Plan, type PlanId } from "@/lib/plans";
 
 /**
@@ -118,12 +119,23 @@ export async function POST(request: Request) {
   //
   // Nel conteggio rientrano anche gli inviti non ancora accettati: altrimenti
   // basterebbe generarne dieci in fila per superare il limite del piano.
-  const [organization, occupiedSeats] = await Promise.all([
+  const [organization, occupiedSeats, inviter] = await Promise.all([
     prisma.organization.findUnique({
       where: { id: organizationId },
-      select: { subscription: { select: { status: true } } },
+      // `agencyName` serve all'email di invito: chi la riceve deve capire da
+      // quale agenzia arriva prima ancora di aprirla.
+      select: { agencyName: true, subscription: { select: { status: true } } },
     }),
     prisma.user.count({ where: { organizationId } }),
+    // Nome di chi invita, dal database.
+    //
+    // NON da `session.user.name`: in questo progetto quel campo trasporta il
+    // nome dell'AGENZIA (vedi auth.config.ts), quindi l'email avrebbe detto
+    // "Immobiliare Rossi ti ha aggiunto" al posto della persona.
+    prisma.user.findUnique({
+      where: { id: session.user.userId },
+      select: { firstName: true },
+    }),
   ]);
 
   const plan = PLANS[(organization?.subscription?.status ?? "trial") as PlanId];
@@ -159,12 +171,32 @@ export async function POST(request: Request) {
       select: { id: true, email: true },
     });
 
+    const inviteUrl = buildInviteUrl(SITE_URL, invite.token);
+
+    const outcome = await sendInviteEmail({
+      to: member.email,
+      agencyName: organization?.agencyName ?? "la tua agenzia",
+      inviteUrl,
+      inviterName: inviter?.firstName,
+    });
+
+    console.info("[api/team] Invito creato", { organizationId, memberId: member.id, outcome });
+
     return NextResponse.json(
       {
         member,
-        // Il token in chiaro esiste solo in questa risposta: nel database c'è
-        // la sola impronta, e non è più ricostruibile.
-        inviteUrl: buildInviteUrl(SITE_URL, invite.token),
+        emailOutcome: outcome,
+        // Il link torna al browser **solo** quando l'email non è partita.
+        //
+        // Toglierlo sempre sarebbe stato più pulito, ma su un ambiente senza
+        // fornitore di posta configurato lascerebbe il titolare senza alcun
+        // modo di invitare qualcuno: l'invito esiste nel database e il suo
+        // token non è più ricostruibile, quindi sarebbe perso. Il ripiego lo
+        // salva; quando l'email parte, il link non compare.
+        //
+        // Il token in chiaro esiste solo qui: nel database c'è la sola
+        // impronta.
+        ...(outcome === "sent" ? {} : { inviteUrl }),
         expiresAt: invite.expiresAt.toISOString(),
       },
       { status: 201 }
