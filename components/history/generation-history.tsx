@@ -7,6 +7,7 @@ import {
   FileText,
   Loader2,
   Trash2,
+  Eye,
   History as HistoryIcon,
 } from "lucide-react";
 import {
@@ -14,6 +15,8 @@ import {
   type HistoryEntry,
   type HistoryKind,
 } from "@/lib/history/entries";
+import { downloadText, fileNameFromTitle, outputToText } from "@/lib/history/output-text";
+import { HistoryDetailDrawer } from "./history-detail-drawer";
 
 /**
  * Cronologia delle elaborazioni, condivisa dai tre moduli.
@@ -47,6 +50,7 @@ export function GenerationHistory({
   emptyHint,
 }: GenerationHistoryProps) {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
+  const [opened, setOpened] = useState<HistoryEntry | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -112,12 +116,7 @@ export function GenerationHistory({
       if (!response.ok) throw new Error();
 
       const detail = (await response.json()) as { output: unknown };
-      const text =
-        typeof detail.output === "string"
-          ? detail.output
-          : flattenOutput(detail.output);
-
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(outputToText(detail.output));
       setCopiedId(entry.id);
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
@@ -189,7 +188,24 @@ export function GenerationHistory({
               </span>
             </div>
 
-            <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{entry.preview}</p>
+            {/*
+              L'anteprima apre il dettaglio. E' un <button> e non un <div> con
+              onClick: si raggiunge da tastiera, lo annuncia lo screen reader e
+              non serve reimplementare nulla. Non e' la card intera a essere
+              cliccabile, perche' contiene gia' tre pulsanti e un click
+              sbagliato su "Elimina" non si annulla.
+            */}
+            <button
+              type="button"
+              onClick={() => setOpened(entry)}
+              className="mt-2 block w-full rounded-lg text-left transition-colors hover:bg-muted/60"
+            >
+              <span className="line-clamp-2 text-xs text-muted-foreground">{entry.preview}</span>
+              <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary">
+                <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                Apri e leggi tutto
+              </span>
+            </button>
 
             <div className="mt-3 flex flex-wrap gap-2">
               <button
@@ -235,6 +251,19 @@ export function GenerationHistory({
         ))}
       </ul>
 
+      {opened && (
+        <HistoryDetailDrawer
+          entry={opened}
+          onClose={() => setOpened(null)}
+          onDeleted={() => {
+            // La voce sparisce dall'elenco senza ricaricarlo: un refetch
+            // rimanderebbe l'agente in cima a una lista che stava scorrendo.
+            setEntries((current) => current.filter((item) => item.id !== opened.id));
+            setOpened(null);
+          }}
+        />
+      )}
+
       {cursor && (
         <button
           type="button"
@@ -260,44 +289,5 @@ async function download(entry: HistoryEntry) {
   if (!response.ok) return;
 
   const detail = (await response.json()) as { output: unknown };
-  const text = typeof detail.output === "string" ? detail.output : flattenOutput(detail.output);
-
-  const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
-  const link = document.createElement("a");
-  link.href = url;
-  // Nome file ricavato dal titolo: ritrovare "visura-via-roma.txt" fra i
-  // download è tutt'altra cosa rispetto a "download(3).txt".
-  link.download = `${entry.title.replace(/[^\p{L}\p{N}]+/gu, "-").toLowerCase().slice(0, 60)}.txt`;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
-/**
- * Appiattisce un risultato strutturato in testo leggibile.
- *
- * Incollare il JSON grezzo in un portale immobiliare non serve a nessuno: qui
- * si produce quello che l'agente vuole davvero incollare.
- */
-function flattenOutput(output: unknown, depth = 0): string {
-  if (output === null || output === undefined) return "";
-  if (typeof output === "string") return output;
-  if (typeof output === "number" || typeof output === "boolean") return String(output);
-
-  if (Array.isArray(output)) {
-    return output.map((item) => flattenOutput(item, depth)).filter(Boolean).join("\n");
-  }
-
-  if (typeof output === "object") {
-    return Object.entries(output as Record<string, unknown>)
-      .map(([key, value]) => {
-        const rendered = flattenOutput(value, depth + 1);
-        if (!rendered) return "";
-        const label = key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
-        return rendered.includes("\n") ? `${label}:\n${rendered}` : `${label}: ${rendered}`;
-      })
-      .filter(Boolean)
-      .join("\n");
-  }
-
-  return "";
+  downloadText(outputToText(detail.output), fileNameFromTitle(entry.title));
 }
