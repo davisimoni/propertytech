@@ -220,12 +220,53 @@ function Strutturato({ value, livello = 0 }: { value: unknown; livello?: number 
   );
 }
 
+/**
+ * Interpreta una stringa che in realta' contiene JSON.
+ *
+ * Le colonne `Json` di Prisma restituiscono normalmente un oggetto, ma un
+ * record scritto da una strada diversa - un import, un ripristino, una
+ * versione precedente del codice che aveva serializzato a mano - puo' arrivare
+ * come stringa. Renderla come prosa produrrebbe una parete di graffe.
+ *
+ * Solo oggetti e array: una stringa che comincia per virgoletta o un numero
+ * sono JSON validi ma vanno lasciati come testo, che e' quello che sono.
+ */
+function parseIfJsonObject(value: string): unknown {
+  const pulita = value.trim();
+  if (!pulita.startsWith("{") && !pulita.startsWith("[")) return null;
+
+  try {
+    const parsed: unknown = JSON.parse(pulita);
+    return typeof parsed === "object" && parsed !== null ? parsed : null;
+  } catch {
+    // Non era JSON: un testo che comincia con una graffa resta un testo.
+    return null;
+  }
+}
+
 export function FormattedOutput({ output }: { output: unknown }) {
   if (typeof output === "string") {
-    return output.trim() ? (
-      <MarkdownLite text={output} />
+    if (!output.trim()) {
+      return (
+        <p className="text-sm text-muted-foreground">Questa elaborazione non ha prodotto testo.</p>
+      );
+    }
+
+    const strutturato = parseIfJsonObject(output);
+    return strutturato ? (
+      <Strutturato value={strutturato} />
     ) : (
-      <p className="text-sm text-muted-foreground">Questa elaborazione non ha prodotto testo.</p>
+      <MarkdownLite text={output} />
+    );
+  }
+
+  // `null`/`undefined`: campo facoltativo mai valorizzato. Si dice, invece di
+  // mostrare un pannello vuoto che sembra un guasto.
+  if (output === null || output === undefined) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Questa elaborazione non ha un contenuto da mostrare.
+      </p>
     );
   }
 

@@ -59,9 +59,28 @@ export function humanizeKey(key: string): string {
     .replace(/^./, (c) => c.toUpperCase());
 }
 
-/** Testo completo del risultato, qualunque forma abbia. */
+/**
+ * Testo completo del risultato, qualunque forma abbia.
+ *
+ * Una stringa che contiene JSON viene interpretata prima di essere copiata:
+ * altrimenti l'agente si ritroverebbe negli appunti un blocco di graffe invece
+ * dei dati. Stessa regola del rendering a schermo, cosi' quello che si vede e
+ * quello che si copia coincidono.
+ */
 export function outputToText(output: unknown): string {
-  return typeof output === "string" ? output : flattenOutput(output);
+  if (typeof output !== "string") return flattenOutput(output);
+
+  const pulita = output.trim();
+  if (pulita.startsWith("{") || pulita.startsWith("[")) {
+    try {
+      const parsed: unknown = JSON.parse(pulita);
+      if (typeof parsed === "object" && parsed !== null) return flattenOutput(parsed);
+    } catch {
+      // Non era JSON: resta il testo originale.
+    }
+  }
+
+  return output;
 }
 
 /**
