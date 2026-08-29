@@ -6,6 +6,7 @@ import {
   sendSubscriptionActivatedEmail,
   sendSubscriptionCancelledEmail,
   sendPaymentFailedEmail,
+  sendRenewalPaidEmail,
 } from "@/lib/email/transactional";
 
 /**
@@ -138,6 +139,42 @@ export async function notifyPaymentFailed(params: {
     });
   } catch (error) {
     console.error("[notifications/billing] Avviso di pagamento fallito non inviato", {
+      organizationId: params.organizationId,
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+  }
+}
+
+/**
+ * Rinnovo incassato.
+ *
+ * Distinto dal primo acquisto: qui non c'e' nulla da festeggiare, serve la
+ * ricevuta. E' anche l'unico momento in cui l'agenzia vede confermato che i
+ * crediti del nuovo periodo sono disponibili.
+ */
+export async function notifyRenewalPaid(params: {
+  organizationId: string;
+  planId: PlanId;
+  amountLabel: string;
+  periodEnd?: Date | null;
+  invoiceUrl?: string | null;
+}): Promise<void> {
+  try {
+    const owner = await resolveOwner(params.organizationId);
+    if (!owner) return;
+
+    const outcome = await sendRenewalPaidEmail({
+      to: owner.email,
+      firstName: owner.firstName,
+      planName: PLANS[params.planId].name,
+      amountLabel: params.amountLabel,
+      periodEnd: params.periodEnd,
+      invoiceUrl: params.invoiceUrl,
+    });
+
+    console.info("[BILLING-NOTIFY] rinnovo", { organizationId: params.organizationId, outcome });
+  } catch (error) {
+    console.error("[notifications/billing] Ricevuta di rinnovo non inviata", {
       organizationId: params.organizationId,
       reason: error instanceof Error ? error.message : "unknown",
     });

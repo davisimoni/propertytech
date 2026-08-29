@@ -374,3 +374,159 @@ export function sendAiAutoPausedEmail(params: {
     cta: { label: "Apri la conversazione", url: `${SITE_URL}/leads?lead=${params.leadId}` },
   });
 }
+
+// --- E. Password -------------------------------------------------------------
+
+export function sendPasswordResetEmail(params: {
+  to: string;
+  firstName?: string | null;
+  resetUrl: string;
+  expiresInMinutes: number;
+}): Promise<EmailOutcome> {
+  return invia(params.to, "Reimposta la tua password PropertyTech", {
+    heading: "Reimposta la password",
+    greeting: saluto(params.firstName),
+    blocks: [
+      {
+        text: `Hai chiesto di reimpostare la password del tuo account. Il link qui sotto vale <strong>${params.expiresInMinutes} minuti</strong> e può essere usato una volta sola.`,
+      },
+      {
+        notice: {
+          tone: "warning",
+          // Detto qui e non in fondo: chi non ha chiesto il reset deve
+          // leggerlo prima di arrivare al pulsante.
+          text: "Se non sei stato tu a chiederlo, ignora questa email: la password resta quella di prima e nessuno può cambiarla senza aprire questo link.",
+        },
+      },
+    ],
+    cta: { label: "Scegli una nuova password", url: params.resetUrl },
+  });
+}
+
+export function sendPasswordUpdatedEmail(params: {
+  to: string;
+  firstName?: string | null;
+  when: Date;
+}): Promise<EmailOutcome> {
+  const quando = new Intl.DateTimeFormat("it-IT", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "Europe/Rome",
+  }).format(params.when);
+
+  return invia(params.to, "La tua password è stata cambiata", {
+    heading: "Password aggiornata",
+    greeting: saluto(params.firstName),
+    blocks: [
+      { text: `La password del tuo account è stata cambiata il ${escapeHtml(quando)}.` },
+      {
+        notice: {
+          tone: "danger",
+          // È l'unica email di questo gruppo che chiede un'azione urgente: se
+          // non è stato l'utente, qualcuno ha appena preso il controllo
+          // dell'account e ogni minuto conta.
+          text: "Se <strong>non</strong> sei stato tu, il tuo account è compromesso: reimposta subito la password e avvisaci.",
+        },
+      },
+    ],
+    cta: { label: "Vai al tuo account", url: `${SITE_URL}/login` },
+  });
+}
+
+// --- F. Team -----------------------------------------------------------------
+
+export function sendInviteAcceptedEmail(params: {
+  to: string;
+  firstName?: string | null;
+  memberName: string;
+  memberEmail: string;
+}): Promise<EmailOutcome> {
+  return invia(params.to, `${params.memberName} è entrato nel team`, {
+    heading: "Un collaboratore ha attivato il suo accesso",
+    greeting: saluto(params.firstName),
+    blocks: [
+      {
+        text: `<strong>${escapeHtml(params.memberName)}</strong> ha accettato l'invito e ora fa parte del team dell'agenzia.`,
+      },
+      {
+        rows: [
+          { label: "Nome", value: escapeHtml(params.memberName) },
+          { label: "Email", value: escapeHtml(params.memberEmail) },
+        ],
+      },
+      {
+        text: "Da adesso vede i lead che gli assegni e può lavorare sugli immobili in portafoglio. Se l'attivazione non ti risulta, rimuovilo dal team: l'accesso decade subito.",
+      },
+    ],
+    cta: { label: "Gestisci il team", url: `${SITE_URL}/settings?tab=team` },
+  });
+}
+
+// --- G. Rinnovi --------------------------------------------------------------
+
+export function sendRenewalPaidEmail(params: {
+  to: string;
+  firstName?: string | null;
+  planName: string;
+  amountLabel: string;
+  periodEnd?: Date | null;
+  invoiceUrl?: string | null;
+}): Promise<EmailOutcome> {
+  const prossimo = params.periodEnd
+    ? new Intl.DateTimeFormat("it-IT", { dateStyle: "long", timeZone: "Europe/Rome" }).format(
+        params.periodEnd
+      )
+    : null;
+
+  return invia(params.to, `Rinnovo ${params.planName} — ricevuta`, {
+    heading: "Rinnovo completato",
+    greeting: saluto(params.firstName),
+    blocks: [
+      { text: "Il rinnovo è andato a buon fine e i crediti del nuovo periodo sono già disponibili." },
+      {
+        rows: [
+          { label: "Piano", value: escapeHtml(params.planName) },
+          { label: "Addebitato", value: escapeHtml(params.amountLabel) },
+          ...(prossimo ? [{ label: "Prossimo rinnovo", value: escapeHtml(prossimo) }] : []),
+        ],
+      },
+    ],
+    cta: {
+      label: params.invoiceUrl ? "Scarica la ricevuta" : "Vedi le fatture",
+      url: params.invoiceUrl || `${SITE_URL}/settings?tab=billing`,
+    },
+  });
+}
+
+// --- H. Lead che richiede attenzione -----------------------------------------
+
+export function sendLeadAttentionRequiredEmail(params: {
+  to: string;
+  firstName?: string | null;
+  clientName: string;
+  clientPhone: string;
+  leadId: string;
+}): Promise<EmailOutcome> {
+  return invia(params.to, `⚠️ ${params.clientName} aspetta una risposta`, {
+    heading: "Una conversazione si è bloccata",
+    greeting: saluto(params.firstName),
+    blocks: [
+      {
+        text: `L'assistente non è riuscito a elaborare l'ultimo messaggio di <strong>${escapeHtml(params.clientName)}</strong> e ha risposto con un messaggio di cortesia: la qualificazione è ferma.`,
+      },
+      {
+        rows: [
+          { label: "Contatto", value: escapeHtml(params.clientName) },
+          { label: "Telefono", value: escapeHtml(params.clientPhone) },
+        ],
+      },
+      {
+        notice: {
+          tone: "warning",
+          text: "Il cliente ha ricevuto \"un nostro agente la ricontatterà\": adesso si aspetta una persona, e l'attesa è già cominciata.",
+        },
+      },
+    ],
+    cta: { label: "Apri la conversazione", url: `${SITE_URL}/leads?lead=${params.leadId}` },
+  });
+}

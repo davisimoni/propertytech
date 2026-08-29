@@ -39,6 +39,7 @@ export async function POST(request: Request) {
       email: true,
       inviteExpiresAt: true,
       acceptedAt: true,
+      organizationId: true,
       organization: { select: { agencyName: true } },
     },
   });
@@ -69,6 +70,32 @@ export async function POST(request: Request) {
       inviteExpiresAt: null,
     },
   });
+
+  // Avviso al titolare, non bloccante: il collaboratore ha gia' l'accesso, e
+  // un fornitore di posta lento non deve tenerlo fermo su una schermata di
+  // caricamento.
+  try {
+    const { resolveOwner } = await import("@/lib/email/recipients");
+    const { sendInviteAcceptedEmail } = await import("@/lib/email/transactional");
+
+    const owner = await resolveOwner(invited.organizationId);
+
+    // Non si avvisa il titolare di se stesso: sul primo account dell'agenzia
+    // invitante e invitato coincidono.
+    if (owner && owner.email !== invited.email) {
+      const nome = [firstName, lastName].filter(Boolean).join(" ").trim();
+      await sendInviteAcceptedEmail({
+        to: owner.email,
+        firstName: owner.firstName,
+        memberName: nome || invited.email,
+        memberEmail: invited.email,
+      });
+    }
+  } catch (error) {
+    console.error("[api/team/accept] Avviso al titolare non inviato", {
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+  }
 
   return NextResponse.json({
     accepted: true,

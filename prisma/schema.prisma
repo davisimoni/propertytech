@@ -226,6 +226,7 @@ model User {
 
   assignedLeads       Lead[]
   knownDevices        KnownDevice[]
+  passwordResets      PasswordResetToken[]
   assignedSlots       CalendarSlot[]
   uploadedDocuments   AgencyDocument[]
   aiGenerations       AiGeneration[]
@@ -485,6 +486,31 @@ model CancellationFeedback {
 ///
 /// `label` e' leggibile ("Chrome su Windows") perche' finisce nell'email: un
 /// hash non direbbe nulla a chi deve decidere se l'accesso era suo.
+/// Richiesta di reimpostazione password.
+///
+/// Tabella separata e non campi su `User` come per gli inviti: un utente puo'
+/// chiedere il reset piu' volte - il primo messaggio finisce in spam, il
+/// secondo arriva - e con campi singoli ogni richiesta invaliderebbe la
+/// precedente, incluso il link che la persona sta per aprire.
+///
+/// Del token resta la sola impronta: chi legge il database non deve poter
+/// ricostruire un link valido ed entrare in un account.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  expiresAt DateTime
+  /// Valorizzato all'uso: un token consumato non vale una seconda volta,
+  /// nemmeno prima della scadenza.
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
 model KnownDevice {
   id          String   @id @default(cuid())
   fingerprint String

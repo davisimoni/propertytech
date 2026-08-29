@@ -7,6 +7,7 @@ import { activateRefereeReferral, expireRefereeReferral } from "@/lib/referrals/
 import {
   notifyPaymentFailed,
   notifyPlanActivated,
+  notifyRenewalPaid,
   notifySubscriptionCancelled,
 } from "@/lib/notifications/billing";
 import { PLANS, type PlanId } from "@/lib/plans";
@@ -212,6 +213,41 @@ export async function POST(request: Request) {
        * email l'agenzia scopre la carta scaduta dai lead che non ricevono
        * piu' risposta.
        */
+      /**
+       * Rinnovo incassato.
+       *
+       * Si spedisce solo per le fatture di RINNOVO, non per la prima: al
+       * primo pagamento parte gia' l'email di attivazione da
+       * `checkout.session.completed`, e riceverne due nello stesso minuto per
+       * lo stesso addebito sembra un errore di fatturazione.
+       */
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object;
+        if (invoice.billing_reason !== "subscription_cycle") break;
+
+        const dettagliOk = invoice.parent?.subscription_details;
+        const idAbbonamento =
+          typeof dettagliOk?.subscription === "string" ? dettagliOk.subscription : null;
+        if (!idAbbonamento) break;
+
+        const abbonamento = await prisma.subscription.findUnique({
+          where: { stripeSubscriptionId: idAbbonamento },
+          select: { organizationId: true, status: true, currentPeriodEnd: true },
+        });
+        if (!abbonamento) break;
+
+        await notifyRenewalPaid({
+          organizationId: abbonamento.organizationId,
+          planId: abbonamento.status as PlanId,
+          amountLabel: invoice.amount_paid
+            ? `${(invoice.amount_paid / 100).toFixed(2)} ${invoice.currency?.toUpperCase() ?? "EUR"}`
+            : "importo del rinnovo",
+          periodEnd: abbonamento.currentPeriodEnd,
+          invoiceUrl: invoice.hosted_invoice_url,
+        });
+        break;
+      }
+
       case "invoice.payment_failed": {
         const invoice = event.data.object;
 

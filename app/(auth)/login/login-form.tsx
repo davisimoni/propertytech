@@ -71,6 +71,14 @@ export function LoginForm({ googleEnabled = false }: { googleEnabled?: boolean }
           autoComplete="current-password"
         />
 
+        {/* Sotto il campo password, dove serve: chi non la ricorda se ne
+            accorge proprio mentre lo sta compilando. */}
+        <p className="text-right text-xs">
+          <Link href="/forgot-password" className="font-medium text-primary hover:underline">
+            Password dimenticata?
+          </Link>
+        </p>
+
         {error && (
           <p role="alert" className="text-sm text-status-blocked">
             {error}

@@ -10,6 +10,7 @@ import { buildOpeningMessage, OPT_OUT_CONFIRMATION } from "./compliance";
 import { generateAgentReply, AGENT_FALLBACK_MESSAGE, type AgencyProfile } from "@/lib/ai/whatsapp-agent";
 import { deliverLeadToCrm } from "@/lib/integrations/crm-webhook";
 import { notifyHotLead } from "@/lib/notifications/hot-lead";
+import { notifyLeadNeedsAttention } from "@/lib/notifications/lead-attention";
 import { QUALIFICATION_QUESTIONS } from "./questions";
 import {
   detectedCountFromQualification,
@@ -271,6 +272,24 @@ export async function handleIncomingMessage(
     replyText,
     lead.waChatJid
   );
+
+  /**
+   * L'assistente non ce l'ha fatta: avvisa chi ha in carico il lead.
+   *
+   * `replyText` e' rimasto il messaggio di ripiego, quindi il cliente si e'
+   * appena sentito dire "un nostro agente la ricontattera'". Da quel momento
+   * aspetta una persona, e senza questo avviso nessuno sa che deve muoversi.
+   *
+   * Si spedisce solo alla PRIMA volta di una serie: se l'ultimo messaggio
+   * dell'assistente era gia' il ripiego, il guasto e' lo stesso e una seconda
+   * email non aggiunge nulla.
+   */
+  if (replyText === AGENT_FALLBACK_MESSAGE) {
+    const ultimoBot = [...history].reverse().find((m) => m.sender === "bot");
+    if (ultimoBot?.text !== AGENT_FALLBACK_MESSAGE) {
+      void notifyLeadNeedsAttention(lead);
+    }
+  }
 
   await appendMessage(lead.id, { sender: "bot", text: replyText, timestamp: nowIso() });
 
