@@ -1,5 +1,11 @@
 import { z } from "zod";
-import type { ContractType, EnergyClass, PropertyStatus, PropertyType } from "@prisma/client";
+import type {
+  ContractType,
+  EnergyClass,
+  ListingType,
+  PropertyStatus,
+  PropertyType,
+} from "@prisma/client";
 
 /**
  * Dati strutturati dell'immobile: quelli che i portali richiedono e che il
@@ -136,6 +142,28 @@ export const propertyFieldsSchema = z.object({
   provincia: z.string().trim().max(40).optional(),
   zona: z.string().trim().max(80).optional(),
   indirizzo: z.string().trim().max(160).optional(),
+  /**
+   * --- Incarico di mediazione ---
+   *
+   * Tutti facoltativi: un'agenzia carica spesso la scheda prima di aver
+   * formalizzato il mandato, e un campo obbligatorio la costringerebbe a
+   * inventare una data pur di salvare.
+   */
+  listingType: z.enum(["ESCLUSIVA", "NON_ESCLUSIVA", "SELEZIONE"]).nullable().optional(),
+  /** ISO `YYYY-MM-DD` dal campo data del browser. */
+  mandateExpiration: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Data non valida")
+    .nullable()
+    .optional(),
+  commissionRate: z
+    .number()
+    .min(0, "La provvigione non puo' essere negativa")
+    .max(100, "Provvigione fuori scala")
+    .nullable()
+    .optional(),
+  keysInOffice: z.boolean().optional(),
+  keysLocation: z.string().trim().max(160).nullable().optional(),
   priceEur: z
     // Messaggio anche sul tipo, non solo sui vincoli: un campo svuotato arriva
     // come `undefined`, e senza questo l'agente leggerebbe il testo grezzo di

@@ -50,6 +50,13 @@ export async function GET() {
       description: property.description,
       status: property.status,
       images: property.images,
+      listingType: property.listingType,
+      mandateExpiration: property.mandateExpiration?.toISOString() ?? null,
+      // `Decimal` non e' serializzabile in JSON: si converte in numero qui,
+      // dove la precisione richiesta (due decimali) e' ampiamente coperta.
+      commissionRate: property.commissionRate ? Number(property.commissionRate) : null,
+      keysInOffice: property.keysInOffice,
+      keysLocation: property.keysLocation,
       createdAt: property.createdAt.toISOString(),
       matches: property.leadMatches.map((match) => ({
         id: match.id,
@@ -85,12 +92,23 @@ export async function POST(request: Request) {
 
   let property;
   try {
+    // La scadenza dell'incarico arriva come `YYYY-MM-DD` dal campo data del
+    // browser e va convertita: passata come stringa a una colonna DateTime
+    // fallirebbe a runtime. Mezzanotte UTC, cosi' un incarico che scade il 30
+    // non risulta scaduto il 29 sera a est di Greenwich.
+    const dati = {
+      ...rest,
+      mandateExpiration: rest.mandateExpiration
+        ? new Date(`${rest.mandateExpiration}T00:00:00.000Z`)
+        : null,
+    };
+
     // upsert sul riferimento: risalvare lo stesso immobile dopo una correzione
     // lo aggiorna invece di rifiutare o duplicare.
     property = await prisma.property.upsert({
       where: { organizationId_reference: { organizationId, reference } },
-      create: { organizationId, reference, ...rest },
-      update: rest,
+      create: { organizationId, reference, ...dati },
+      update: dati,
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -103,7 +121,7 @@ export async function POST(request: Request) {
   // Lo Smart Matching è accessorio: se fallisce, l'immobile resta salvato.
   const matching = await runMatchingForProperty(property).catch((error) => {
     console.error("[api/properties] Matching non riuscito", error);
-    return { evaluated: 0, matched: 0 };
+    return { evaluated: 0, matched: 0, newHighScore: [] };
   });
 
   return NextResponse.json({ propertyId: property.id, matching }, { status: 201 });

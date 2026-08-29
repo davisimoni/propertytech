@@ -37,7 +37,12 @@ export async function GET(request: Request) {
       // quella scheda, anche solo per controllarne il tracciato.
       where: reference
         ? { organizationId, reference }
-        : { organizationId, status: { in: [...PUBLISHED_STATUSES] } },
+        : { organizationId, status: { in: [...PUBLISHED_STATUSES] },
+          // Incarico scaduto: l'immobile esce dal feed. Senza mandato valido
+          // l'agenzia non ha titolo per pubblicizzarlo, e continuare a
+          // mandarlo ai portali la espone. `null` non blocca: una scheda
+          // senza data e' un mandato non ancora registrato, non uno scaduto.
+          OR: [{ mandateExpiration: null }, { mandateExpiration: { gte: new Date() } }] },
       orderBy: { createdAt: "desc" },
       take: 1000,
     }),

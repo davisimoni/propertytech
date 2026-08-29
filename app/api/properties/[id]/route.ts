@@ -5,6 +5,7 @@ import { propertyFieldsSchema } from "@/lib/listings/property-fields";
 import { PropertyStatus } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { runBidirectionalMatching } from "@/lib/matching/run-matching";
 
 const patchSchema = z.object({
   status: z.nativeEnum(PropertyStatus),
@@ -105,8 +106,23 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         rooms: rest.rooms ?? null,
         bathrooms: rest.bathrooms ?? null,
         energyClass: rest.energyClass ?? null,
+        // Incarico: la data arriva come `YYYY-MM-DD` dal campo del browser e
+        // va interpretata a mezzanotte UTC, altrimenti un incarico che scade
+        // il 30 risulterebbe scaduto il 29 sera per chi sta a est di Greenwich.
+        listingType: rest.listingType ?? null,
+        mandateExpiration: rest.mandateExpiration
+          ? new Date(`${rest.mandateExpiration}T00:00:00.000Z`)
+          : null,
+        commissionRate: rest.commissionRate ?? null,
+        keysInOffice: rest.keysInOffice ?? false,
+        keysLocation: rest.keysLocation || null,
       },
     });
+
+    // L'incarico o il prezzo possono essere cambiati: gli abbinamenti vanno
+    // ricalcolati, o resterebbero in scheda accoppiamenti che la modifica ha
+    // appena invalidato. Non bloccante: il salvataggio e' gia' riuscito.
+    void runBidirectionalMatching({ propertyId: updated.id });
 
     return NextResponse.json({ property: updated });
   } catch (error) {

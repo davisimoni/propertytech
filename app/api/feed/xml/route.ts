@@ -53,7 +53,12 @@ export async function GET(request: Request) {
     // E' anche il motivo per cui `status` nasce `ACTIVE` di default: con un
     // default diverso questa riga avrebbe ritirato dalla pubblicazione, in
     // silenzio, ogni immobile gia' in portafoglio alla prima rilettura.
-    where: { organizationId: organization.id, status: { in: [...PUBLISHED_STATUSES] } },
+    where: { organizationId: organization.id, status: { in: [...PUBLISHED_STATUSES] },
+      // Incarico scaduto: l'immobile esce dal feed. Senza mandato valido
+      // l'agenzia non ha titolo per pubblicizzarlo, e continuare a
+      // mandarlo ai portali la espone. `null` non blocca: una scheda
+      // senza data e' un mandato non ancora registrato, non uno scaduto.
+      OR: [{ mandateExpiration: null }, { mandateExpiration: { gte: new Date() } }] },
     orderBy: { createdAt: "desc" },
     take: 1000,
   });

@@ -530,3 +530,101 @@ export function sendLeadAttentionRequiredEmail(params: {
     cta: { label: "Apri la conversazione", url: `${SITE_URL}/leads?lead=${params.leadId}` },
   });
 }
+
+// --- I. Abbinamenti immobile ↔ lead ------------------------------------------
+
+export function sendMatchFoundEmail(params: {
+  to: string;
+  firstName?: string | null;
+  clientName: string;
+  leadId: string;
+  properties: { reference: string; title: string; price: string; score: number }[];
+}): Promise<EmailOutcome> {
+  const quanti = params.properties.length;
+
+  return invia(
+    params.to,
+    quanti === 1
+      ? `Un immobile per ${params.clientName}`
+      : `${quanti} immobili per ${params.clientName}`,
+    {
+      heading: quanti === 1 ? "Abbiamo un immobile che gli somiglia" : "Immobili compatibili trovati",
+      greeting: saluto(params.firstName),
+      blocks: [
+        {
+          text: `<strong>${escapeHtml(params.clientName)}</strong> ha appena completato la qualificazione, e ${quanti === 1 ? "un immobile in portafoglio corrisponde" : `${quanti} immobili in portafoglio corrispondono`} a quello che cerca.`,
+        },
+        {
+          rows: params.properties.map((p) => ({
+            label: `${p.reference} — ${p.title}`,
+            value: `${p.price} · ${p.score}%`,
+          })),
+        },
+        {
+          text: "Il momento in cui un acquirente finisce di raccontare cosa cerca è quello in cui è più disponibile a fissare una visita.",
+        },
+      ],
+      cta: { label: "Apri la scheda del contatto", url: `${SITE_URL}/leads?lead=${params.leadId}` },
+    }
+  );
+}
+
+// --- L. Incarichi in scadenza ------------------------------------------------
+
+export function sendMandatesExpiringEmail(params: {
+  to: string;
+  firstName?: string | null;
+  entro30: { reference: string; title: string; days: number }[];
+  entro60: { reference: string; title: string; days: number }[];
+  scaduti: { reference: string; title: string }[];
+}): Promise<EmailOutcome> {
+  const totale = params.entro30.length + params.entro60.length + params.scaduti.length;
+
+  const blocks: EmailLayoutInput["blocks"] = [
+    {
+      text: `Controllo settimanale degli incarichi: ${totale === 1 ? "una scheda richiede" : `${totale} schede richiedono`} attenzione.`,
+    },
+  ];
+
+  if (params.scaduti.length > 0) {
+    blocks.push({
+      notice: {
+        tone: "danger",
+        text: `<strong>${params.scaduti.length === 1 ? "Un incarico è scaduto" : `${params.scaduti.length} incarichi sono scaduti`}</strong>: gli immobili sono già usciti dal feed verso i portali. Senza mandato valido non si possono pubblicizzare.`,
+      },
+    });
+    blocks.push({ list: params.scaduti.map((p) => `${escapeHtml(p.reference)} — ${escapeHtml(p.title)}`) });
+  }
+
+  if (params.entro30.length > 0) {
+    blocks.push({
+      notice: {
+        tone: "warning",
+        text: "In scadenza entro 30 giorni: è il momento di parlare del rinnovo con il proprietario.",
+      },
+    });
+    blocks.push({
+      rows: params.entro30.map((p) => ({
+        label: `${p.reference} — ${p.title}`,
+        value: p.days === 0 ? "scade oggi" : p.days === 1 ? "1 giorno" : `${p.days} giorni`,
+      })),
+    });
+  }
+
+  if (params.entro60.length > 0) {
+    blocks.push({ text: "<strong>In scadenza entro 60 giorni</strong>" });
+    blocks.push({
+      rows: params.entro60.map((p) => ({
+        label: `${p.reference} — ${p.title}`,
+        value: `${p.days} giorni`,
+      })),
+    });
+  }
+
+  return invia(params.to, `Incarichi: ${totale} da controllare`, {
+    heading: "Incarichi in scadenza",
+    greeting: saluto(params.firstName),
+    blocks,
+    cta: { label: "Apri il portafoglio", url: `${SITE_URL}/properties` },
+  });
+}

@@ -177,6 +177,17 @@ enum EnergyClass {
 /// Governa la visibilita' sui portali: il feed XML esporta SOLO `ACTIVE`.
 /// `DRAFT` e' la scheda non ancora pronta, `RESERVED` il compromesso in corso,
 /// `SOLD` il venduto, `ARCHIVED` il mandato chiuso o scaduto.
+/// Tipo di incarico ricevuto dal proprietario.
+///
+/// Determina cosa l'agenzia puo' fare e quanto e' esposta: con un incarico in
+/// esclusiva e' l'unica a trattare, con uno non esclusivo compete con altre, e
+/// con una "selezione" ha solo il diritto di presentare acquirenti.
+enum ListingType {
+  ESCLUSIVA
+  NON_ESCLUSIVA
+  SELEZIONE
+}
+
 enum PropertyStatus {
   DRAFT
   ACTIVE
@@ -663,12 +674,24 @@ model Lead {
   /// Raggiunta la soglia, `aiEnabled` passa a `false`: chi ha sbagliato numero
   /// o sta usando questo numero per altro non va inseguito da un assistente
   /// che risponde a ogni messaggio.
-  offTopicStreak      Int                 @default(0)
+  offTopicStreak Int          @default(0)
   /// Email del contatto, quando l'agenzia ce l'ha in rubrica. Il flusso
   /// WhatsApp non la usa: serve all'agente e all'esportazione verso il gestionale.
-  clientEmail         String?
-  portalSource        PortalSource
-  propertyRef         String
+  clientEmail    String?
+  portalSource   PortalSource
+  propertyRef    String
+
+  /// Immobile del portafoglio a cui questa richiesta si riferisce.
+  ///
+  /// Facoltativo, e resta tale: un lead che scrive "cerco un trilocale in
+  /// centro" non riguarda un immobile preciso, e forzarne uno sarebbe
+  /// un'invenzione. `propertyRef` conserva sempre il testo originale.
+  ///
+  /// `SetNull` e non `Cascade`: cancellare un immobile dal portafoglio non
+  /// deve portarsi via i contatti che ci avevano scritto: quelle persone
+  /// esistono ancora e vanno ricontattate.
+  propertyId          String?
+  property            Property?           @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   qualificationStatus QualificationStatus @default(PENDING)
 
   budget           String?
@@ -752,6 +775,8 @@ model Lead {
 
   @@unique([organizationId, clientPhone])
   @@index([organizationId, qualificationStatus])
+  /// Lead di un immobile: usato dalla scheda immobile e dal bilancio al proprietario.
+  @@index([propertyId])
   /// Supporta il caricamento per colonna della board Kanban.
   @@index([organizationId, dealStage])
   /// Filtro "i miei lead" nella pipeline.
@@ -849,12 +874,31 @@ model Property {
   /// altro cambiera': ne' lo schema, ne' il feed, ne' la UI.
   images String[]
 
+  /// --- Incarico di mediazione ---
+  ///
+  /// Sono i dati che decidono se un immobile si puo' pubblicizzare e quanto
+  /// rende. Tutti facoltativi: un'agenzia puo' caricare una scheda prima di
+  /// aver formalizzato il mandato, e un campo obbligatorio la costringerebbe a
+  /// inventare una data.
+  listingType       ListingType?
+  /// Scadenza dell'incarico. Superata, l'immobile esce dal feed verso i
+  /// portali: pubblicizzare senza mandato valido non e' consentito.
+  mandateExpiration DateTime?
+  /// Provvigione concordata in punti percentuali (es. 3 = 3%). `Decimal`
+  /// perche' le mezze percentuali sono la norma e un float le arrotonderebbe.
+  commissionRate    Decimal?     @db.Decimal(5, 2)
+  keysInOffice      Boolean      @default(false)
+  /// Dove sono le chiavi: "cassetta 12", "dal portiere", "le ha il
+  /// proprietario". Testo libero perche' ogni agenzia le tiene a modo suo.
+  keysLocation      String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   organizationId String
   organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   photos         PropertyImage[]
+  leads          Lead[]
   leadMatches    PropertyLeadMatch[]
   documents      AgencyDocument[]
   aiGenerations  AiGeneration[]
@@ -866,6 +910,10 @@ model Property {
   /// Il feed dei portali filtra sempre agenzia + stato: senza questo indice
   /// ogni lettura del feed sarebbe una scansione del portafoglio.
   @@index([organizationId, status])
+  /// Il feed verso i portali filtra agenzia, stato e scadenza dell'incarico
+  /// nella stessa query: senza questo indice ogni sua lettura sarebbe una
+  /// scansione del portafoglio.
+  @@index([organizationId, status, mandateExpiration])
 }
 
 /// Accoppiamento fra un immobile in portafoglio e un lead le cui preferenze

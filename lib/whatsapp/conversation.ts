@@ -10,6 +10,9 @@ import { buildOpeningMessage, OPT_OUT_CONFIRMATION } from "./compliance";
 import { generateAgentReply, AGENT_FALLBACK_MESSAGE, type AgencyProfile } from "@/lib/ai/whatsapp-agent";
 import { deliverLeadToCrm } from "@/lib/integrations/crm-webhook";
 import { notifyHotLead } from "@/lib/notifications/hot-lead";
+import { linkLeadToProperty } from "@/lib/leads/resolve-property";
+import { runMatchingForLead } from "@/lib/matching/run-matching";
+import { notifyMatchesForLead } from "@/lib/notifications/match-found";
 import { notifyLeadNeedsAttention } from "@/lib/notifications/lead-attention";
 import { QUALIFICATION_QUESTIONS } from "./questions";
 import {
@@ -313,6 +316,23 @@ export async function handleIncomingMessage(
       // delle due deve arrivare prima e' quella che porta il lead dove
       // l'agenzia lavora davvero.
       await notifyHotLead(updated);
+
+      /**
+       * Il lead ha appena finito di dire cosa cerca: e' il momento in cui il
+       * portafoglio va interrogato.
+       *
+       * Finora il matching girava solo alla creazione di un immobile, quindi
+       * un acquirente qualificato oggi non veniva mai confrontato con le
+       * schede gia' a catalogo. Il collegamento all'immobile di riferimento
+       * viene tentato prima, cosi' la scheda risulta gia' agganciata quando
+       * l'agente la apre.
+       *
+       * Tutto non bloccante: la conversazione e' gia' riuscita e pagata.
+       */
+      await linkLeadToProperty(updated);
+
+      const matching = await runMatchingForLead(updated);
+      await notifyMatchesForLead(updated, matching);
     }
   }
 }
