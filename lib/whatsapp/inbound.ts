@@ -1,11 +1,13 @@
 import "server-only";
 import type { Organization, WhatsAppConfig } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { normalizePhone } from "./types";
+import { normalizePhone, parseChatMessages } from "./types";
 import { isOptOutMessage } from "./compliance";
 import { handleClosedConversation, handleIncomingMessage, handleOptOut } from "./conversation";
 import { applyReminderReply, isAwaitingReminderReply, parseReminderReply } from "./reminders";
 import { createLeadFromFirstMessage } from "./first-contact";
+import { classifyIntent } from "@/lib/ai/intent-gateway";
+import { recordOffTopicMessage, resetOffTopicStreak } from "./off-topic";
 import { AGENT_COMMAND_REPLIES, parseAgentCommand } from "./agent-commands";
 import { sendWhatsAppMessageForProvider } from "./client";
 import { resolveWhatsAppCredentials } from "./credentials";
@@ -161,6 +163,29 @@ export async function handleInboundWhatsAppMessage(
   // sandbox Twilio, ecc.). La scheda nasce qui e la qualificazione parte
   // subito, qualunque sia stato il trasporto.
   if (!existing) {
+    /**
+     * Anche il primo contatto passa dal filtro.
+     *
+     * Senza, un numero sbagliato o un fornitore riceverebbero l'apertura
+     * completa della qualificazione - informativa privacy inclusa - e
+     * lascerebbero in pipeline una scheda che nessuno ha chiesto. Qui non
+     * c'e' ancora un lead, quindi non c'e' nulla da contare: il messaggio
+     * viene semplicemente ignorato.
+     *
+     * Il classificatore ha istruzione esplicita di considerare pertinente
+     * qualunque apertura generica ("Buongiorno", "Ho visto l'annuncio"): e'
+     * proprio qui che un falso negativo costerebbe un cliente vero.
+     */
+    const verdetto = await classifyIntent({ message: message.text });
+
+    if (!verdetto.pertinente) {
+      console.info("[WA-OFF-TOPIC] Primo contatto ignorato", {
+        organizationId: config.organizationId,
+        motivo: verdetto.motivo,
+      });
+      return;
+    }
+
     try {
       await createLeadFromFirstMessage({
         config,
@@ -217,6 +242,50 @@ export async function handleInboundWhatsAppMessage(
       // consegnato al gestionale.
       await handleClosedConversation(lead, config, message.text);
     } else {
+      /**
+       * Filtro di pertinenza, davanti all'agente di qualificazione.
+       *
+       * Sta QUI e non prima, di proposito: opt-out, risposte ai promemoria e
+       * conversazioni gia' prese in carico da una persona non devono
+       * dipendere da un giudizio del modello. Un "STOP" resta un opt-out
+       * anche se un classificatore lo trovasse poco pertinente.
+       *
+       * La cronologia recente viaggia col messaggio perche' senza contesto un
+       * "si" o un "200 mila" sembrano frasi a caso, mentre sono la risposta
+       * alla domanda che l'assistente ha appena fatto.
+       */
+      const storico = parseChatMessages(
+        (await prisma.whatsAppChat.findUnique({
+          where: { leadId: lead.id },
+          select: { messages: true },
+        }))?.messages
+      );
+
+      const verdetto = await classifyIntent({
+        message: message.text,
+        recentContext: storico
+          .slice(-4)
+          .map((m) => `${m.sender === "bot" ? "Agenzia" : "Cliente"}: ${m.text}`),
+      });
+
+      if (!verdetto.pertinente) {
+        // Nessuna risposta: e' il punto della funzione. Il messaggio resta in
+        // cronologia e il contatore avanza; alla soglia l'assistente si
+        // sospende da solo su questo contatto.
+        const sospeso = await recordOffTopicMessage(lead, message.text, verdetto.motivo);
+        if (sospeso) {
+          console.info("[WA-AI-AUTOPAUSED]", {
+            leadId: lead.id,
+            organizationId: config.organizationId,
+            motivo: verdetto.motivo,
+          });
+        }
+        return;
+      }
+
+      // Pertinente: la serie si interrompe qui.
+      await resetOffTopicStreak(lead);
+
       await handleIncomingMessage(
         lead,
         config,

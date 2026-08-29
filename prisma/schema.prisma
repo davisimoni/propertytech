@@ -589,7 +589,18 @@ model Lead {
   ///
   /// Default `true` per non cambiare il comportamento delle conversazioni gia'
   /// aperte quando questo campo e' stato introdotto.
-  aiEnabled           Boolean             @default(true)
+  aiEnabled Boolean @default(true)
+
+  /// Messaggi consecutivi giudicati fuori contesto dal filtro di pertinenza.
+  ///
+  /// Azzerato da qualunque messaggio pertinente: conta la *serie*, non il
+  /// totale. Una domanda strana in mezzo a una qualificazione non deve
+  /// avvicinare il contatto alla sospensione.
+  ///
+  /// Raggiunta la soglia, `aiEnabled` passa a `false`: chi ha sbagliato numero
+  /// o sta usando questo numero per altro non va inseguito da un assistente
+  /// che risponde a ogni messaggio.
+  offTopicStreak      Int                 @default(0)
   /// Email del contatto, quando l'agenzia ce l'ha in rubrica. Il flusso
   /// WhatsApp non la usa: serve all'agente e all'esportazione verso il gestionale.
   clientEmail         String?
