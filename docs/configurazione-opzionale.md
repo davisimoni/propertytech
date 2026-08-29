@@ -91,3 +91,47 @@ dei collaboratori (`/settings` → Team).
 l'interfaccia mostra il link da mandare a mano, com'era prima. È un ripiego
 dichiarato, non il percorso normale — il token in chiaro esiste solo in quella
 risposta, quindi senza il link quell'invito sarebbe irrecuperabile.
+
+---
+
+## Controlli pianificati (cron)
+
+| Variabile | Serve a |
+|---|---|
+| `CRON_SECRET` | Autentica **entrambi** gli endpoint pianificati. Senza, rispondono 401 a chiunque. |
+
+### `/api/cron/daily-checks` — registrato in `vercel.json`
+
+Gira ogni mattina alle 6. Fa due cose: controlla gli incarichi in scadenza
+(scaduti, entro 30 giorni, entro 60) e manda un riepilogo al titolare; poi
+esegue un passaggio di promemoria appuntamento.
+
+### `/api/cron/appointment-reminders` — **da pianificare fuori da Vercel**
+
+Questo endpoint esiste ed è già protetto, ma **non è registrato in
+`vercel.json`**, e non per dimenticanza.
+
+I promemoria anti no-show cercano gli appuntamenti che cadono in una finestra
+di **90 minuti** attorno al preavviso configurato (default 24 ore). È la
+precisione che serve: un promemoria per una visita delle 9 va mandato alle 9
+del giorno prima, non a un'ora qualsiasi.
+
+Perché funzionino davvero l'endpoint va invocato **ogni ora**. Il piano Vercel
+Hobby consente un solo giro al giorno per cron, quindi un giro giornaliero
+intercetterebbe solo gli appuntamenti che capitano dentro quei 90 minuti —
+cioè una piccola parte.
+
+Due strade:
+
+1. **Vercel Pro**: aggiungere la voce con `"schedule": "0 * * * *"` in
+   `vercel.json`.
+2. **Scheduler esterno** (cron-job.org, GitHub Actions, il cron di un server):
+   chiamare ogni ora
+
+   ```
+   GET https://propertytechsolutions.net/api/cron/appointment-reminders
+   Authorization: Bearer $CRON_SECRET
+   ```
+
+Finché non si fa nessuna delle due, i promemoria partono una volta al giorno
+col giro di `daily-checks` e coprono solo una parte degli appuntamenti.
