@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState, type DragEvent } from "react";
-import { Check, ClipboardList, FileAudio, Home, Loader2, MessageCircle, Printer, Send, Sparkles, Users, X } from "lucide-react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
+import { Check, ClipboardList, FileAudio, Home, Loader2, MessageCircle, Printer, Send, Sparkles, TriangleAlert, Users, X } from "lucide-react";
 import { UpgradeLimitModal } from "@/components/billing/upgrade-limit-modal";
 import { ShareActions } from "@/components/shared/share-actions";
 import { AiDisclaimer } from "@/components/shared/ai-disclaimer";
@@ -43,6 +43,26 @@ export function VoiceReportStudio() {
    * messaggio da mandare al proprietario.
    */
   const [tab, setTab] = useState<"owner" | "team">("owner");
+
+  /** Riferimento al campo del telefono: serve a portarci l'agente e a dargli il fuoco. */
+  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const [phoneInvalid, setPhoneInvalid] = useState(false);
+  /**
+   * Avviso in basso.
+   *
+   * Sta in fondo allo schermo di proposito: e' li' che si trova l'agente
+   * quando preme "Invia", ed e' l'unico punto in cui puo' leggere qualcosa
+   * mentre la pagina scorre verso il campo in cima.
+   */
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    // Sei secondi: il tempo di leggerlo mentre la pagina finisce di scorrere,
+    // senza restare a coprire il campo che l'agente sta compilando.
+    const timer = window.setTimeout(() => setToast(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
   const [propertyRef, setPropertyRef] = useState("");
   const [sellerName, setSellerName] = useState("");
   const [sellerPhone, setSellerPhone] = useState("");
@@ -158,10 +178,52 @@ export function VoiceReportStudio() {
     }
   }
 
+  /**
+   * Riporta l'agente al campo del telefono e lo mette in condizione di
+   * compilarlo.
+   *
+   * Il pulsante di invio sta in fondo alla scheda del report, il campo in cima
+   * alla pagina: senza questo, l'unico segnale era un messaggio d'errore che
+   * compariva fuori dallo schermo, sopra la piega. L'agente vedeva il pulsante
+   * non fare nulla.
+   */
+  function guidaAlCampoTelefono(messaggio: string) {
+    setPhoneInvalid(true);
+    setToast(messaggio);
+
+    phoneInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Il fuoco dopo lo scorrimento: darlo subito farebbe saltare la pagina al
+    // campo di colpo, annullando l'animazione che serve a far capire DOVE si
+    // sta andando.
+    window.setTimeout(() => phoneInputRef.current?.focus(), 400);
+  }
+
   async function handleSend() {
     if (!reportId) return;
+
+    // Validazione prima della chiamata: il numero manca o e' troppo corto per
+    // essere un recapito, e non c'e' motivo di scoprirlo dopo un giro di rete.
+    //
+    // Il server ripiega sul numero salvato insieme al report, quindi qui si
+    // blocca solo quando il campo e' davvero inutilizzabile: chi l'ha
+    // compilato alla generazione lo ritrova gia' scritto.
+    const cifre = sellerPhone.replace(/\D/g, "");
+    if (!sellerPhone.trim()) {
+      guidaAlCampoTelefono(
+        "Inserisci il numero di telefono del proprietario in alto per procedere con l'invio."
+      );
+      return;
+    }
+    if (cifre.length < 8) {
+      guidaAlCampoTelefono(
+        "Il numero del proprietario sembra incompleto: controllalo prima di inviare."
+      );
+      return;
+    }
+
     setIsSending(true);
     setError(null);
+    setPhoneInvalid(false);
 
     try {
       const response = await fetch(`/api/reports/${reportId}/send`, {
@@ -172,19 +234,34 @@ export function VoiceReportStudio() {
       const body = await response.json();
 
       if (!response.ok) {
+        // Stesso trattamento anche quando e' il server a dirlo: le regole
+        // possono divergere, e la guida all'agente non deve dipendere da quale
+        // dei due controlli ha parlato.
+        if (body.error === "missing_seller_phone") {
+          guidaAlCampoTelefono(
+            "Inserisci il numero di telefono del proprietario in alto per procedere con l'invio."
+          );
+          return;
+        }
+
         setError(
           body.error === "whatsapp_not_connected"
             ? "WhatsApp non è collegato. Configuralo in Qualifica Lead per inviare il report."
-            : body.error === "missing_seller_phone"
-              ? "Inserisci il numero del proprietario per inviare il report."
-              : (body.message ?? "Invio non riuscito.")
+            : (body.message ?? "Invio non riuscito.")
+        );
+        setToast(
+          body.error === "whatsapp_not_connected"
+            ? "WhatsApp non è collegato: configuralo in Qualifica Lead."
+            : "Invio non riuscito. Riprova."
         );
         return;
       }
 
       setSent(true);
+      setToast("Report inviato al proprietario.");
     } catch {
       setError("Errore di rete durante l'invio.");
+      setToast("Errore di rete durante l'invio.");
     } finally {
       setIsSending(false);
     }
@@ -236,12 +313,31 @@ export function VoiceReportStudio() {
             </label>
             <input
               id="seller-phone"
+              ref={phoneInputRef}
               type="tel"
               value={sellerPhone}
-              onChange={(event) => setSellerPhone(event.target.value)}
+              onChange={(event) => {
+                setSellerPhone(event.target.value);
+                // L'evidenziazione sparisce appena l'agente comincia a
+                // scrivere: lasciarla accesa mentre corregge lo accuserebbe di
+                // un errore che sta gia' rimediando.
+                if (phoneInvalid) setPhoneInvalid(false);
+              }}
               placeholder="+39 333 1234567"
-              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-base text-foreground sm:text-sm outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
+              aria-invalid={phoneInvalid}
+              aria-describedby={phoneInvalid ? "seller-phone-errore" : undefined}
+              className={cn(
+                "mt-1 w-full rounded-lg border bg-background px-3 py-2 text-base text-foreground sm:text-sm outline-none transition-all duration-200",
+                phoneInvalid
+                  ? "border-status-blocked ring-2 ring-status-blocked/30 focus:border-status-blocked"
+                  : "border-border-strong focus:border-primary focus:ring-2 focus:ring-primary/40"
+              )}
             />
+            {phoneInvalid && (
+              <p id="seller-phone-errore" className="mt-1 text-xs text-status-blocked">
+                Serve il numero del proprietario per inviargli il report.
+              </p>
+            )}
           </div>
         </div>
 
@@ -742,6 +838,32 @@ export function VoiceReportStudio() {
               className="mt-4"
             />
           </section>
+        </div>
+      )}
+
+      {/*
+        Avviso fisso in basso.
+        E' l'unica cosa che l'agente puo' leggere nell'istante in cui preme
+        "Invia": il campo che deve correggere sta in cima alla pagina, e la
+        pagina ci sta scorrendo. `role="status"` e non `alert` perche' non
+        interrompe: lo screen reader lo annuncia dopo il messaggio del campo,
+        che e' quello che conta.
+      */}
+      {toast && (
+        <div
+          role="status"
+          className="fixed inset-x-0 bottom-4 z-50 mx-auto flex w-[calc(100%-2rem)] max-w-md items-start gap-2 rounded-xl border border-border bg-card p-3 shadow-lg print:hidden"
+        >
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-status-pending" />
+          <p className="min-w-0 flex-1 text-sm text-foreground">{toast}</p>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            aria-label="Chiudi l'avviso"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted sm:h-8 sm:w-8"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 
