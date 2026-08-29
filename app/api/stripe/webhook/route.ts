@@ -4,6 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { getStripe, isStripeEnabled, readPlanFromMetadata } from "@/lib/billing/stripe";
 import { readSecret } from "@/lib/env";
 import { activateRefereeReferral, expireRefereeReferral } from "@/lib/referrals/lifecycle";
+import {
+  notifyPaymentFailed,
+  notifyPlanActivated,
+  notifySubscriptionCancelled,
+} from "@/lib/notifications/billing";
+import { PLANS, type PlanId } from "@/lib/plans";
 
 /**
  * Attiva il piano acquistato e azzera i contatori di consumo.
@@ -17,6 +23,14 @@ async function activatePlan(
   stripeSubscriptionId: string | null,
   stripeCustomerId: string | null
 ) {
+  // Piano precedente, letto PRIMA della scrittura: e' l'unico modo di sapere
+  // se questo e' un primo acquisto o un passaggio fra piani gia' a pagamento,
+  // e i due casi meritano due email diverse.
+  const precedente = await prisma.subscription.findUnique({
+    where: { organizationId },
+    select: { status: true },
+  });
+
   await prisma.$transaction([
     prisma.subscription.update({
       where: { organizationId },
@@ -30,7 +44,16 @@ async function activatePlan(
     // il periodo precedente non vanno scalati da quelli appena acquistati.
     prisma.usageTracker.update({
       where: { organizationId },
-      data: { whatsappCreditsUsed: 0, docCreditsUsed: 0, voiceCreditsUsed: 0 },
+      data: {
+        whatsappCreditsUsed: 0,
+        docCreditsUsed: 0,
+        voiceCreditsUsed: 0,
+        // Anche la memoria degli avvisi di soglia riparte: senza, chi ha gia'
+        // ricevuto l'avviso del 90% il mese scorso non lo riceverebbe piu'.
+        whatsappNotifiedPct: 0,
+        docNotifiedPct: 0,
+        voiceNotifiedPct: 0,
+      },
     }),
   ]);
 
@@ -41,6 +64,15 @@ async function activatePlan(
   // transazione: non deve far fallire l'attivazione del piano se qualcosa va
   // storto qui.
   await activateRefereeReferral(organizationId);
+
+  // Fuori dalla transazione e non bloccante, come il referral: questa rotta
+  // risponde 500 per far ritentare Stripe, e un errore di posta farebbe
+  // ripetere l'attivazione dell'intero piano.
+  await notifyPlanActivated({
+    organizationId,
+    previousPlan: (precedente?.status ?? "trial") as PlanId,
+    newPlan: planId,
+  });
 }
 
 /** Riporta l'organizzazione al piano Trial quando l'abbonamento cessa. */
@@ -51,6 +83,11 @@ async function downgradeToTrial(stripeSubscriptionId: string) {
   });
 
   if (!subscription) return;
+
+  const precedente = await prisma.subscription.findUnique({
+    where: { organizationId: subscription.organizationId },
+    select: { status: true, currentPeriodEnd: true },
+  });
 
   await prisma.subscription.update({
     where: { organizationId: subscription.organizationId },
@@ -64,6 +101,12 @@ async function downgradeToTrial(stripeSubscriptionId: string) {
   // conseguenza. Lo sconto di benvenuto già consumato dall'invitata resta
   // tale: non si riattiva a un'eventuale disdetta.
   await expireRefereeReferral(subscription.organizationId);
+
+  await notifySubscriptionCancelled({
+    organizationId: subscription.organizationId,
+    planName: PLANS[(precedente?.status ?? "trial") as PlanId].name,
+    activeUntil: precedente?.currentPeriodEnd,
+  });
 }
 
 /**
@@ -157,6 +200,46 @@ export async function POST(request: Request) {
 
       case "customer.subscription.deleted": {
         await downgradeToTrial(event.data.object.id);
+        break;
+      }
+
+      /**
+       * Rinnovo rifiutato.
+       *
+       * Non tocca lo stato dell'abbonamento - a farlo e' Stripe con i suoi
+       * tentativi, e solo alla fine con `subscription.updated` - ma e'
+       * l'unico momento in cui possiamo avvisare in tempo. Senza questa
+       * email l'agenzia scopre la carta scaduta dai lead che non ricevono
+       * piu' risposta.
+       */
+      case "invoice.payment_failed": {
+        const invoice = event.data.object;
+
+        // Dalla versione 2025 dell'API il riferimento all'abbonamento non sta
+        // piu' su `invoice.subscription` ma sotto `parent.subscription_details`.
+        // Una fattura senza questo blocco non nasce da un abbonamento (una
+        // nota di credito, un pagamento una tantum) e qui non ci riguarda.
+        const dettagli = invoice.parent?.subscription_details;
+        const stripeSubscriptionId =
+          typeof dettagli?.subscription === "string" ? dettagli.subscription : null;
+
+        if (!stripeSubscriptionId) break;
+
+        const subscription = await prisma.subscription.findUnique({
+          where: { stripeSubscriptionId },
+          select: { organizationId: true, status: true },
+        });
+
+        if (!subscription) break;
+
+        await notifyPaymentFailed({
+          organizationId: subscription.organizationId,
+          planId: subscription.status as PlanId,
+          amountLabel: invoice.amount_due
+            ? `${(invoice.amount_due / 100).toFixed(2)} ${invoice.currency?.toUpperCase() ?? "EUR"}`
+            : "importo del rinnovo",
+          updateUrl: invoice.hosted_invoice_url,
+        });
         break;
       }
 

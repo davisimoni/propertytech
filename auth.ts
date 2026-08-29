@@ -135,6 +135,47 @@ if (isGoogleAuthEnabled()) {
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   providers,
+  /**
+   * `events` e non `callbacks`: il risultato viene ignorato per costruzione,
+   * quindi un guasto qui non puo' impedire un accesso. Registrare il
+   * dispositivo e' telemetria di sicurezza, non una condizione per entrare.
+   */
+  events: {
+    async signIn({ user }) {
+      if (!user.email) return;
+
+      try {
+        const { headers } = await import("next/headers");
+        const { prisma } = await import("@/lib/prisma");
+        const { recordSignIn } = await import("@/lib/notifications/new-device");
+
+        // L'utente si cerca per EMAIL e non da `user.id`: con il provider
+        // Credentials quel campo trasporta l'id dell'ORGANIZZAZIONE (vedi
+        // auth.config.ts), e useremmo una chiave sbagliata.
+        const record = await prisma.user.findUnique({
+          where: { email: user.email },
+          select: { id: true, email: true, firstName: true },
+        });
+        if (!record) return;
+
+        const h = await headers();
+        await recordSignIn({
+          userId: record.id,
+          email: record.email,
+          firstName: record.firstName,
+          userAgent: h.get("user-agent"),
+          // Su Vercel l'IP del client e' il primo della catena in
+          // `x-forwarded-for`: gli altri sono i proxy attraversati.
+          ip: h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+        });
+      } catch (error) {
+        console.error("[auth] Registrazione del dispositivo non riuscita", {
+          reason: error instanceof Error ? error.message : "unknown",
+        });
+      }
+    },
+  },
+
   callbacks: {
     ...authConfig.callbacks,
 

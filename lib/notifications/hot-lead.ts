@@ -3,6 +3,7 @@ import type { Lead } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { SITE_URL } from "@/lib/seo";
 import { sendEmail } from "./email";
+import { resolveLeadOwner } from "@/lib/email/recipients";
 
 /**
  * Avviso all'agente quando un lead diventa caldo.
@@ -12,38 +13,6 @@ import { sendEmail } from "./email";
  * subito, e senza questo avviso l'agenzia lo scopre quando riapre la
  * piattaforma — cioè quando quel contatto ha già sentito altri due.
  */
-
-/**
- * A chi va l'avviso.
- *
- * L'agente assegnato per primo: è chi ha in carico quel contatto. Se non c'è
- * assegnazione si ripiega sul titolare, che è sempre presente. **Solo utenti
- * che hanno accettato l'invito** (`acceptedAt`): un invito pendente è un
- * indirizzo che non ha ancora dimostrato di appartenere a nessuno, e mandarci
- * nome, telefono e budget di un cliente significherebbe spedire dati personali
- * a una casella non verificata.
- */
-async function resolveRecipient(lead: Lead): Promise<{ email: string; name: string } | null> {
-  if (lead.assignedToId) {
-    const assigned = await prisma.user.findFirst({
-      where: {
-        id: lead.assignedToId,
-        organizationId: lead.organizationId,
-        acceptedAt: { not: null },
-      },
-      select: { email: true, firstName: true },
-    });
-    if (assigned) return { email: assigned.email, name: assigned.firstName ?? "" };
-  }
-
-  const owner = await prisma.user.findFirst({
-    where: { organizationId: lead.organizationId, role: "OWNER", acceptedAt: { not: null } },
-    select: { email: true, firstName: true },
-    orderBy: { createdAt: "asc" },
-  });
-
-  return owner ? { email: owner.email, name: owner.firstName ?? "" } : null;
-}
 
 function buildBody(lead: Lead, recipientName: string): string {
   const righe = [
@@ -78,7 +47,9 @@ function buildBody(lead: Lead, recipientName: string): string {
  */
 export async function notifyHotLead(lead: Lead): Promise<void> {
   try {
-    const recipient = await resolveRecipient(lead);
+    // Destinatario risolto dal modulo condiviso: le regole su chi puo'
+    // ricevere dati dell'agenzia stanno in un posto solo.
+    const recipient = await resolveLeadOwner(lead.organizationId, lead.assignedToId);
 
     if (!recipient) {
       console.warn("[notifications/hot-lead] Nessun destinatario verificato", {
@@ -91,7 +62,7 @@ export async function notifyHotLead(lead: Lead): Promise<void> {
     const outcome = await sendEmail({
       to: recipient.email,
       subject: `🔥 Lead qualificato: ${lead.clientName}`,
-      text: buildBody(lead, recipient.name),
+      text: buildBody(lead, recipient.firstName ?? ""),
     });
 
     console.info("[HOT-LEAD-NOTIFY]", {

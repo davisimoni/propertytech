@@ -121,6 +121,38 @@ export async function POST(request: Request) {
       where: { id: config.id },
       data: { isConnected: false },
     });
+
+    // Avviso all'agenzia solo se era davvero connessa fino a un attimo fa.
+    //
+    // Il microservizio puo' emettere piu' eventi di disconnessione per la
+    // stessa caduta - riconnessioni tentate e fallite - e senza questa
+    // condizione l'agenzia riceverebbe una raffica di email per un solo
+    // problema.
+    if (config.isConnected) {
+      try {
+        const { resolveOwner } = await import("@/lib/email/recipients");
+        const { sendWhatsAppDisconnectedEmail } = await import("@/lib/email/transactional");
+
+        const owner = await resolveOwner(config.organizationId);
+        if (owner) {
+          const outcome = await sendWhatsAppDisconnectedEmail({
+            to: owner.email,
+            firstName: owner.firstName,
+            phoneNumber: config.phoneNumber,
+          });
+          console.info("[WA-DISCONNECTED-NOTIFY]", {
+            organizationId: config.organizationId,
+            outcome,
+          });
+        }
+      } catch (error) {
+        console.error("[api/whatsapp/qr/webhook] Avviso di disconnessione non inviato", {
+          organizationId: config.organizationId,
+          reason: error instanceof Error ? error.message : "unknown",
+        });
+      }
+    }
+
     return NextResponse.json({ status: "ok" });
   }
 

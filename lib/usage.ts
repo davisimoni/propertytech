@@ -113,4 +113,10 @@ export async function incrementUsage(organizationId: string, featureType: UsageF
     where: { organizationId },
     data: { [field]: { increment: amount } },
   });
+
+  // Avviso soglie, DOPO il consumo e non bloccante: il credito e' gia' stato
+  // registrato correttamente, e un guasto del fornitore di posta non deve
+  // trasformarsi in un'operazione fallita per l'agenzia.
+  const { checkCreditThresholds } = await import("@/lib/notifications/credit-thresholds");
+  await checkCreditThresholds(organizationId, featureType);
 }

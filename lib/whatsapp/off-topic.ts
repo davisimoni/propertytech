@@ -66,7 +66,36 @@ export async function recordOffTopicMessage(
     sospeso: daSospendere,
   });
 
+  if (daSospendere) {
+    // Avviso all'agente: senza, la conversazione si ferma e nessuno lo sa
+    // finche' qualcuno non riapre quella scheda per caso.
+    await notifyAiAutoPaused(lead);
+  }
+
   return daSospendere;
+}
+
+/** Avvisa chi ha in carico il lead che l'assistente si e' fermato. Non lancia. */
+async function notifyAiAutoPaused(lead: Lead): Promise<void> {
+  try {
+    const { resolveLeadOwner } = await import("@/lib/email/recipients");
+    const { sendAiAutoPausedEmail } = await import("@/lib/email/transactional");
+
+    const destinatario = await resolveLeadOwner(lead.organizationId, lead.assignedToId);
+    if (!destinatario) return;
+
+    await sendAiAutoPausedEmail({
+      to: destinatario.email,
+      firstName: destinatario.firstName,
+      clientName: lead.clientName,
+      leadId: lead.id,
+    });
+  } catch (error) {
+    console.error("[whatsapp/off-topic] Avviso di pausa non inviato", {
+      leadId: lead.id,
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+  }
 }
 
 /**

@@ -70,5 +70,18 @@ export async function POST(request: Request) {
   const referralCodeFromCookie = cookieStore.get(REFERRAL_COOKIE_NAME)?.value;
   await linkReferral(organization.id, referralCode || referralCodeFromCookie);
 
+  // Benvenuto, non bloccante: l'account e' gia' creato e valido: un fornitore
+  // di posta che non risponde non deve trasformarsi in una registrazione
+  // fallita davanti a chi ha appena compilato il form.
+  try {
+    const { sendWelcomeEmail } = await import("@/lib/email/transactional");
+    await sendWelcomeEmail({ to: email, firstName, agencyName: organization.agencyName });
+  } catch (error) {
+    console.error("[api/register] Email di benvenuto non inviata", {
+      organizationId: organization.id,
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+  }
+
   return NextResponse.json({ success: true }, { status: 201 });
 }

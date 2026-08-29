@@ -225,6 +225,7 @@ model User {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   assignedLeads       Lead[]
+  knownDevices        KnownDevice[]
   assignedSlots       CalendarSlot[]
   uploadedDocuments   AgencyDocument[]
   aiGenerations       AiGeneration[]
@@ -474,11 +475,47 @@ model CancellationFeedback {
 
 /// Contatori di consumo crediti per periodo corrente. I limiti per piano
 /// vivono in lib/plans.ts, non qui, per avere un'unica fonte di verità.
+/// Dispositivo gia' visto per un utente, per l'avviso di accesso nuovo.
+///
+/// Si conserva un'IMPRONTA e non i dati grezzi: `fingerprint` e' un hash di
+/// user agent e indirizzo IP troncato. L'indirizzo IP e' un dato personale
+/// (cons. 30 GDPR) e conservarlo in chiaro significherebbe costruire uno
+/// storico degli spostamenti di ogni agente, per una funzione che ha solo
+/// bisogno di sapere "questo l'avevo gia' visto?".
+///
+/// `label` e' leggibile ("Chrome su Windows") perche' finisce nell'email: un
+/// hash non direbbe nulla a chi deve decidere se l'accesso era suo.
+model KnownDevice {
+  id          String   @id @default(cuid())
+  fingerprint String
+  label       String
+  lastSeenAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, fingerprint])
+  @@index([userId])
+}
+
 model UsageTracker {
-  id                  String   @id @default(cuid())
-  whatsappCreditsUsed Int      @default(0)
-  docCreditsUsed      Int      @default(0)
-  voiceCreditsUsed    Int      @default(0)
+  id                  String @id @default(cuid())
+  whatsappCreditsUsed Int    @default(0)
+  docCreditsUsed      Int    @default(0)
+  voiceCreditsUsed    Int    @default(0)
+
+  /// Soglia percentuale di consumo per cui e' gia' partito un avviso.
+  ///
+  /// Serve a non rispedire la stessa email a ogni messaggio successivo al
+  /// superamento: si registra la soglia piu' alta gia' notificata e si invia
+  /// solo quando se ne supera una nuova.
+  ///
+  /// Azzerate al rinnovo del periodo, insieme ai contatori: il mese nuovo
+  /// ricomincia da capo anche per gli avvisi.
+  whatsappNotifiedPct Int      @default(0)
+  docNotifiedPct      Int      @default(0)
+  voiceNotifiedPct    Int      @default(0)
   updatedAt           DateTime @updatedAt
 
   organizationId String       @unique
