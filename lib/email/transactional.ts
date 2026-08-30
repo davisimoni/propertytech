@@ -661,7 +661,7 @@ export function sendContactRequestEmail(params: {
   firstName: string;
   lastName: string;
   email: string;
-  phone: string;
+  phone?: string | null;
   agencyName?: string | null;
   message: string;
 }): Promise<EmailOutcome> {
@@ -681,7 +681,11 @@ export function sendContactRequestEmail(params: {
             { label: "Nome", value: escapeHtml(nome) },
             ...(agenzia ? [{ label: "Agenzia", value: escapeHtml(agenzia) }] : []),
             { label: "Email", value: escapeHtml(params.email) },
-            { label: "Telefono", value: escapeHtml(params.phone) },
+            // Riga assente e non vuota quando il numero non c'e': una voce
+            // "Telefono:" seguita dal nulla fa pensare a un dato perso.
+            ...(params.phone?.trim()
+              ? [{ label: "Telefono", value: escapeHtml(params.phone.trim()) }]
+              : []),
           ],
         },
         // Il messaggio è scritto da un estraneo e finisce dentro un'email HTML:

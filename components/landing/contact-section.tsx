@@ -43,7 +43,9 @@ export function ContactSection() {
     if (firstName.trim().length < 2) errors.firstName = "Inserisci il tuo nome";
     if (lastName.trim().length < 2) errors.lastName = "Inserisci il tuo cognome";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) errors.email = "Controlla l'indirizzo email";
-    if (phone.trim().length < 6) errors.phone = "Inserisci un numero valido";
+    // Facoltativo, ma validato se compilato: un numero sbagliato è peggio di
+    // un numero assente, perché fa provare a chiamare.
+    if (phone.trim() && phone.trim().length < 6) errors.phone = "Inserisci un numero valido";
     if (message.trim().length < 10) errors.message = "Scrivi qualche parola in più";
 
     setFieldErrors(errors);
@@ -69,7 +71,7 @@ export function ContactSection() {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
           email: email.trim(),
-          phone: phone.trim(),
+          phone: phone.trim() || undefined,
           agencyName: agencyName.trim() || undefined,
           message: message.trim(),
           website: website || undefined,
@@ -109,7 +111,7 @@ export function ContactSection() {
               align="left"
               eyebrow="Contatti"
               title={<>Hai domande o vuoi vedere l&apos;IA in azione sulla tua agenzia?</>}
-              subtitle="Compila il modulo per qualsiasi dubbio operativo o per richiedere una breve dimostrazione. Ti ricontattiamo su WhatsApp o via email entro 24 ore lavorative."
+              subtitle="Compila il modulo per qualsiasi dubbio operativo o per richiedere una breve dimostrazione. Ti rispondiamo via email entro 24 ore lavorative, o su WhatsApp se ci lasci il numero."
             />
 
             <ul className="mt-8 space-y-4">
@@ -247,7 +249,7 @@ export function ContactSection() {
                   <Field
                     id="contact-phone"
                     label="Telefono / WhatsApp"
-                    required
+                    optional
                     error={fieldErrors.phone}
                   >
                     <input

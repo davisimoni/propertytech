@@ -413,17 +413,14 @@ export function AcquisitionSection() {
           width="wide"
           subtitle={
             <>
-              Chi ti scrive per acquistare una casa ha spesso un immobile da vendere prima di poter
-              comprare. L&apos;assistente virtuale lo individua subito durante la qualifica
-              iniziale e lo contrassegna nel tuo pannello come{" "}
-              <strong className="font-semibold text-foreground">Venditore Singolo</strong>,
-              oppure come{" "}
+              Chi ti scrive per comprare ha spesso un immobile da vendere. L&apos;assistente
+              virtuale individua le sue intenzioni durante la qualifica e lo etichetta subito nel
+              tuo pannello come{" "}
+              <strong className="font-semibold text-foreground">Venditore Singolo</strong> o{" "}
               <strong className="font-semibold text-foreground">
                 Investitore / Multi-Proprietario
-              </strong>{" "}
-              quando dagli immobili o dalle visure ne risultano più di uno. In questo modo puoi
-              ricontattarlo immediatamente per fissare la valutazione del suo immobile, arrivando
-              prima di qualsiasi agenzia concorrente.
+              </strong>
+              , permettendoti di fissare la valutazione prima delle altre agenzie.
             </>
           }
         />

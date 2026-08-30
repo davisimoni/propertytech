@@ -1058,7 +1058,11 @@ model ContactRequest {
   firstName  String
   lastName   String
   email      String
-  phone      String
+  /// Facoltativo: chi scrive dal modulo pubblico puo' non voler lasciare un
+  /// numero, e obbligarlo fa abbandonare il modulo a chi voleva solo una
+  /// risposta via email. NULL significa "non fornito", diverso da stringa
+  /// vuota, che sarebbe un numero vuoto.
+  phone      String?
   agencyName String?
   message    String
 

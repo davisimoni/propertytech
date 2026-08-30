@@ -27,13 +27,27 @@ const contactSchema = z.object({
     .toLowerCase()
     .email("Controlla l'indirizzo email")
     .max(200),
+  /**
+   * Facoltativo.
+   *
+   * Chi scrive dal modulo pubblico puo' non voler lasciare un numero, e
+   * obbligarlo fa abbandonare il modulo a chi voleva solo una risposta via
+   * email. Il campo resta validato *se* compilato: un numero sbagliato e'
+   * peggio di un numero assente, perche' fa provare a chiamare.
+   *
+   * `.or(z.literal(""))` perche' il modulo invia comunque la stringa vuota
+   * quando il campo non e' stato toccato, e un `.optional()` da solo la
+   * rifiuterebbe.
+   */
   phone: z
-    .string({ error: "Inserisci un numero di telefono" })
+    .string()
     .trim()
     .min(6, "Inserisci un numero di telefono valido")
     .max(30)
     // Cifre, spazi e i separatori che la gente usa davvero scrivendo un numero.
-    .regex(/^[+\d][\d\s().\-/]*$/, "Il telefono può contenere solo cifre e i simboli + ( ) - ."),
+    .regex(/^[+\d][\d\s().\-/]*$/, "Il telefono può contenere solo cifre e i simboli + ( ) - .")
+    .optional()
+    .or(z.literal("")),
   // Facoltativo: un'agenzia che chiede informazioni può non avere ancora un
   // nome da dare, e obbligarlo farebbe abbandonare il modulo.
   agencyName: z.string().trim().max(120).optional(),
@@ -92,7 +106,15 @@ export async function POST(request: Request) {
 
   try {
     await prisma.contactRequest.create({
-      data: { firstName, lastName, email, phone, agencyName: agencyName || null, message, ipHash },
+      data: {
+        firstName,
+        lastName,
+        email,
+        phone: phone || null,
+        agencyName: agencyName || null,
+        message,
+        ipHash,
+      },
     });
   } catch (error) {
     // Nessun dettaglio tecnico all'utente, e nel log niente messaggio: il testo
@@ -127,7 +149,7 @@ export async function POST(request: Request) {
     firstName,
     lastName,
     email,
-    phone,
+    phone: phone || null,
     agencyName,
     message,
   });
