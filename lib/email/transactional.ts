@@ -24,13 +24,19 @@ import { escapeHtml, renderEmail, renderEmailText, type EmailLayoutInput } from 
  * imprevisti.
  */
 
-async function invia(to: string, subject: string, layout: EmailLayoutInput): Promise<EmailOutcome> {
+async function invia(
+  to: string,
+  subject: string,
+  layout: EmailLayoutInput,
+  options?: { replyTo?: string }
+): Promise<EmailOutcome> {
   try {
     return await sendEmail({
       to,
       subject,
       text: renderEmailText(layout),
       html: renderEmail(layout),
+      ...(options?.replyTo ? { replyTo: options.replyTo } : {}),
     });
   } catch (error) {
     console.error("[email/transactional] Composizione o invio non riusciti", {
@@ -627,4 +633,65 @@ export function sendMandatesExpiringEmail(params: {
     blocks,
     cta: { label: "Apri il portafoglio", url: `${SITE_URL}/properties` },
   });
+}
+
+// --- M. Richieste dal modulo di contatto -------------------------------------
+
+/**
+ * Notifica all'assistenza una richiesta arrivata dal modulo pubblico.
+ *
+ * # Perché il destinatario è fisso e non configurabile
+ *
+ * Non è una notifica a un'agenzia: è posta interna, diretta alla nostra
+ * casella di assistenza. Renderla configurabile dall'ambiente significherebbe
+ * che una variabile mancante in produzione fa sparire le richieste dei
+ * potenziali clienti senza che nessuno se ne accorga — il guasto peggiore,
+ * perché silenzioso e visibile solo dal fatturato che non arriva.
+ *
+ * # Perché `replyTo` è il campo che conta
+ *
+ * L'email parte dall'indirizzo di servizio, che nessuno presidia. Chi in
+ * assistenza legge la richiesta e preme "Rispondi" deve scrivere all'agenzia
+ * che ha compilato il modulo: senza `replyTo` la risposta tornerebbe al
+ * mittente automatico e il contatto resterebbe senza risposta pur essendo
+ * arrivato.
+ */
+export function sendContactRequestEmail(params: {
+  to: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  agencyName?: string | null;
+  message: string;
+}): Promise<EmailOutcome> {
+  const nome = `${params.firstName} ${params.lastName}`.trim();
+  const agenzia = params.agencyName?.trim();
+
+  return invia(
+    params.to,
+    // L'oggetto porta nome e agenzia: in una casella condivisa si decide chi
+    // prende in carico una richiesta dall'elenco, senza aprirla.
+    `Richiesta dal sito — ${nome}${agenzia ? ` (${agenzia})` : ""}`,
+    {
+      heading: "Nuova richiesta dal modulo di contatto",
+      blocks: [
+        {
+          rows: [
+            { label: "Nome", value: escapeHtml(nome) },
+            ...(agenzia ? [{ label: "Agenzia", value: escapeHtml(agenzia) }] : []),
+            { label: "Email", value: escapeHtml(params.email) },
+            { label: "Telefono", value: escapeHtml(params.phone) },
+          ],
+        },
+        // Il messaggio è scritto da un estraneo e finisce dentro un'email HTML:
+        // passa da `escapeHtml` come tutto il resto, e gli a capo diventano
+        // `<br>` perché un testo di dieci righe non arrivi in un blocco solo.
+        { text: escapeHtml(params.message).replace(/\n/g, "<br>") },
+      ],
+      footnote:
+        "Rispondi a questa email per scrivere direttamente a chi ha compilato il modulo.",
+    },
+    { replyTo: params.email }
+  );
 }

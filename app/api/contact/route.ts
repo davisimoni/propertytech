@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { BRAND } from "@/lib/brand";
+import { sendContactRequestEmail } from "@/lib/email/transactional";
 import {
   clientIp,
   evaluateRateLimit,
@@ -99,10 +101,41 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: "save_failed",
-        message: "Non siamo riusciti a registrare la richiesta. Scrivici a info@propertytechsolutions.net.",
+        message: "Non siamo riusciti a registrare la richiesta. Scrivici a supporto@propertytechsolutions.net.",
       },
       { status: 502 }
     );
+  }
+
+  /*
+   * Recapito all'assistenza.
+   *
+   * Dopo il salvataggio e non al posto suo: la riga a database e' il registro
+   * che regge anche se il fornitore di posta e' fermo, ed e' cio' su cui si
+   * conta per il limite di invii. L'email e' la parte che fa arrivare la
+   * richiesta a una persona.
+   *
+   * L'esito non cambia la risposta al mittente. Chi ha compilato il modulo ha
+   * fatto la sua parte e il messaggio e' registrato: restituirgli un errore lo
+   * porterebbe a reinviare, generando un doppione e — al terzo tentativo — il
+   * limite di frequenza, cioe' un rifiuto per una cosa che aveva gia'
+   * funzionato. L'anomalia resta nei log, dove la puo' vedere chi la puo'
+   * risolvere.
+   */
+  const esito = await sendContactRequestEmail({
+    to: BRAND.supportEmail,
+    firstName,
+    lastName,
+    email,
+    phone,
+    agencyName,
+    message,
+  });
+
+  if (esito !== "sent") {
+    // Nessun contenuto del messaggio nel log: e' un dato personale. Basta
+    // sapere che una richiesta e' a database e non e' stata notificata.
+    console.error("[api/contact] Richiesta salvata ma non notificata", { esito });
   }
 
   return NextResponse.json({ ok: true }, { status: 201 });

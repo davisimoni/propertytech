@@ -5,7 +5,6 @@ import { FaqSection } from "@/components/landing/faq-section";
 import { SupportWidget } from "@/components/support/support-widget";
 import { ContactSection } from "@/components/landing/contact-section";
 import {
-  CostSection,
   HeroSection,
   ProblemSection,
   SolutionSection,
@@ -15,7 +14,6 @@ import { PricingSection } from "@/components/landing/pricing-section";
 import { StatsSection } from "@/components/landing/stats-section";
 import { HowItWorksSection } from "@/components/landing/how-it-works-section";
 import { TrustSection } from "@/components/landing/trust-section";
-import { FinalCtaSection } from "@/components/landing/final-cta-section";
 import { buildStructuredData, SEO } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -52,7 +50,6 @@ export default async function LandingPage() {
             prima dei problemi, così sa già cosa sta valutando. */}
         <StatsSection />
         <ProblemSection />
-        <CostSection />
         <SolutionSection />
         {/* Dopo i moduli e prima dei prezzi: chi ha capito cosa fa la
             piattaforma vuole sapere quanto lavoro gli costa, prima di
@@ -68,10 +65,6 @@ export default async function LandingPage() {
             senza convertirsi ha una domanda specifica, e questo è il punto in
             cui gliela si può far scrivere. */}
         <ContactSection />
-        {/* Ultimo invito: chi arriva qui ha letto tutto e si trova a fondo
-            pagina, dove l'unica cosa raggiungibile sarebbe il footer.
-            Rimandarlo in cima per cliccare e' attrito pagato per niente. */}
-        <FinalCtaSection isLoggedIn={Boolean(session?.user)} />
       </main>
       <LandingFooter />
       <SupportWidget />

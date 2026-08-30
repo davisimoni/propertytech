@@ -51,6 +51,17 @@ export interface EmailMessage {
   text: string;
   /** Corpo HTML facoltativo, per le email che hanno bisogno di un pulsante. */
   html?: string;
+  /**
+   * Indirizzo a cui deve andare la risposta, quando non e' il mittente.
+   *
+   * Serve alle email che riportano il messaggio di un terzo: una richiesta dal
+   * modulo di contatto arriva dall'indirizzo di servizio, ma chi in assistenza
+   * preme "Rispondi" vuole scrivere a chi ha compilato il modulo, non alla
+   * casella che ha spedito la notifica. Senza questo campo la risposta finisce
+   * a un mittente che nessuno legge, e la richiesta resta senza risposta pur
+   * essendo arrivata.
+   */
+  replyTo?: string;
 }
 
 /** Vero quando il seam e' configurato: la UI puo' dire se le notifiche partiranno. */
@@ -90,6 +101,7 @@ export async function sendEmail(message: EmailMessage): Promise<EmailOutcome> {
         subject: message.subject,
         text: message.text,
         ...(message.html ? { html: message.html } : {}),
+        ...(message.replyTo ? { reply_to: message.replyTo } : {}),
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });

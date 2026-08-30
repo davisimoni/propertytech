@@ -74,7 +74,7 @@ export function evaluateRateLimit(recentFromIp: number, recentFromEmail: number)
     return {
       allowed: false,
       message:
-        "Abbiamo già ricevuto la tua richiesta e ti risponderemo a breve. Se è urgente scrivici a info@propertytechsolutions.net.",
+        "Abbiamo già ricevuto la tua richiesta e ti risponderemo a breve. Se è urgente scrivici a supporto@propertytechsolutions.net.",
     };
   }
 
@@ -82,7 +82,7 @@ export function evaluateRateLimit(recentFromIp: number, recentFromEmail: number)
     return {
       allowed: false,
       message:
-        "Hai inviato troppe richieste ravvicinate. Riprova fra un'ora oppure scrivici a info@propertytechsolutions.net.",
+        "Hai inviato troppe richieste ravvicinate. Riprova fra un'ora oppure scrivici a supporto@propertytechsolutions.net.",
     };
   }
 

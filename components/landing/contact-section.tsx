@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Clock, Loader2, Mail, Send, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BRAND } from "@/lib/brand";
 
 /**
  * Sezione "Contatti" della landing pubblica.
@@ -13,7 +14,9 @@ import { cn } from "@/lib/utils";
  * clienti finali (CLAUDE.md §1).
  */
 
-const CONTACT_EMAIL = "info@propertytechsolutions.net";
+// Casella dell'assistenza, non quella generale: chi scrive da qui ha una
+// domanda sul prodotto, e la risposta deve arrivare da chi lo conosce.
+const CONTACT_EMAIL = BRAND.supportEmail;
 
 interface FieldErrors {
   [key: string]: string | undefined;

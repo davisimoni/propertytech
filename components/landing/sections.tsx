@@ -1,20 +1,17 @@
 import Link from "next/link";
 import {
-  AlarmClock,
   ArrowRight,
   Check,
-  Clock,
   FileSearch2,
   FileSignature,
   MessagesSquare,
   Mic,
   MoonStar,
-  PenLine,
   Radar,
   Share2,
   Sparkles,
-  TrendingDown,
   UserX,
+  X,
 } from "lucide-react";
 import { LogoMark } from "@/components/brand/logo";
 import { Reveal } from "@/components/landing/reveal";
@@ -56,19 +53,16 @@ export function HeroSection() {
         </span>
 
         <h1 className="mt-6 text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
-          Filtra i curiosi su WhatsApp,
-          <span className="bg-brand-gradient bg-clip-text text-transparent">
-            {" "}
-            acquisisci più incarichi
-          </span>{" "}
-          e chiudi le trattative in metà tempo
+          La piattaforma AI che qualifica i lead WhatsApp
+          <span className="bg-brand-gradient bg-clip-text text-transparent"> 24 ore su 24</span> e
+          trasforma le visure in schede immobile
         </h1>
 
         <p className="mx-auto mt-5 max-w-2xl text-base text-muted-foreground sm:text-lg">
-          Ogni notizia che arriva dai portali riceve risposta in pochi secondi e ti torna già
-          qualificata: chi ha il mutuo, chi deve vendere prima, chi vuole solo guardare. Nel
-          frattempo le visure diventano schede pronte, gli annunci si scrivono da soli e il
-          proprietario riceve il report dopo ogni visita.
+          Ogni richiesta da Immobiliare.it, Idealista e Casa.it riceve risposta in pochi secondi e
+          ti torna con mutuo, tempistiche e vincoli già verificati, pronta da inoltrare al tuo
+          gestionale. Le visure diventano dati catastali in chiaro e ogni acquirente viene
+          incrociato con il tuo portafoglio.
         </p>
 
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -76,58 +70,71 @@ export function HeroSection() {
             href="/register"
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-gradient px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:shadow-lg hover:brightness-110 sm:w-auto"
           >
-            Prova gratis
+            Attiva la prova gratuita
             <ArrowRight className="h-4 w-4" />
           </Link>
           <Link
-            href="#moduli"
+            href="#come-funziona"
             className="inline-flex w-full items-center justify-center rounded-xl border border-border px-6 py-3 text-sm font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted sm:w-auto"
           >
-            Guarda cosa fa
+            Vedi come funziona
           </Link>
         </div>
 
         {/* Le tre obiezioni che fermano un agente prima di cliccare: quanto mi
             costa, quanto tempo mi ruba, dove finiscono i dati dei miei clienti. */}
         <ul className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
-          {[
-            "Nessuna carta di credito",
-            "Attivo in 2 minuti",
-            "Conforme al GDPR, dati in UE",
-          ].map((item) => (
-            <li key={item} className="inline-flex items-center gap-1.5">
-              <Check className="h-3.5 w-3.5 shrink-0 text-status-qualified" aria-hidden="true" />
-              {item}
-            </li>
-          ))}
+          {["Nessuna carta di credito", "Attivo in 2 minuti", "Conforme al GDPR, dati in UE"].map(
+            (item) => (
+              <li key={item} className="inline-flex items-center gap-1.5">
+                <Check className="h-3.5 w-3.5 shrink-0 text-status-qualified" aria-hidden="true" />
+                {item}
+              </li>
+            )
+          )}
         </ul>
       </div>
     </section>
   );
 }
 
-/* ─────────────────────── 2. Il problema ─────────────────────── */
+/* ─────────────────── 2. Prima e dopo ─────────────────── */
 
-const PAIN_POINTS = [
+/**
+ * Il confronto fra la giornata di oggi e quella con la piattaforma attiva.
+ *
+ * # Perché appaiate e non due elenchi separati
+ *
+ * Un elenco di problemi e, più sotto, un elenco di funzioni obbligano il
+ * lettore a tenere a mente il primo mentre legge il secondo, per capire quale
+ * risposta corrisponde a quale problema. Sulla stessa riga il collegamento è
+ * già fatto, e l'agente riconosce la propria giornata prima di leggere cosa
+ * gli si propone.
+ */
+const BEFORE_AFTER = [
   {
     icon: MoonStar,
-    title: "Le richieste arrivano di sera e la domenica",
-    body: "Su Immobiliare.it e Idealista i contatti scrivono dopo cena e nel weekend, quando l'ufficio è chiuso. Lunedì mattina richiami e l'acquirente ha già visitato con un'altra agenzia.",
-  },
-  {
-    icon: FileSearch2,
-    title: "Un pomeriggio perso su una visura",
-    body: "Foglio, particella, subalterno, quote, rendita, difformità: da decifrare su PDF scansionati male e ricopiare a mano. Un numero sbagliato in un preliminare può costarti l'affare.",
-  },
-  {
-    icon: PenLine,
-    title: "Ogni immobile va riscritto da zero",
-    body: "Testo per il portale, post per Instagram, idea per il Reel: due ore per ogni acquisizione. Ore sottratte agli appuntamenti che ti farebbero firmare il prossimo mandato.",
+    topic: "Le richieste dai portali",
+    before:
+      "Arrivano dopo cena e nel weekend su Immobiliare.it e Idealista. Lunedì richiami e l'acquirente ha già visitato con un'altra agenzia.",
+    after:
+      "Ricevono risposta in pochi secondi a qualsiasi ora, anche mentre sei in visita. Il contatto resta caldo finché non lo prendi in mano tu.",
   },
   {
     icon: UserX,
-    title: "Il proprietario non sa cosa sta succedendo",
-    body: "Dopo le visite nessuno lo aggiorna. Si convince che non stiate lavorando, inizia a sentire altre agenzie e alla scadenza non rinnova.",
+    topic: "Gli appuntamenti",
+    before:
+      "Visite fissate al buio con chi non ha capienza economica né una tempistica. Un sabato mattina speso con chi stava solo guardando.",
+    after:
+      "L'assistente verifica mutuo, immobile da vendere prima di comprare e tempi d'acquisto prima di proporre un orario della tua agenda.",
+  },
+  {
+    icon: FileSearch2,
+    topic: "Visure e portafoglio",
+    before:
+      "Foglio, particella, subalterno e rendita ricopiati a mano da PDF scansionati male. Gli acquirenti in archivio nessuno li rilegge.",
+    after:
+      "Carichi il PDF e ricevi i dati catastali in chiaro. Ogni acquirente viene incrociato con il portafoglio: ti arrivano solo gli abbinamenti sopra l'80%.",
   },
 ];
 
@@ -136,22 +143,59 @@ export function ProblemSection() {
     <section className="border-t border-border bg-muted/30 py-20">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading
-          eyebrow="Il problema"
-          title="Passi più tempo a compilare che ad acquisire"
-          subtitle="Non è una questione di impegno. È che le attività ripetitive occupano proprio le ore in cui potresti chiudere mandati."
+          eyebrow="Prima e dopo"
+          title="La stessa giornata, con e senza assistente"
+          subtitle="Tre attività che oggi occupano le ore in cui potresti acquisire mandati."
         />
 
-        <div className="mt-12 grid gap-4 sm:grid-cols-2">
-          {PAIN_POINTS.map((point) => {
-            const Icon = point.icon;
+        {/* Intestazioni di colonna solo da tablet in su: sul telefono le due
+            metà sono impilate e portano già la propria etichetta, quindi una
+            riga di intestazione descriverebbe colonne che lì non esistono. */}
+        <div className="mt-12 hidden gap-4 md:grid md:grid-cols-2">
+          <p className="text-xs font-semibold uppercase tracking-widest text-status-blocked">
+            Oggi
+          </p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-status-qualified">
+            Con PropertyTech
+          </p>
+        </div>
+
+        <div className="mt-4 space-y-4">
+          {BEFORE_AFTER.map((riga, index) => {
+            const Icon = riga.icon;
             return (
-              <div key={point.title} className="rounded-xl border border-border bg-card p-4 md:p-5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-status-blocked/10 text-status-blocked">
-                  <Icon className="h-5 w-5" />
+              <Reveal key={riga.topic} delayMs={index * 80}>
+                <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <h3 className="text-sm font-semibold text-foreground">{riga.topic}</h3>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <div className="rounded-lg border border-status-blocked/25 bg-status-blocked/5 p-3.5">
+                      <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-status-blocked md:hidden">
+                        <X className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                        Oggi
+                      </p>
+                      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground md:mt-0">
+                        {riga.before}
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg border border-status-qualified/30 bg-status-qualified/5 p-3.5">
+                      <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-status-qualified md:hidden">
+                        <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                        Con PropertyTech
+                      </p>
+                      <p className="mt-1.5 text-sm leading-relaxed text-foreground md:mt-0">
+                        {riga.after}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="mt-4 text-sm font-semibold text-foreground">{point.title}</h3>
-                <p className="mt-1.5 text-sm text-muted-foreground">{point.body}</p>
-              </div>
+              </Reveal>
             );
           })}
         </div>
@@ -160,142 +204,85 @@ export function ProblemSection() {
   );
 }
 
-/* ──────────────── 3. Il costo dell'inazione ──────────────── */
+/* ─────────────────── 3. I quattro pilastri ─────────────────── */
 
-const COSTS = [
-  {
-    icon: AlarmClock,
-    stat: "Chi risponde per primo",
-    title: "La visita se la prende il concorrente",
-    body: "Un acquirente che scrive a tre agenzie fissa con quella che risponde subito. Se ti muovi il giorno dopo, quella provvigione l'hai già persa — e non te ne accorgi nemmeno.",
-  },
-  {
-    icon: Clock,
-    stat: "Ogni settimana",
-    title: "Ore di burocrazia al posto di acquisizioni",
-    body: "Il tempo speso su visure e annunci non compare in nessun bilancio. Si vede nei mandati che non hai firmato perché eri alla scrivania invece che da un proprietario.",
-  },
-  {
-    icon: TrendingDown,
-    stat: "Alla scadenza",
-    title: "Mandati che non si rinnovano",
-    body: "Un venditore lasciato senza riscontri conclude che non state facendo abbastanza. Il mandato scade, passa a un'altra agenzia e l'immobile lo vende qualcun altro.",
-  },
-];
-
-export function CostSection() {
-  return (
-    <section className="py-20">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <SectionHeading
-          eyebrow="Cosa ti costa aspettare"
-          title="L'agenzia che automatizza non lavora di più: arriva prima"
-          subtitle="Ogni mese che passa è fatturato che si sposta verso il concorrente più veloce."
-        />
-
-        <div className="mt-12 grid gap-4 md:grid-cols-3">
-          {COSTS.map((cost) => {
-            const Icon = cost.icon;
-            return (
-              <div
-                key={cost.title}
-                className="rounded-xl border border-status-pending/30 bg-status-pending/5 p-5"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-status-pending/15 text-status-pending">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <p className="mt-4 text-lg font-bold text-foreground">{cost.stat}</p>
-                <h3 className="mt-1 text-sm font-semibold text-foreground">{cost.title}</h3>
-                <p className="mt-1.5 text-sm text-muted-foreground">{cost.body}</p>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ─────────────────── 4. La soluzione ─────────────────── */
-
-const MODULES = [
+/**
+ * I quattro moduli su cui si regge la giornata dell'agente.
+ *
+ * Sono quattro e non sei perché una pagina che presenta ogni funzione con lo
+ * stesso peso non ne fa ricordare nessuna. Gli altri due moduli restano più
+ * sotto, in forma compatta: il listino li vende — il Social Multiplier è una
+ * riga del piano Enterprise — e una funzione che compare nel prezzo senza
+ * essere spiegata da nessuna parte è una domanda in più prima di comprare.
+ */
+const PILLARS = [
   {
     number: "01",
     slug: "modulo-whatsapp",
     icon: MessagesSquare,
-    title: "Filtro notizie su WhatsApp, 24 ore su 24",
+    title: "Qualifica su WhatsApp, 24 ore su 24",
     tag: "Sempre attiva",
-    body: "Ogni notizia da Immobiliare.it, Idealista e Casa.it riceve risposta in pochi secondi, anche di notte e la domenica. Capisce chi ha il mutuo deliberato, chi deve vendere prima di comprare e in quanto tempo vuole chiudere — poi propone direttamente gli orari liberi della tua agenda.",
+    body: "Ogni richiesta da Immobiliare.it, Idealista e Casa.it riceve risposta in pochi secondi, anche di notte e la domenica. L'assistente chiede se il mutuo è deliberato o l'acquisto è in liquidità, se c'è un immobile da vendere prima e in quanto tempo si vuole chiudere. Poi propone gli orari liberi della tua agenda.",
     points: [
-      "Il curioso lo filtra lei, tu chiami solo chi compra",
-      "Lead qualificati con mutuo, tempistiche e vincoli",
-      "Appuntamento in agenda senza che tu faccia nulla",
+      "Mutuo o liquidità, immobile da vendere, tempistica d'acquisto",
+      "Appuntamento fissato in agenda senza che tu intervenga",
+      "Il lead qualificato viene inoltrato al tuo gestionale",
     ],
   },
   {
     number: "02",
-    slug: "modulo-matching",
-    icon: Radar,
-    title: "Il portafoglio si incrocia da solo con i clienti",
-    tag: "In tempo reale",
-    body: "Appena un contatto finisce di dirti cosa cerca, la piattaforma passa in rassegna tutti gli immobili che hai a catalogo e ti manda quelli che corrispondono davvero. Funziona anche al contrario: carichi una nuova acquisizione e scopri subito chi in archivio la stava aspettando.",
-    points: [
-      "Solo gli abbinamenti sopra l'80%: nessuna lista da spulciare",
-      "Proponi la casa su WhatsApp con un tocco, testo già pronto",
-      "Gli immobili senza mandato valido restano fuori dalle proposte",
-    ],
-  },
-  {
-    number: "03",
     slug: "modulo-visure",
     icon: FileSearch2,
-    title: "Visure e atti letti al posto tuo",
+    title: "Lettura di visure e atti",
     tag: "In pochi secondi",
-    body: "Carichi il PDF della visura, della planimetria, dell'atto o dell'APE e ricevi proprietari, quote, foglio, particella, subalterno, categoria e rendita già in chiaro, più due righe su cosa manca o non torna. Dieci pagine scansionate male diventano una scheda pronta per l'acquisizione.",
+    body: "Carichi il PDF della visura, della planimetria, dell'atto di provenienza o dell'APE e ricevi intestatari, quote di proprietà, foglio, particella, subalterno, categoria e rendita catastale già in chiaro, più due righe su cosa manca o non torna. Dieci pagine scansionate male diventano una scheda pronta per l'acquisizione.",
     points: [
-      "Niente dati catastali ricopiati a mano",
-      "Ti segnala subito difformità e documenti mancanti",
+      "Foglio, particella, subalterno, rendita e intestatari compilati",
+      "Difformità e documenti mancanti segnalati subito",
       "Scheda in PDF con il tuo logo, pronta per il cliente",
     ],
   },
   {
-    number: "04",
-    slug: "modulo-annunci",
-    icon: Share2,
-    title: "Un incarico, tutti i canali pronti",
-    tag: "3 formati insieme",
-    body: "Scrivi quattro righe sull'immobile — o incolli il link di un annuncio esistente — e ottieni con un clic il testo per i portali, il post per Instagram e Facebook con gli hashtag della tua zona e lo script del Reel scena per scena. L'immobile entra in portafoglio e parte lo Smart Matching con i tuoi lead.",
+    number: "03",
+    slug: "modulo-matching",
+    icon: Radar,
+    title: "Matchmaking bidirezionale",
+    tag: "In tempo reale",
+    body: "Appena un contatto finisce di dire cosa cerca, la piattaforma passa in rassegna l'intero portafoglio dell'agenzia e ti segnala gli immobili che corrispondono davvero. Funziona anche al contrario: carichi una nuova acquisizione e scopri subito chi in archivio la stava aspettando.",
     points: [
-      "Da due ore a due minuti per ogni acquisizione",
-      "Feed XML pronto per il caricamento sui portali",
-      "L'immobile si abbina da solo ai clienti in archivio",
+      "Solo gli abbinamenti sopra l'80%: nessuna lista da spulciare",
+      "Proponi l'immobile su WhatsApp con un tocco, testo già pronto",
+      "Gli immobili senza incarico valido restano fuori dalle proposte",
     ],
   },
   {
-    number: "05",
+    number: "04",
     slug: "modulo-report",
     icon: Mic,
-    title: "Il proprietario aggiornato dopo ogni visita",
+    title: "Report vocali post-visita",
     tag: "Piano Enterprise",
-    body: "Appena finita la visita parli 30 secondi al telefono, come faresti con un collega. Ricevi un report professionale per il proprietario, con i commenti dei visitatori riformulati in modo chiaro ma mai offensivo, pronto da mandare su WhatsApp. È quello che fa rinnovare il mandato alla scadenza.",
+    body: "Appena finita la visita detti una nota vocale di trenta secondi, come faresti con un collega. L'assistente la trascrive e ne ricava un report professionale per il proprietario, con i commenti dei visitatori riformulati in modo chiaro ma mai offensivo, pronto da mandare su WhatsApp.",
     points: [
       "Racconti la visita a voce, senza scrivere una riga",
       "Il proprietario vede che stai lavorando sul suo immobile",
-      "Report con il tuo logo, inviato con un tocco",
+      "È quello che fa rinnovare il mandato alla scadenza",
     ],
   },
+];
+
+/** Moduli inclusi nei piani ma non fra i pilastri: presentati in breve. */
+const ALSO_INCLUDED = [
   {
-    number: "06",
+    slug: "modulo-annunci",
+    icon: Share2,
+    title: "Annunci e social, tutti i canali insieme",
+    body: "Quattro righe sull'immobile e ottieni il testo per i portali, il post per Instagram e Facebook e lo script del Reel. Con il feed XML pronto per il caricamento sui portali.",
+  },
+  {
     slug: "modulo-incarichi",
     icon: FileSignature,
-    title: "Nessun incarico ti scade più alle spalle",
-    tag: "Controllo quotidiano",
-    body: "Registri tipo di mandato, scadenza, provvigione concordata e dove sono le chiavi. Ogni mattina la piattaforma controlla il portafoglio e ti scrive quali incarichi stanno per scadere, a 60 e a 30 giorni — con il tempo per richiamare il proprietario prima che ci pensi un'altra agenzia.",
-    points: [
-      "Avviso via email prima della scadenza, non dopo",
-      "Provvigione e ubicazione chiavi sempre in scheda",
-      "Un incarico scaduto esce da solo dai portali",
-    ],
+    title: "Incarichi con avviso di scadenza",
+    body: "Tipo di mandato, scadenza, provvigione concordata e ubicazione delle chiavi in scheda. Avviso via email a 60 e a 30 giorni, e un incarico scaduto esce da solo dai portali.",
   },
 ];
 
@@ -306,10 +293,10 @@ export function SolutionSection() {
         <div className="mx-auto max-w-2xl text-center">
           <LogoMark className="mx-auto h-12 w-12" gradientId="pt-solution" />
           <span className="mt-4 block text-xs font-semibold uppercase tracking-widest text-primary">
-            La soluzione
+            Funzioni chiave
           </span>
           <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Sei assistenti che lavorano per la tua agenzia
+            Quattro pilastri operativi
           </h2>
           <p className="mt-3 text-muted-foreground">
             Ognuno si prende un compito che oggi ti ruba tempo e te lo restituisce già fatto.
@@ -317,7 +304,7 @@ export function SolutionSection() {
         </div>
 
         <div className="mt-12 grid gap-4 lg:grid-cols-2">
-          {MODULES.map((module, index) => {
+          {PILLARS.map((module, index) => {
             const Icon = module.icon;
             return (
               // Sfalsamento leggero fra le card: entrano in sequenza invece che
@@ -329,33 +316,56 @@ export function SolutionSection() {
                   id={module.slug}
                   className="flex w-full scroll-mt-20 flex-col rounded-xl border border-border bg-card p-6"
                 >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-sm">
-                    <Icon className="h-5 w-5" />
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-sm">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                        {module.tag}
+                      </span>
+                      <span className="text-2xl font-bold text-muted-foreground/25">
+                        {module.number}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                      {module.tag}
-                    </span>
-                    <span className="text-2xl font-bold text-muted-foreground/25">
-                      {module.number}
-                    </span>
-                  </div>
-                </div>
 
-                <h3 className="mt-4 text-base font-semibold text-foreground">{module.title}</h3>
-                <p className="mt-2 flex-1 text-sm text-muted-foreground">{module.body}</p>
+                  <h3 className="mt-4 text-base font-semibold text-foreground">{module.title}</h3>
+                  <p className="mt-2 flex-1 text-sm text-muted-foreground">{module.body}</p>
 
-                <ul className="mt-4 space-y-1.5">
-                  {module.points.map((point) => (
-                    <li key={point} className="flex items-center gap-2 text-sm text-foreground">
-                      <Check className="h-4 w-4 shrink-0 text-status-qualified" />
-                      {point}
-                    </li>
-                  ))}
-                </ul>
+                  <ul className="mt-4 space-y-1.5">
+                    {module.points.map((point) => (
+                      <li key={point} className="flex items-center gap-2 text-sm text-foreground">
+                        <Check className="h-4 w-4 shrink-0 text-status-qualified" />
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </Reveal>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          {ALSO_INCLUDED.map((modulo) => {
+            const Icon = modulo.icon;
+            return (
+              <div
+                key={modulo.slug}
+                id={modulo.slug}
+                className="flex scroll-mt-20 items-start gap-3 rounded-xl border border-border bg-card/60 p-5"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Icon className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-foreground">{modulo.title}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                    {modulo.body}
+                  </p>
+                </div>
+              </div>
             );
           })}
         </div>
