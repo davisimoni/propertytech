@@ -10,6 +10,7 @@ import {
   MoonStar,
   Radar,
   Share2,
+  ShieldCheck,
   Sparkles,
   UserX,
   X,
@@ -175,7 +176,7 @@ export function ProblemSection() {
                   </div>
 
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <div className="rounded-lg border border-status-blocked/25 bg-status-blocked/5 p-3.5">
+                    <div className="rounded-lg border border-status-blocked/35 bg-status-blocked/10 p-3.5">
                       <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-status-blocked md:hidden">
                         <X className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                         Oggi
@@ -185,7 +186,12 @@ export function ProblemSection() {
                       </p>
                     </div>
 
-                    <div className="rounded-lg border border-status-qualified/30 bg-status-qualified/5 p-3.5">
+                    {/* La meta' "dopo" e' quella che deve saltare all'occhio: bordo
+                        pieno e alone, contro il riquadro spento del "prima".
+                        Su telefono le due card sono impilate e si leggono una
+                        dopo l'altra, quindi il contrasto e' l'unica cosa che
+                        dice quale delle due e' la situazione desiderabile. */}
+                    <div className="rounded-lg border border-status-qualified bg-status-qualified/10 p-3.5 shadow-sm ring-1 ring-status-qualified/20">
                       <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-status-qualified md:hidden">
                         <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                         Con PropertyTech
@@ -216,7 +222,19 @@ export function ProblemSection() {
  * riga del piano Enterprise — e una funzione che compare nel prezzo senza
  * essere spiegata da nessuna parte è una domanda in più prima di comprare.
  */
-const PILLARS = [
+interface Pillar {
+  number: string;
+  slug: string;
+  icon: typeof MessagesSquare;
+  title: string;
+  tag: string;
+  body: string;
+  points: string[];
+  /** Riga in evidenza sotto i punti: presente solo dove toglie un'obiezione. */
+  highlight?: string;
+}
+
+const PILLARS: Pillar[] = [
   {
     number: "01",
     slug: "modulo-whatsapp",
@@ -230,6 +248,8 @@ const PILLARS = [
       "Subentri tu con un clic: l'assistente si ferma su quella chat",
       "Appuntamento in agenda e lead inoltrato al tuo gestionale",
     ],
+    highlight:
+      "I tuoi lead restano tuoi: non devi cambiare gestionale né migrare i tuoi dati.",
   },
   {
     number: "02",
@@ -343,6 +363,16 @@ export function SolutionSection() {
                       </li>
                     ))}
                   </ul>
+
+                  {module.highlight && (
+                    <p className="mt-4 flex items-start gap-2 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2.5 text-sm font-medium text-foreground">
+                      <ShieldCheck
+                        className="mt-0.5 h-4 w-4 shrink-0 text-primary"
+                        aria-hidden="true"
+                      />
+                      {module.highlight}
+                    </p>
+                  )}
                 </div>
               </Reveal>
             );
