@@ -83,7 +83,21 @@ export function CookieNotice({
       // reader che deve occuparsene prima di proseguire, il che non è vero.
       role="region"
       aria-label="Informativa sui cookie"
-      className="animate-rise-in fixed inset-x-3 bottom-3 z-50 sm:inset-x-auto sm:right-4 sm:bottom-4 sm:max-w-sm"
+      /*
+       * In basso a SINISTRA, e non a destra dove sta il pulsante della chat.
+       *
+       * La separazione e' orizzontale di proposito. Un margine verticale
+       * calcolato sull'altezza del pulsante — "stai sopra i 56 pixel del
+       * widget" — funzionerebbe finche' nessuno tocca quel widget, e si
+       * romperebbe in silenzio al primo ritocco. Due colonne distinte non
+       * dipendono dall'altezza di niente.
+       *
+       * Su mobile il riquadro resta ancorato a sinistra ma lascia libera la
+       * colonna destra: il pulsante della chat li' e' piu' in alto
+       * (`bottom-24`, per scavalcare la barra di navigazione), e senza questo
+       * limite il banner gli passerebbe sotto crescendo in altezza.
+       */
+      className="animate-rise-in fixed bottom-3 left-3 z-50 max-w-[calc(100%-5.5rem)] sm:bottom-5 sm:left-5 sm:max-w-sm"
     >
       <div className="rounded-xl border border-border bg-card p-4 shadow-lg">
         <div className="flex items-start gap-3">
