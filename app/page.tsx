@@ -8,6 +8,7 @@ import {
   HeroSection,
   ProblemSection,
   SolutionSection,
+  AcquisitionSection,
 } from "@/components/landing/sections";
 import { LandingFooter } from "@/components/landing/site-footer";
 import { PricingSection } from "@/components/landing/pricing-section";
@@ -51,6 +52,10 @@ export default async function LandingPage() {
         <StatsSection />
         <ProblemSection />
         <SolutionSection />
+        {/* Il lato acquisizione ha una sezione propria: risponde a una
+            domanda diversa da quella dei moduli — non "cosa fa per i miei
+            acquirenti" ma "cosa mi porta in acquisizione". */}
+        <AcquisitionSection />
         {/* Dopo i moduli e prima dei prezzi: chi ha capito cosa fa la
             piattaforma vuole sapere quanto lavoro gli costa, prima di
             guardare quanto costa in euro. */}

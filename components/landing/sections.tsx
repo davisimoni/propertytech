@@ -353,7 +353,25 @@ export function SolutionSection() {
                   </div>
 
                   <h3 className="mt-4 text-base font-semibold text-foreground">{module.title}</h3>
-                  <p className="mt-2 flex-1 text-sm text-muted-foreground">{module.body}</p>
+                  {/*
+                    Niente `flex-1` qui.
+                    Con quello, il paragrafo si prendeva tutto lo spazio
+                    avanzato nella card: la 02, non avendo il banner in fondo,
+                    ne aveva di piu' e spingeva il proprio elenco piu' in basso
+                    di quello della 01, a parita' di riga.
+
+                    `lg:min-h` da' invece a tutti i paragrafi la stessa altezza
+                    dove la griglia e' a due colonne, cosi' gli elenchi partono
+                    dalla stessa quota. Sotto `lg` le card sono impilate e non
+                    c'e' niente da allineare, quindi il vincolo non si applica
+                    e non lascia spazio vuoto sul telefono. Il valore copre il
+                    corpo piu' lungo (~6 righe a questa larghezza) con una riga
+                    di margine: se un testo cresce oltre, la card si allunga da
+                    se' — l'allineamento si perde, il testo non si taglia.
+                  */}
+                  <p className="mt-2 text-sm text-muted-foreground lg:min-h-[8.75rem]">
+                    {module.body}
+                  </p>
 
                   <ul className="mt-4 space-y-1.5">
                     {module.points.map((point) => (
@@ -365,7 +383,7 @@ export function SolutionSection() {
                   </ul>
 
                   {module.highlight && (
-                    <p className="mt-4 flex items-start gap-2 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2.5 text-sm font-medium text-foreground">
+                    <p className="mt-5 flex items-start gap-2 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2.5 text-sm font-medium text-foreground">
                       <ShieldCheck
                         className="mt-0.5 h-4 w-4 shrink-0 text-primary"
                         aria-hidden="true"
@@ -379,77 +397,103 @@ export function SolutionSection() {
           })}
         </div>
 
-        {/*
-          Il lato acquisizione, fra i pilastri e i moduli secondari.
-          Sta qui e non in una card perché non è un settimo modulo: è ciò che
-          i quattro pilastri producono di riflesso, e per un titolare è la voce
-          che pesa di più — un acquirente porta una provvigione, un mandato ne
-          porta una e apre il portafoglio.
-        */}
-        <div className="mt-10 rounded-2xl border border-primary/25 bg-primary/5 p-6 sm:p-8">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-sm">
-              <Home className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <h3 className="text-base font-semibold text-foreground sm:text-lg">
-                Intercetta chi vuole valutare o vendere casa prima della concorrenza
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Chi scrive per comprare ha spesso una casa da vendere, e non lo dice finché nessuno
-                glielo chiede. La domanda è già dentro la qualificazione: da quella risposta il
-                contatto viene marcato{" "}
-                <strong className="font-semibold text-foreground">Venditore Singolo</strong>, e
-                diventa{" "}
-                <strong className="font-semibold text-foreground">
-                  Investitore / Multi-Proprietario
-                </strong>{" "}
-                quando una visura che carichi — o il tuo inserimento in scheda — mostra che gli
-                immobili sono più di uno. Lo richiami per la valutazione mentre gli altri stanno
-                ancora rispondendo al primo messaggio.
-              </p>
-              <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-                {[
-                  "Il potenziale venditore emerge dalla stessa conversazione",
-                  "Nessuna domanda in più al cliente: il dato passava già di lì",
-                  "Ordini l'elenco per portafoglio e i più promettenti salgono in cima",
-                  "L'incrocio con le visure te lo propone, non lo decide da solo",
-                ].map((voce) => (
-                  <li key={voce} className="flex items-start gap-2 text-sm text-foreground">
-                    <Check
-                      className="mt-0.5 h-4 w-4 shrink-0 text-status-qualified"
-                      aria-hidden="true"
-                    />
-                    {voce}
-                  </li>
-                ))}
-              </ul>
-            </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────── 4. Acquisizioni e moduli inclusi ─────────────────── */
+
+/**
+ * Il lato venditore, in una sezione propria.
+ *
+ * # Perché staccata dai quattro pilastri
+ *
+ * I pilastri rispondono alla domanda "cosa fa per i miei acquirenti". Questa
+ * risponde a una domanda diversa — "cosa mi porta in acquisizione" — ed è
+ * quella che per un titolare vale di più: un acquirente porta una provvigione,
+ * un mandato ne porta una e apre il portafoglio.
+ *
+ * Tenerla in fondo alla sezione precedente la faceva leggere come una coda dei
+ * moduli, cioè come la parte che si salta. Sfondo diverso da quello attenuato
+ * dei pilastri e respiro verticale doppio: sono i due segnali che dicono
+ * "questa è un'altra cosa" senza bisogno di un titolo che lo annunci.
+ */
+export function AcquisitionSection() {
+  return (
+    <section className="border-t border-border py-20 sm:py-24">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      {/*
+        Il lato acquisizione, fra i pilastri e i moduli secondari.
+        Sta qui e non in una card perché non è un settimo modulo: è ciò che
+        i quattro pilastri producono di riflesso, e per un titolare è la voce
+        che pesa di più — un acquirente porta una provvigione, un mandato ne
+        porta una e apre il portafoglio.
+      */}
+      <div className="rounded-2xl border border-primary/25 bg-primary/5 p-6 sm:p-8">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-sm">
+            <Home className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h3 className="text-base font-semibold text-foreground sm:text-lg">
+              Intercetta chi vuole valutare o vendere casa prima della concorrenza
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Chi scrive per comprare ha spesso una casa da vendere, e non lo dice finché nessuno
+              glielo chiede. La domanda è già dentro la qualificazione: da quella risposta il
+              contatto viene marcato{" "}
+              <strong className="font-semibold text-foreground">Venditore Singolo</strong>, e
+              diventa{" "}
+              <strong className="font-semibold text-foreground">
+                Investitore / Multi-Proprietario
+              </strong>{" "}
+              quando una visura che carichi — o il tuo inserimento in scheda — mostra che gli
+              immobili sono più di uno. Lo richiami per la valutazione mentre gli altri stanno
+              ancora rispondendo al primo messaggio.
+            </p>
+            <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+              {[
+                "Il potenziale venditore emerge dalla stessa conversazione",
+                "Nessuna domanda in più al cliente: il dato passava già di lì",
+                "Ordini l'elenco per portafoglio e i più promettenti salgono in cima",
+                "L'incrocio con le visure te lo propone, non lo decide da solo",
+              ].map((voce) => (
+                <li key={voce} className="flex items-start gap-2 text-sm text-foreground">
+                  <Check
+                    className="mt-0.5 h-4 w-4 shrink-0 text-status-qualified"
+                    aria-hidden="true"
+                  />
+                  {voce}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
+      </div>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          {ALSO_INCLUDED.map((modulo) => {
-            const Icon = modulo.icon;
-            return (
-              <div
-                key={modulo.slug}
-                id={modulo.slug}
-                className="flex scroll-mt-20 items-start gap-3 rounded-xl border border-border bg-card/60 p-5"
-              >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Icon className="h-4 w-4" />
-                </span>
-                <div className="min-w-0">
-                  <h3 className="text-sm font-semibold text-foreground">{modulo.title}</h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                    {modulo.body}
-                  </p>
-                </div>
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        {ALSO_INCLUDED.map((modulo) => {
+          const Icon = modulo.icon;
+          return (
+            <div
+              key={modulo.slug}
+              id={modulo.slug}
+              className="flex scroll-mt-20 items-start gap-3 rounded-xl border border-border bg-card/60 p-5"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Icon className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-foreground">{modulo.title}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                  {modulo.body}
+                </p>
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
+      </div>
       </div>
     </section>
   );
