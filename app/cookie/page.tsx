@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 import { auth } from "@/auth";
 import { LegalList, LegalPage, LegalSection, LEGAL_ENTITY } from "@/components/legal/legal-page";
 import { BRAND } from "@/lib/brand";
 
-export const metadata: Metadata = {
-  title: `Cookie Policy — ${BRAND.name}`,
-  description: "Quali cookie e tecnologie simili utilizza PropertyTech e come gestirli.",
-};
+export const metadata: Metadata = pageMetadata({
+  title: "Cookie Policy",
+  description:
+    "Quali cookie e tecnologie simili utilizza PropertyTech e come gestirli.",
+  path: "/cookie",
+});
 
 export default async function CookiePage() {
   const session = await auth();

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, BookOpen, Info } from "lucide-react";
 import { auth } from "@/auth";
@@ -7,12 +8,12 @@ import { LandingFooter } from "@/components/landing/site-footer";
 import { GUIDE_SECTIONS } from "@/lib/guide";
 import { BRAND } from "@/lib/brand";
 
-export const metadata: Metadata = {
-  title: `Guida e documentazione — ${BRAND.name}`,
+export const metadata: Metadata = pageMetadata({
+  title: "Guida e documentazione",
   description:
     "Come usare PropertyTech giorno per giorno: filtro notizie su WhatsApp, lettura visure, annunci per i portali, Match Perfetti e report ai proprietari.",
-  alternates: { canonical: "/guida" },
-};
+  path: "/guida",
+});
 
 /**
  * Guida operativa, raggiungibile sia dal menu profilo dell'area riservata sia

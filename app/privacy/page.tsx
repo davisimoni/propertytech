@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 import { auth } from "@/auth";
 import { LegalList, LegalPage, LegalSection, LEGAL_ENTITY } from "@/components/legal/legal-page";
 import { BRAND } from "@/lib/brand";
 
-export const metadata: Metadata = {
-  title: `Privacy Policy — ${BRAND.name}`,
+export const metadata: Metadata = pageMetadata({
+  title: "Privacy Policy",
   description:
     "Come PropertyTech tratta i dati personali di agenzie immobiliari, contatti e documenti catastali, ai sensi del GDPR.",
-};
+  path: "/privacy",
+});
 
 export default async function PrivacyPage() {
   const session = await auth();

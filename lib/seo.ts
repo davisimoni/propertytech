@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { BRAND } from "@/lib/brand";
 import { FAQ_ITEMS } from "@/lib/faq";
 import { getPlanPricing, PLANS, YEARLY_DISCOUNT_LABEL } from "@/lib/plans";
@@ -45,14 +46,17 @@ export const SEO = {
  * comprensibile senza il resto della pagina.
  */
 export const GEO_DESCRIPTION =
-  `${BRAND.name} è una piattaforma software italiana di intelligenza artificiale progettata per le agenzie immobiliari. ` +
-  "Automatizza quattro attività: la qualificazione dei potenziali acquirenti tramite WhatsApp entro pochi secondi dalla richiesta sui portali immobiliari; " +
-  "l'estrazione strutturata dei dati catastali da visure, planimetrie, atti di provenienza e attestati di prestazione energetica; " +
-  "la generazione di annunci per i portali, post per i social network e script per video brevi; " +
-  "la trasformazione delle note vocali post-visita in report professionali destinati ai proprietari degli immobili. " +
-  "Il servizio è rivolto ad agenzie immobiliari e agenti immobiliari che operano in Italia. " +
-  "I dati sono trattati esclusivamente su infrastruttura situata nell'Unione Europea, in conformità al GDPR. " +
-  "È disponibile un piano di prova gratuito che non richiede carta di credito. " +
+  `${BRAND.name} e' un software gestionale con intelligenza artificiale per agenzie immobiliari italiane. ` +
+  "Qualifica i lead su WhatsApp in pochi secondi dalla richiesta ricevuta dai portali immobiliari (Immobiliare.it, Idealista, Casa.it), " +
+  "ponendo automaticamente le domande su mutuo, immobile da vendere prima dell'acquisto e tempistiche, e fissando l'appuntamento in agenda. " +
+  "Incrocia automaticamente i lead qualificati con il portafoglio immobili dell'agenzia — matchmaking bidirezionale — segnalando all'agente gli abbinamenti sopra l'80% di compatibilita' e permettendo di proporre l'immobile via WhatsApp con un clic. " +
+  "Estrae in forma strutturata i dati catastali da visure, planimetrie, atti di provenienza e attestati di prestazione energetica, evidenziando difformita' e documenti mancanti. " +
+  "Genera annunci per i portali, post per i social network e script per video brevi, e produce il feed XML per la pubblicazione automatica. " +
+  "Trasforma le note vocali registrate dopo una visita in report professionali per i proprietari degli immobili. " +
+  "Gestisce gli incarichi di mediazione con tipo di mandato, scadenza, provvigione e ubicazione delle chiavi, escludendo automaticamente dai portali gli immobili con incarico scaduto. " +
+  "Il servizio e' rivolto ad agenzie immobiliari e agenti immobiliari che operano in Italia, con gestione dei ruoli fra titolare e collaboratori. " +
+  "I dati sono trattati esclusivamente su infrastruttura situata nell'Unione Europea, in conformita' al GDPR. " +
+  "E' disponibile un piano di prova gratuito che non richiede carta di credito. " +
   `I piani a pagamento possono essere fatturati mensilmente oppure annualmente, con uno sconto del ${YEARLY_DISCOUNT_LABEL} sulla fatturazione annuale.`;
 
 /**
@@ -166,10 +170,15 @@ export function buildStructuredData() {
     },
     featureList: [
       "Qualificazione automatica dei lead via WhatsApp 24 ore su 24",
+      "Matchmaking bidirezionale fra lead qualificati e portafoglio immobili",
+      "Trascrizione automatica delle note vocali ricevute dai clienti",
       "Estrazione dati da visure catastali, atti, planimetrie e APE",
       "Generazione di annunci per portali immobiliari e post social",
+      "Feed XML per la pubblicazione automatica sui portali immobiliari",
+      "Gestione degli incarichi di mediazione con avviso di scadenza",
       "Report post-visita per i proprietari a partire da note vocali",
       "Gestione delle agende e degli appuntamenti di visita",
+      "Gestione del team con ruoli distinti fra titolare e collaboratori",
     ],
   };
 
@@ -192,5 +201,56 @@ export function buildStructuredData() {
   return {
     "@context": "https://schema.org",
     "@graph": [organization, softwareApplication, faq],
+  };
+}
+
+/**
+ * Metadati di una pagina pubblica secondaria.
+ *
+ * # Perché serve un helper e non cinque blocchi scritti a mano
+ *
+ * In Next.js `openGraph` **non eredita** il `title` e la `description` che la
+ * pagina dichiara: se il layout ne definisce uno, la pagina che non lo
+ * sovrascrive tiene quello del layout per intero. Il risultato è che ogni
+ * sottopagina condivisa su WhatsApp o LinkedIn si presentava con titolo,
+ * descrizione e URL della home — compresa la guida, che è la pagina che
+ * risponde alle domande d'uso e che i motori generativi citano più volentieri.
+ *
+ * Vale lo stesso per `alternates.canonical`: il layout ne dichiara uno su "/",
+ * e una pagina che lo eredita sta dicendo a Google di essere un duplicato
+ * della home, cioè di non meritare un posto nell'indice.
+ *
+ * Tenere le tre cose insieme — canonical, OpenGraph e Twitter, tutte derivate
+ * dallo stesso `path` — evita che la prossima pagina pubblica ne dimentichi
+ * una: sono errori invisibili in pagina e visibili solo mesi dopo, quando la
+ * pagina non si posiziona.
+ */
+export function pageMetadata({
+  title,
+  description,
+  path,
+}: {
+  title: string;
+  description: string;
+  path: `/${string}`;
+}): Metadata {
+  const url = `${SITE_URL}${path}`;
+  // Il titolo completo di OpenGraph: `template` del layout agisce solo su
+  // `title`, non sulle anteprime social, che quindi lo perderebbero.
+  const titoloEsteso = `${title} — ${BRAND.name}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: path },
+    openGraph: {
+      type: "article",
+      locale: "it_IT",
+      siteName: BRAND.name,
+      title: titoloEsteso,
+      description,
+      url,
+    },
+    twitter: { card: "summary_large_image", title: titoloEsteso, description },
   };
 }

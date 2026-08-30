@@ -11,6 +11,11 @@ export const dynamic = "force-dynamic";
 /**
  * Solo rotte pubbliche: le pagine dietro autenticazione non vanno indicizzate
  * e includerle produrrebbe errori di scansione.
+ *
+ * Fuori anche `/docs`, `/help` e `/terms`: sono redirect verso `/guida` e
+ * `/termini`. Dichiarare in sitemap un URL che risponde 307 e' un invito a
+ * scansionare qualcosa che rimanda altrove, e i motori lo segnalano come
+ * difetto invece di seguirlo.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date();
@@ -25,5 +30,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_URL}/privacy`, lastModified, changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/termini`, lastModified, changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/cookie`, lastModified, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${SITE_URL}/dpa`, lastModified, changeFrequency: "yearly", priority: 0.3 },
   ];
 }

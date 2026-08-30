@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 import { auth } from "@/auth";
 import { LegalList, LegalPage, LegalSection, LEGAL_ENTITY } from "@/components/legal/legal-page";
 import { BRAND } from "@/lib/brand";
 import { DPA_EFFECTIVE_DATE, DPA_VERSION } from "@/lib/compliance";
 
-export const metadata: Metadata = {
-  title: `Accordo sul Trattamento dei Dati (DPA) — ${BRAND.name}`,
+export const metadata: Metadata = pageMetadata({
+  title: "Accordo sul Trattamento dei Dati (DPA)",
   description:
     "Accordo ex art. 28 GDPR fra l'agenzia immobiliare, titolare del trattamento, e PropertyTech, responsabile del trattamento.",
-};
+  path: "/dpa",
+});
 
 export default async function DpaPage() {
   const session = await auth();

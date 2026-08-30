@@ -29,6 +29,13 @@ const AI_CRAWLERS = [
   "meta-externalagent",
   "Bingbot",
   "cohere-ai",
+  // ByteDance (Doubao, e i risultati generativi dentro TikTok). Ha una
+  // reputazione di crawler aggressivo: e' elencato per essere autorizzato
+  // esplicitamente sulle pagine pubbliche, mentre le esclusioni di `DISALLOWED`
+  // continuano a valere per lui come per gli altri.
+  "Bytespider",
+  "Amazonbot",
+  "YouBot",
 ];
 
 export default function robots(): MetadataRoute.Robots {

@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 import { auth } from "@/auth";
 import { LegalList, LegalPage, LegalSection, LEGAL_ENTITY } from "@/components/legal/legal-page";
 import { BRAND } from "@/lib/brand";
 import { PLANS } from "@/lib/plans";
 
-export const metadata: Metadata = {
-  title: `Termini di Servizio — ${BRAND.name}`,
+export const metadata: Metadata = pageMetadata({
+  title: "Termini di Servizio",
   description:
     "Condizioni d'uso di PropertyTech: crediti, abbonamenti, obblighi dell'agenzia e limitazione di responsabilità.",
-};
+  path: "/termini",
+});
 
 export default async function TerminiPage() {
   const session = await auth();
