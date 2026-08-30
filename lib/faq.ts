@@ -35,7 +35,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     question: "Come funziona l'estrazione dei dati dalle visure?",
     answer:
-      "Carichi il PDF della visura catastale — o della planimetria, dell'atto di provenienza, dell'APE — e in pochi secondi ottieni Foglio, Particella, Subalterno, Rendita Catastale, categoria, quote di proprietà e Intestatari già compilati nella scheda dell'immobile, con una sintesi di cosa manca o non torna. Da lì esporti la scheda in PDF con il tuo logo. Niente più dati ricopiati a mano e niente errori di battitura in un preliminare.",
+      "Carichi il PDF della visura catastale (oppure della planimetria, dell'atto di provenienza o dell'APE) e in pochi secondi ottieni Foglio, Particella, Subalterno, Rendita Catastale, categoria, quote di proprietà e Intestatari già compilati nella scheda dell'immobile, con una sintesi di cosa manca o non torna. Da lì esporti la scheda in PDF con il tuo logo. Niente più dati ricopiati a mano e niente errori di battitura in un preliminare.",
   },
   {
     question: "Devo avere competenze tecniche o un programmatore per usare PropertyTech?",
@@ -55,7 +55,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     question: "I dati dei miei immobili e dei miei clienti sono al sicuro?",
     answer:
-      "Sì. Database e server principali sono in Unione Europea (Francoforte) e il trattamento è conforme al GDPR. I dati dei tuoi clienti restano di tua proprietà e non vengono usati per addestrare modelli di intelligenza artificiale. Un'eccezione dichiarata: la trascrizione delle note vocali passa dalle API di OpenAI, negli Stati Uniti, sotto EU-U.S. Data Privacy Framework e clausole contrattuali standard — l'audio non viene conservato né da noi né dal fornitore per l'addestramento, e si cancella subito dopo la trascrizione. L'elenco completo dei fornitori è nell'informativa privacy.",
+      "Sì. Database e server principali sono in Unione Europea (Francoforte) e il trattamento è conforme al GDPR. I dati dei tuoi clienti restano di tua proprietà e non vengono usati per addestrare modelli di intelligenza artificiale. Un'eccezione dichiarata: la trascrizione delle note vocali passa dalle API di OpenAI, negli Stati Uniti, sotto EU-U.S. Data Privacy Framework e clausole contrattuali standard. L'audio non viene conservato né da noi né dal fornitore per l'addestramento e si cancella subito dopo la trascrizione. L'elenco completo dei fornitori è nell'informativa privacy.",
   },
   {
     question: "Posso disdire quando voglio?",

@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { BRAND } from "@/lib/brand";
 
 export const runtime = "nodejs";
-export const alt = `${BRAND.name} — ${BRAND.tagline}`;
+export const alt = `${BRAND.name}: ${BRAND.tagline}`;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

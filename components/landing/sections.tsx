@@ -223,7 +223,7 @@ const PILLARS: Pillar[] = [
     icon: MessagesSquare,
     title: "Qualifica su WhatsApp, 24 ore su 24",
     tag: "Sempre attiva",
-    body: "Ogni richiesta da Immobiliare.it, Idealista e Casa.it riceve risposta in pochi secondi, anche di notte e la domenica. Prima di proporre una visita l'assistente verifica la capienza finanziaria — mutuo deliberato o acquisto in liquidità — se c'è un immobile da vendere prima e in quanto tempo si vuole chiudere. In agenda entra solo chi può comprare davvero: i sabati non se li prende più chi stava guardando.",
+    body: "Ogni richiesta da Immobiliare.it, Idealista e Casa.it riceve risposta in pochi secondi, anche di notte e la domenica. Prima di proporre una visita l'assistente verifica la capienza finanziaria (mutuo deliberato o acquisto in liquidità), se c'è un immobile da vendere prima e in quanto tempo si vuole chiudere. In agenda entra solo chi può comprare davvero: i sabati non se li prende più chi stava guardando.",
     points: [
       "Capienza verificata prima della visita: mutuo deliberato o liquidità",
       "Tempistica d'acquisto e immobile da vendere prima di comprare",
@@ -416,11 +416,14 @@ export function AcquisitionSection() {
               Chi ti scrive per acquistare una casa ha spesso un immobile da vendere prima di poter
               comprare. L&apos;assistente virtuale lo individua subito durante la qualifica
               iniziale e lo contrassegna nel tuo pannello come{" "}
-              <strong className="font-semibold text-foreground">Venditore</strong>, oppure come{" "}
-              <strong className="font-semibold text-foreground">Investitore</strong> quando gli
-              immobili risultano più di uno. In questo modo puoi ricontattarlo immediatamente per
-              fissare la valutazione del suo immobile, arrivando prima di qualsiasi agenzia
-              concorrente.
+              <strong className="font-semibold text-foreground">Venditore Singolo</strong>,
+              oppure come{" "}
+              <strong className="font-semibold text-foreground">
+                Investitore / Multi-Proprietario
+              </strong>{" "}
+              quando dagli immobili o dalle visure ne risultano più di uno. In questo modo puoi
+              ricontattarlo immediatamente per fissare la valutazione del suo immobile, arrivando
+              prima di qualsiasi agenzia concorrente.
             </>
           }
         />

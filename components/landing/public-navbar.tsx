@@ -10,7 +10,7 @@ export function PublicNavbar({ isLoggedIn }: { isLoggedIn: boolean }) {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-        <Link href="/" aria-label="PropertyTech — home">
+        <Link href="/" aria-label="PropertyTech, torna alla home">
           <Logo size="sm" gradientId="pt-nav" />
         </Link>
 

@@ -42,7 +42,7 @@ const STEPS: Step[] = [
     action:
       "Carichi gli incarichi: trascini il PDF di una visura o incolli il link di un annuncio già online. Bastano quattro righe se parti da zero.",
     outcome:
-      "Chi scrive riceve risposta in pochi secondi e viene qualificato — mutuo, vendita da fare prima, tempistiche — poi si vede proporre i tuoi orari liberi. Nel frattempo la piattaforma incrocia quel contatto con tutto il tuo portafoglio e ti manda gli immobili che gli somigliano.",
+      "Chi scrive riceve risposta in pochi secondi e viene qualificato su mutuo, vendita da fare prima e tempistiche, poi si vede proporre i tuoi orari liberi. Nel frattempo la piattaforma incrocia quel contatto con tutto il tuo portafoglio e ti manda gli immobili che gli somigliano.",
   },
   {
     number: "3",

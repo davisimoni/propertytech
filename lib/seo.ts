@@ -49,7 +49,7 @@ export const GEO_DESCRIPTION =
   `${BRAND.name} e' un software gestionale con intelligenza artificiale per agenzie immobiliari italiane. ` +
   "Qualifica i lead su WhatsApp in pochi secondi dalla richiesta ricevuta dai portali immobiliari (Immobiliare.it, Idealista, Casa.it), " +
   "ponendo automaticamente le domande su mutuo, immobile da vendere prima dell'acquisto e tempistiche, e fissando l'appuntamento in agenda. " +
-  "Incrocia automaticamente i lead qualificati con il portafoglio immobili dell'agenzia — matchmaking bidirezionale — segnalando all'agente gli abbinamenti sopra l'80% di compatibilita' e permettendo di proporre l'immobile via WhatsApp con un clic. " +
+  "Incrocia automaticamente i lead qualificati con il portafoglio immobili dell'agenzia (matchmaking bidirezionale), segnalando all'agente gli abbinamenti sopra l'80% di compatibilita' e permettendo di proporre l'immobile via WhatsApp con un clic. " +
   "Estrae in forma strutturata i dati catastali da visure, planimetrie, atti di provenienza e attestati di prestazione energetica, evidenziando difformita' e documenti mancanti. " +
   "Genera annunci per i portali, post per i social network e script per video brevi, e produce il feed XML per la pubblicazione automatica. " +
   "Trasforma le note vocali registrate dopo una visita in report professionali per i proprietari degli immobili. " +
@@ -88,7 +88,7 @@ function buildOffers() {
     return [
       {
         "@type": "Offer",
-        name: `Piano ${plan.name} — fatturazione mensile`,
+        name: `Piano ${plan.name}, fatturazione mensile`,
         price: String(plan.priceEurMonthly),
         priceCurrency: "EUR",
         category: "subscription",
@@ -105,7 +105,7 @@ function buildOffers() {
       },
       {
         "@type": "Offer",
-        name: `Piano ${plan.name} — fatturazione annuale`,
+        name: `Piano ${plan.name}, fatturazione annuale`,
         price: String(yearly.chargedAmount),
         priceCurrency: "EUR",
         category: "subscription",
