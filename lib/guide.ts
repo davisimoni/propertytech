@@ -125,8 +125,46 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     ],
   },
   {
+    id: "sicurezza-whatsapp",
+    title: "5. Sicurezza WhatsApp e prevenzione dei blocchi",
+    intro:
+      "La piattaforma e' costruita per rispondere a chi scrive per primo all'agenzia: e' il traffico che WhatsApp considera legittimo. Cosa facciamo noi per proteggere il tuo numero, e le quattro regole che restano in mano tua.",
+    steps: [
+      {
+        action: "Non serve che tu faccia nulla: due protezioni sono automatiche",
+        detail:
+          "L'assistente attende qualche secondo prima di rispondere, come farebbe una persona che legge e digita: una risposta istantanea e' la firma di un programma, e WhatsApp classifica i numeri anche su questo. In piu' non invia mai piu' di tre messaggi al minuto allo stesso contatto, cosi' un eventuale anello di ripetizione si spezza da solo invece di girare finche' qualcuno se ne accorge.",
+      },
+      {
+        action: "1. Niente invii massivi dal numero collegato",
+        detail:
+          "Il numero serve a rispondere alle richieste in arrivo. Usarlo per liste fredde, campagne o inoltri massivi e' il modo piu' rapido per farlo segnalare: bastano poche persone che premono \"Blocca\" perche' WhatsApp intervenga, e a quel punto perdi tutte le conversazioni in corso, non solo la campagna.",
+      },
+      {
+        action: "2. Usa l'app WhatsApp Business con il profilo compilato",
+        detail:
+          "Nome dell'agenzia, indirizzo, orari, sito e categoria. Un profilo completo e' un segnale di legittimita' e, soprattutto, e' cio' che vede il cliente prima di decidere se fidarsi a rispondere.",
+      },
+      {
+        action: "3. Se il numero e' nuovo, vai piano per due settimane",
+        detail:
+          "Un numero attivato da meno di quattordici giorni e' quello che WhatsApp osserva piu' da vicino. Sotto le cinquanta conversazioni al giorno in quel periodo: il volume si alza da solo man mano che il numero si consolida.",
+      },
+      {
+        action: "4. Prendi il controllo quando serve",
+        detail:
+          "Scrivi !pausa nella chat, o usa l'interruttore nella scheda del contatto, per fermare l'assistente su quella conversazione; !riprendi lo riattiva. E' lo strumento da usare quando una conversazione si fa delicata, invece di lasciare che l'automatismo ci provi.",
+      },
+    ],
+    notes: [
+      "Il collegamento tramite codice QR usa un client NON ufficiale. Funziona bene e si attiva in due minuti, ma Meta puo' limitare o sospendere i numeri che ne fanno uso: per un impiego intensivo e continuativo la strada solida e' WhatsApp Cloud API.",
+      "Chi risponde STOP esce in modo permanente da ogni invio automatico. Non e' una preferenza che puoi ignorare: e' un obbligo di legge, e insistere su chi ha revocato il consenso e' anche il comportamento che porta piu' segnalazioni.",
+      "Se il numero si scollega ricevi subito un'email: fino alla riconnessione i lead che scrivono non ricevono risposta.",
+    ],
+  },
+  {
     id: "promemoria",
-    title: "5. Promemoria anti no-show",
+    title: "6. Promemoria anti no-show",
     intro:
       "Prima di ogni visita l'assistente scrive al cliente per confermare. Se risponde NO, lo slot torna libero in agenda e la scheda segna la disdetta.",
     steps: [
@@ -142,7 +180,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: "visure",
-    title: "6. Lettura di visure e atti",
+    title: "7. Lettura di visure e atti",
     intro:
       "Carichi il PDF e ottieni intestatari, quote di proprietà, foglio, particella, subalterno, categoria e rendita già in chiaro, più una sintesi di due righe su cosa manca o non torna.",
     steps: [
@@ -166,7 +204,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: "annunci",
-    title: "7. Annunci, social e portali",
+    title: "8. Annunci, social e portali",
     intro:
       "Da quattro righe sull'immobile — o dal link di un annuncio già online — ottieni il testo per i portali, il post per Instagram e Facebook e lo script del Reel scena per scena.",
     steps: [
@@ -189,7 +227,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: "incarichi",
-    title: "8. Incarichi, provvigioni e chiavi",
+    title: "9. Incarichi, provvigioni e chiavi",
     intro:
       "Nella scheda di ogni immobile puoi registrare i dati del mandato. Sono facoltativi, ma la scadenza governa la pubblicazione sui portali.",
     steps: [
@@ -218,7 +256,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: "matching",
-    title: "9. Abbinamento clienti e immobili",
+    title: "10. Abbinamento clienti e immobili",
     intro:
       "L'abbinamento funziona nelle due direzioni: quando entra un immobile la piattaforma cerca chi potrebbe comprarlo, e quando un contatto finisce la qualificazione passa in rassegna tutto il portafoglio.",
     steps: [
@@ -247,7 +285,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: "report-vocali",
-    title: "10. Report al proprietario (piano Enterprise)",
+    title: "11. Report al proprietario (piano Enterprise)",
     intro:
       "Finita la visita parli trenta secondi al telefono, come faresti con un collega. Ricevi un report professionale per il proprietario, pronto da inviare.",
     steps: [
@@ -267,7 +305,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: "gestionale",
-    title: "11. Integrazione con il gestionale",
+    title: "12. Integrazione con il gestionale",
     intro:
       "I contatti qualificati possono arrivare da soli nel gestionale che usi già, senza doppio inserimento.",
     steps: [
@@ -288,7 +326,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: "crediti",
-    title: "12. Crediti e piani",
+    title: "13. Crediti e piani",
     intro:
       "Ogni piano include un numero di conversazioni WhatsApp al mese e un numero di documenti analizzati. Il conteggio è visibile in alto in ogni schermata.",
     notes: [

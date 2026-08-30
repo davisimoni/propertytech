@@ -69,7 +69,21 @@ app.use((req, res, next) => {
 });
 
 /** Attesa massima per una consegna alla piattaforma. */
-const NOTIFY_TIMEOUT_MS = 15_000;
+/**
+ * Attesa massima della piattaforma su un messaggio inoltrato.
+ *
+ * Quarantacinque secondi e non quindici. La piattaforma, prima di rispondere,
+ * elabora il messaggio per intero: chiamata al modello, ritardo di digitazione
+ * e invio della risposta. Con il vecchio limite l'attesa scadeva su ogni
+ * conversazione un po' lenta, e il microservizio registrava un errore per una
+ * consegna che invece era andata a buon fine.
+ *
+ * Il limite serve comunque: i messaggi si elaborano in sequenza dentro
+ * `messages.upsert`, quindi una consegna appesa a tempo indefinito fermerebbe
+ * tutti i messaggi successivi di quella sessione. Meglio un'attesa lunga che
+ * finisce, che una infinita.
+ */
+const NOTIFY_TIMEOUT_MS = 45_000;
 
 async function notify(payload) {
   if (!WEBHOOK) return;

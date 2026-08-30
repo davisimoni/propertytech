@@ -118,6 +118,37 @@ export default async function TerminiPage() {
         />
       </LegalSection>
 
+      <LegalSection title="6-bis. Uso consentito del servizio di messaggistica">
+        <p>
+          Il servizio è progettato per <strong className="text-foreground">rispondere</strong> a
+          contatti che scrivono per primi all&apos;Agenzia. L&apos;Agenzia è l&apos;unica
+          responsabile del contenuto dei messaggi inviati dal proprio numero e del rispetto delle
+          condizioni d&apos;uso di WhatsApp e di Meta, incluse le regole sui messaggi avviati
+          dall&apos;azienda e sull&apos;uso di elenchi di contatti.
+        </p>
+        <p>
+          Adottiamo misure tecniche per ridurre il rischio che il numero collegato venga
+          classificato come automazione — ritardo di risposta compatibile con la digitazione umana e
+          limite agli invii verso lo stesso contatto — ma{" "}
+          <strong className="text-foreground">nessuna misura tecnica può rendere conforme un uso
+          che non lo è</strong>: le decisioni di Meta sui singoli numeri restano fuori dal nostro
+          controllo e non sono a noi imputabili.
+        </p>
+        <p>
+          <strong className="text-foreground">Sospensione per uso non conforme.</strong> L&apos;uso
+          della piattaforma per invii massivi non sollecitati, liste fredde o altre attività in
+          violazione delle policy di Meta comporta la sospensione immediata dell&apos;account,{" "}
+          <strong className="text-foreground">senza diritto al rimborso dei crediti residui né dei
+          ratei di abbonamento non goduti</strong>. La sospensione è comunicata all&apos;indirizzo
+          del Titolare dell&apos;account con l&apos;indicazione della condotta contestata.
+        </p>
+        <p>
+          Il collegamento del numero tramite codice QR utilizza un client non ufficiale.
+          L&apos;Agenzia ne prende atto e accetta che Meta possa limitare o sospendere i numeri che
+          ne fanno uso: per un impiego intensivo e continuativo raccomandiamo WhatsApp Cloud API.
+        </p>
+      </LegalSection>
+
       <LegalSection title="7. Natura degli output generati dall'AI">
         <p>
           I contenuti prodotti dal servizio — dati estratti dai documenti, annunci, post, script e

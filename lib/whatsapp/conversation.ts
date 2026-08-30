@@ -23,6 +23,7 @@ import {
 import { resolveWhatsAppCredentials } from "./credentials";
 import { MEDIA_NUDGE, shouldSendMediaNudge } from "./unsupported-media";
 import { normalizePhone, parseChatMessages } from "@/lib/whatsapp/types";
+import { hasExceededRate, humanTypingDelay } from "./pacing";
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -261,6 +262,30 @@ export async function handleIncomingMessage(
   // Prima dell'invio, così il log resta anche se la consegna fallisce: senza,
   // davanti a un cliente che non riceve nulla non si distinguerebbe un'AI che
   // non ha risposto da una risposta che non è partita.
+  /**
+   * Limite di ritmo per contatto.
+   *
+   * Controllato PRIMA del ritardo: se l'invio non deve partire, non ha senso
+   * pagarne l'attesa. `history` contiene gia' il messaggio del cliente appena
+   * arrivato, e il conteggio guarda solo i messaggi dell'assistente.
+   *
+   * Quando scatta, il messaggio del cliente resta in cronologia e la scheda
+   * viene comunque aggiornata: si perde la risposta, non il dato. E' il
+   * comportamento voluto — se l'assistente ha gia' scritto tre volte in un
+   * minuto, la conversazione non sta procedendo, sta girando su se' stessa.
+   */
+  if (hasExceededRate(history)) {
+    console.warn("[WA-RATE-LIMIT] Invio sospeso: troppi messaggi in un minuto", {
+      leadId: lead.id,
+      organizationId: lead.organizationId,
+    });
+
+    if (Object.keys(leadUpdate).length > 0) {
+      await prisma.lead.update({ where: { id: lead.id }, data: leadUpdate });
+    }
+    return;
+  }
+
   console.info("[WA-AI-RESPONSE]", {
     leadId: lead.id,
     provider: config.provider,
@@ -268,6 +293,13 @@ export async function handleIncomingMessage(
     chars: replyText.length,
     fieldsUpdated: Object.keys(leadUpdate),
   });
+
+  // Ritmo umano: una risposta istantanea e' la firma di un programma, e
+  // WhatsApp classifica i numeri anche su questo. Dopo il log e prima
+  // dell'invio, cosi' nei registri resta traccia della risposta anche se la
+  // consegna fallisce.
+  const attesa = await humanTypingDelay();
+  console.info("[WA-TYPING-DELAY]", { leadId: lead.id, ms: attesa });
 
   await sendWhatsAppMessageForProvider(
     resolveWhatsAppCredentials(config),
