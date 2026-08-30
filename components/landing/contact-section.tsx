@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CheckCircle2, Clock, Loader2, Mail, Send, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BRAND } from "@/lib/brand";
+import { SectionHeading } from "@/components/landing/section-heading";
 
 /**
  * Sezione "Contatti" della landing pubblica.
@@ -102,16 +103,14 @@ export function ContactSection() {
         <div className="grid items-start gap-10 lg:grid-cols-2 lg:gap-14">
           {/* --- Colonna sinistra: valore e recapiti --- */}
           <div>
-            <span className="text-xs font-semibold uppercase tracking-widest text-primary">
-              Contatti
-            </span>
-            <h2 className="mt-3 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Hai domande o vuoi vedere l&apos;IA in azione sulla tua agenzia?
-            </h2>
-            <p className="mt-4 text-muted-foreground">
-              Compila il modulo per qualsiasi dubbio operativo o per richiedere una breve
-              dimostrazione. Ti ricontattiamo su WhatsApp o via email entro 24 ore lavorative.
-            </p>
+            {/* Allineata a sinistra: questa sezione e' in due colonne, e un
+                titolo centrato si staccherebbe dal modulo che gli sta accanto. */}
+            <SectionHeading
+              align="left"
+              eyebrow="Contatti"
+              title={<>Hai domande o vuoi vedere l&apos;IA in azione sulla tua agenzia?</>}
+              subtitle="Compila il modulo per qualsiasi dubbio operativo o per richiedere una breve dimostrazione. Ti ricontattiamo su WhatsApp o via email entro 24 ore lavorative."
+            />
 
             <ul className="mt-8 space-y-4">
               <li className="flex items-start gap-3">

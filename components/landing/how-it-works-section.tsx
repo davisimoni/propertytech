@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Building2, MessagesSquare, Target } from "lucide-react";
 import { Reveal } from "@/components/landing/reveal";
+import { SectionHeading } from "@/components/landing/section-heading";
 
 /**
  * "Come funziona": i quattro passaggi dall'iscrizione al primo risultato.
@@ -60,18 +61,11 @@ export function HowItWorksSection() {
     <section id="come-funziona" className="scroll-mt-20 border-t border-border py-20">
       <div className="mx-auto max-w-5xl px-4 sm:px-6">
         <Reveal>
-          <div className="mx-auto max-w-2xl text-center">
-            <span className="text-xs font-semibold uppercase tracking-widest text-primary">
-              Come funziona
-            </span>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Dalla registrazione al primo appuntamento in agenda
-            </h2>
-            <p className="mt-3 text-muted-foreground">
-              Quattro passaggi, meno di dieci minuti in tutto. Non serve installare niente, né
-              cambiare il gestionale che usi già.
-            </p>
-          </div>
+          <SectionHeading
+            eyebrow="Come funziona"
+            title="Dalla registrazione al primo appuntamento in agenda"
+            subtitle="Quattro passaggi, meno di dieci minuti in tutto. Non serve installare niente, né cambiare il gestionale che usi già."
+          />
         </Reveal>
 
         <ol className="mt-12 space-y-4">

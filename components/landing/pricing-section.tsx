@@ -7,6 +7,7 @@ import { BillingIntervalToggle } from "@/components/billing/billing-interval-tog
 import { UpgradeButton } from "@/components/billing/upgrade-button";
 import { formatCount, formatEur, getPlanPricing, PLANS, type BillingInterval } from "@/lib/plans";
 import { cn } from "@/lib/utils";
+import { SectionHeading } from "@/components/landing/section-heading";
 
 /** Postazioni incluse, con il singolare corretto. */
 function formatSeats(limit: number | null): string {
@@ -34,15 +35,11 @@ export function PricingSection({ isLoggedIn }: { isLoggedIn: boolean }) {
   return (
     <section id="prezzi" className="scroll-mt-20 border-t border-border pb-20 pt-24 sm:pt-32">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="mx-auto max-w-2xl text-center">
-          <span className="text-xs font-semibold uppercase tracking-widest text-primary">Piani</span>
-          <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Un piano per ogni dimensione di agenzia
-          </h2>
-          <p className="mt-3 text-muted-foreground">
-            Inizia gratis. Cambia o disdici quando vuoi, senza penali.
-          </p>
-        </div>
+        <SectionHeading
+          eyebrow="Piani"
+          title="Un piano per ogni dimensione di agenzia"
+          subtitle="Inizia gratis. Cambia o disdici quando vuoi, senza penali."
+        />
 
         <BillingIntervalToggle value={interval} onChange={setBillingInterval} className="mt-8" />
 

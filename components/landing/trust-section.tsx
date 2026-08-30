@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { KeyRound, Lock, MapPin, ShieldCheck, UserCog } from "lucide-react";
 import { Reveal } from "./reveal";
+import { SectionHeading } from "@/components/landing/section-heading";
 
 /**
  * Sezione sicurezza e conformità.
@@ -58,21 +59,21 @@ export function TrustSection() {
       aria-labelledby="sicurezza-titolo"
     >
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="mx-auto max-w-2xl text-center">
-          <span className="block text-xs font-semibold uppercase tracking-widest text-primary">
-            Sicurezza e conformità
-          </span>
-          <h2
-            id="sicurezza-titolo"
-            className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl"
-          >
-            I dati dei tuoi clienti non escono dall&apos;Europa
-          </h2>
-          <p className="mt-3 text-muted-foreground">
-            Tratti dati di persone che ti hanno dato fiducia. Ecco cosa facciamo perché resti
-            meritata.
-          </p>
-        </div>
+        {/*
+          Il titolo diceva "non escono dall'Europa". Da quando la trascrizione
+          delle note vocali e' dichiarata su un fornitore statunitense, quella
+          frase contraddice il riquadro che sta due centimetri piu' sotto — ed
+          e' il tipo di contraddizione che un'agenzia nota proprio nella
+          sezione in cui le stiamo chiedendo di fidarsi. Quello che possiamo
+          promettere davvero non e' che i dati non escano mai: e' che sia
+          scritto dove vanno, fornitore per fornitore.
+        */}
+        <SectionHeading
+          titleId="sicurezza-titolo"
+          eyebrow="Sicurezza e conformità"
+          title="Sai sempre dove finiscono i dati dei tuoi clienti"
+          subtitle="Tratti dati di persone che ti hanno dato fiducia. Ecco cosa facciamo perché resti meritata."
+        />
 
         {/*
           Griglia che degrada per gradi: tre colonne su schermo largo, due su

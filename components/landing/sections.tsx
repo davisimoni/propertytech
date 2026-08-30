@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -17,44 +16,7 @@ import {
 } from "lucide-react";
 import { LogoMark } from "@/components/brand/logo";
 import { Reveal } from "@/components/landing/reveal";
-
-/**
- * Intestazione di sezione: occhiello, titolo, sottotitolo.
- *
- * Unico posto in cui vive la gerarchia tipografica delle sezioni. Ogni h2
- * scritto a mano altrove e' una dimensione che prima o poi diverge dalle
- * altre, e la pagina smette di sembrare disegnata.
- *
- * `width` esiste per i titoli lunghi: a `max-w-2xl` una frase come quella
- * della sezione acquisizioni si spezza su troppe righe. `subtitle` accetta
- * nodi e non solo testo perche' alcuni sottotitoli evidenziano un termine —
- * un'etichetta che il prodotto mostra davvero — e trasformarlo in stringa
- * significherebbe perderlo.
- */
-function SectionHeading({
-  eyebrow,
-  title,
-  subtitle,
-  width = "narrow",
-}: {
-  eyebrow: string;
-  title: string;
-  subtitle?: ReactNode;
-  width?: "narrow" | "wide";
-}) {
-  return (
-    <div className={`mx-auto text-center ${width === "wide" ? "max-w-3xl" : "max-w-2xl"}`}>
-      <span className="text-xs font-semibold uppercase tracking-widest text-primary">{eyebrow}</span>
-      {/* `text-balance`: distribuisce le righe di un titolo lungo invece di
-          lasciarne una sola parola in fondo, che sul telefono e' il difetto
-          piu' visibile di un h2 di questa lunghezza. */}
-      <h2 className="mt-2 text-balance text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-        {title}
-      </h2>
-      {subtitle && <p className="mt-3 text-pretty leading-relaxed text-muted-foreground">{subtitle}</p>}
-    </div>
-  );
-}
+import { SectionHeading } from "@/components/landing/section-heading";
 
 /* ─────────────────────────── 1. Hero ─────────────────────────── */
 
@@ -332,18 +294,12 @@ export function SolutionSection() {
   return (
     <section id="moduli" className="scroll-mt-20 border-t border-border bg-muted/30 py-20">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="mx-auto max-w-2xl text-center">
-          <LogoMark className="mx-auto h-12 w-12" gradientId="pt-solution" />
-          <span className="mt-4 block text-xs font-semibold uppercase tracking-widest text-primary">
-            Funzioni chiave
-          </span>
-          <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Quattro pilastri operativi
-          </h2>
-          <p className="mt-3 text-muted-foreground">
-            Ognuno si prende un compito che oggi ti ruba tempo e te lo restituisce già fatto.
-          </p>
-        </div>
+        <SectionHeading
+          above={<LogoMark className="mx-auto h-12 w-12" gradientId="pt-solution" />}
+          eyebrow="Funzioni chiave"
+          title="Quattro pilastri operativi"
+          subtitle="Ognuno si prende un compito che oggi ti ruba tempo e te lo restituisce già fatto."
+        />
 
         <div className="mt-12 grid gap-4 lg:grid-cols-2">
           {PILLARS.map((module, index) => {

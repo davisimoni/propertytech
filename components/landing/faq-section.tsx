@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { FAQ_ITEMS } from "@/lib/faq";
 import { cn } from "@/lib/utils";
+import { SectionHeading } from "@/components/landing/section-heading";
 
 /**
  * Accordion delle domande frequenti.
@@ -23,17 +24,11 @@ export function FaqSection() {
         {/* Blocco di testa centrato e con larghezza propria, più stretta
             dell'elenco: il titolo resta compatto sopra le schede invece di
             allargarsi fino ai bordi della colonna. */}
-        <div className="mx-auto max-w-2xl text-center">
-          <span className="text-xs font-semibold uppercase tracking-widest text-primary">
-            Domande frequenti
-          </span>
-          <h2 className="mt-3 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Le risposte alle obiezioni che ci fanno più spesso
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-            Quello che gli agenti immobiliari ci chiedono prima di attivare la prova gratuita.
-          </p>
-        </div>
+        <SectionHeading
+          eyebrow="Domande frequenti"
+          title="Le risposte alle obiezioni che ci fanno più spesso"
+          subtitle="Quello che gli agenti immobiliari ci chiedono prima di attivare la prova gratuita."
+        />
 
         <div className="mt-10 space-y-3">
           {FAQ_ITEMS.map((item, index) => {
