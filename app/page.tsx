@@ -3,7 +3,6 @@ import { auth } from "@/auth";
 import { PublicNavbar } from "@/components/landing/public-navbar";
 import { FaqSection } from "@/components/landing/faq-section";
 import { SupportWidget } from "@/components/support/support-widget";
-import { CookieBanner } from "@/components/landing/cookie-banner";
 import { ContactSection } from "@/components/landing/contact-section";
 import {
   CostSection,
@@ -76,9 +75,6 @@ export default async function LandingPage() {
       </main>
       <LandingFooter />
       <SupportWidget />
-      {/* Compare dopo cinque secondi, in un angolo: non c'e' una decisione da
-          prendere prima di continuare a leggere, quindi non interrompe. */}
-      <CookieBanner />
     </div>
   );
 }

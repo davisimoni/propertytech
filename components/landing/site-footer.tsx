@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { ReferralFooterLink } from "@/components/referrals/referral-footer-link";
 import { ReferralPromo } from "@/components/referrals/referral-promo";
+import { CookieBanner } from "./cookie-banner";
 import { BRAND } from "@/lib/brand";
 
 /**
@@ -139,6 +140,13 @@ export function LandingFooter() {
           presente su tutta l'area pubblica (landing, guida, pagine legali),
           quindi il popup e il link che lo apre restano sempre insieme. */}
       <ReferralPromo />
+
+      {/* Stessa ragione del popup referral: il footer e' l'unico elemento
+          comune a tutta l'area pubblica, quindi chi atterra su /privacy o
+          /guida da una ricerca vede l'avviso esattamente come chi arriva
+          dalla home. Le regole di comparsa e memorizzazione sono dentro il
+          componente: montarlo altrove non le cambia. */}
+      <CookieBanner />
     </footer>
   );
 }
