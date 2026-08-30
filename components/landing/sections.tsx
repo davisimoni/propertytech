@@ -1,10 +1,10 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
   Check,
   FileSearch2,
   FileSignature,
-  Home,
   MessagesSquare,
   Mic,
   MoonStar,
@@ -18,20 +18,40 @@ import {
 import { LogoMark } from "@/components/brand/logo";
 import { Reveal } from "@/components/landing/reveal";
 
+/**
+ * Intestazione di sezione: occhiello, titolo, sottotitolo.
+ *
+ * Unico posto in cui vive la gerarchia tipografica delle sezioni. Ogni h2
+ * scritto a mano altrove e' una dimensione che prima o poi diverge dalle
+ * altre, e la pagina smette di sembrare disegnata.
+ *
+ * `width` esiste per i titoli lunghi: a `max-w-2xl` una frase come quella
+ * della sezione acquisizioni si spezza su troppe righe. `subtitle` accetta
+ * nodi e non solo testo perche' alcuni sottotitoli evidenziano un termine —
+ * un'etichetta che il prodotto mostra davvero — e trasformarlo in stringa
+ * significherebbe perderlo.
+ */
 function SectionHeading({
   eyebrow,
   title,
   subtitle,
+  width = "narrow",
 }: {
   eyebrow: string;
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
+  width?: "narrow" | "wide";
 }) {
   return (
-    <div className="mx-auto max-w-2xl text-center">
+    <div className={`mx-auto text-center ${width === "wide" ? "max-w-3xl" : "max-w-2xl"}`}>
       <span className="text-xs font-semibold uppercase tracking-widest text-primary">{eyebrow}</span>
-      <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{title}</h2>
-      {subtitle && <p className="mt-3 text-muted-foreground">{subtitle}</p>}
+      {/* `text-balance`: distribuisce le righe di un titolo lungo invece di
+          lasciarne una sola parola in fondo, che sul telefono e' il difetto
+          piu' visibile di un h2 di questa lunghezza. */}
+      <h2 className="mt-2 text-balance text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+        {title}
+      </h2>
+      {subtitle && <p className="mt-3 text-pretty leading-relaxed text-muted-foreground">{subtitle}</p>}
     </div>
   );
 }
@@ -421,25 +441,22 @@ export function SolutionSection() {
  */
 export function AcquisitionSection() {
   return (
-    <section className="border-t border-border py-20 sm:py-24">
+    <section className="border-t border-border py-16 sm:py-20">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-      {/*
-        Il lato acquisizione, fra i pilastri e i moduli secondari.
-        Sta qui e non in una card perché non è un settimo modulo: è ciò che
-        i quattro pilastri producono di riflesso, e per un titolare è la voce
-        che pesa di più — un acquirente porta una provvigione, un mandato ne
-        porta una e apre il portafoglio.
-      */}
-      <div className="rounded-2xl border border-primary/25 bg-primary/5 p-6 sm:p-8">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-sm">
-            <Home className="h-5 w-5" />
-          </span>
-          <div className="min-w-0">
-            <h3 className="text-base font-semibold text-foreground sm:text-lg">
-              Intercetta chi vuole valutare o vendere casa prima della concorrenza
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+        {/*
+          Intestazione standard, non una card.
+          Questo non è un settimo modulo: è ciò che i quattro pilastri
+          producono di riflesso, e per un titolare è la voce che pesa di più —
+          un acquirente porta una provvigione, un mandato ne porta una e apre
+          il portafoglio. Presentarlo dentro un riquadro colorato lo faceva
+          leggere come un richiamo promozionale, cioè come la parte da saltare.
+        */}
+        <SectionHeading
+          eyebrow="Acquisizioni"
+          title="Intercetta chi vuole valutare o vendere casa prima della concorrenza"
+          width="wide"
+          subtitle={
+            <>
               Chi scrive per comprare ha spesso una casa da vendere, e non lo dice finché nessuno
               glielo chiede. La domanda è già dentro la qualificazione: da quella risposta il
               contatto viene marcato{" "}
@@ -451,49 +468,49 @@ export function AcquisitionSection() {
               quando una visura che carichi — o il tuo inserimento in scheda — mostra che gli
               immobili sono più di uno. Lo richiami per la valutazione mentre gli altri stanno
               ancora rispondendo al primo messaggio.
-            </p>
-            <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-              {[
-                "Il potenziale venditore emerge dalla stessa conversazione",
-                "Nessuna domanda in più al cliente: il dato passava già di lì",
-                "Ordini l'elenco per portafoglio e i più promettenti salgono in cima",
-                "L'incrocio con le visure te lo propone, non lo decide da solo",
-              ].map((voce) => (
-                <li key={voce} className="flex items-start gap-2 text-sm text-foreground">
-                  <Check
-                    className="mt-0.5 h-4 w-4 shrink-0 text-status-qualified"
-                    aria-hidden="true"
-                  />
-                  {voce}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </div>
+            </>
+          }
+        />
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        {ALSO_INCLUDED.map((modulo) => {
-          const Icon = modulo.icon;
-          return (
-            <div
-              key={modulo.slug}
-              id={modulo.slug}
-              className="flex scroll-mt-20 items-start gap-3 rounded-xl border border-border bg-card/60 p-5"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Icon className="h-4 w-4" />
-              </span>
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-foreground">{modulo.title}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                  {modulo.body}
-                </p>
+        {/* Le voci restano allineate a sinistra dentro un blocco centrato: un
+            elenco di spunte centrato costringe l'occhio a ripartire da una
+            posizione diversa a ogni riga. */}
+        <ul className="mx-auto mt-10 grid max-w-4xl gap-x-8 gap-y-3 sm:grid-cols-2">
+          {[
+            "Il potenziale venditore emerge dalla stessa conversazione",
+            "Nessuna domanda in più al cliente: il dato passava già di lì",
+            "Ordini l'elenco per portafoglio e i più promettenti salgono in cima",
+            "L'incrocio con le visure te lo propone, non lo decide da solo",
+          ].map((voce) => (
+            <li key={voce} className="flex items-start gap-2.5 text-sm text-foreground">
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-status-qualified" aria-hidden="true" />
+              {voce}
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2">
+          {ALSO_INCLUDED.map((modulo) => {
+            const Icon = modulo.icon;
+            return (
+              <div
+                key={modulo.slug}
+                id={modulo.slug}
+                className="flex scroll-mt-20 items-start gap-3 rounded-xl border border-border bg-card p-5"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Icon className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-foreground">{modulo.title}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                    {modulo.body}
+                  </p>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
