@@ -4,6 +4,7 @@ import {
   Check,
   FileSearch2,
   FileSignature,
+  Home,
   MessagesSquare,
   Mic,
   MoonStar,
@@ -222,11 +223,12 @@ const PILLARS = [
     icon: MessagesSquare,
     title: "Qualifica su WhatsApp, 24 ore su 24",
     tag: "Sempre attiva",
-    body: "Ogni richiesta da Immobiliare.it, Idealista e Casa.it riceve risposta in pochi secondi, anche di notte e la domenica. L'assistente chiede se il mutuo è deliberato o l'acquisto è in liquidità, se c'è un immobile da vendere prima e in quanto tempo si vuole chiudere. Poi propone gli orari liberi della tua agenda.",
+    body: "Ogni richiesta da Immobiliare.it, Idealista e Casa.it riceve risposta in pochi secondi, anche di notte e la domenica. Prima di proporre una visita l'assistente verifica la capienza finanziaria — mutuo deliberato o acquisto in liquidità — se c'è un immobile da vendere prima e in quanto tempo si vuole chiudere. In agenda entra solo chi può comprare davvero: i sabati non se li prende più chi stava guardando.",
     points: [
-      "Mutuo o liquidità, immobile da vendere, tempistica d'acquisto",
-      "Appuntamento fissato in agenda senza che tu intervenga",
-      "Il lead qualificato viene inoltrato al tuo gestionale",
+      "Capienza verificata prima della visita: mutuo deliberato o liquidità",
+      "Tempistica d'acquisto e immobile da vendere prima di comprare",
+      "Subentri tu con un clic: l'assistente si ferma su quella chat",
+      "Appuntamento in agenda e lead inoltrato al tuo gestionale",
     ],
   },
   {
@@ -345,6 +347,55 @@ export function SolutionSection() {
               </Reveal>
             );
           })}
+        </div>
+
+        {/*
+          Il lato acquisizione, fra i pilastri e i moduli secondari.
+          Sta qui e non in una card perché non è un settimo modulo: è ciò che
+          i quattro pilastri producono di riflesso, e per un titolare è la voce
+          che pesa di più — un acquirente porta una provvigione, un mandato ne
+          porta una e apre il portafoglio.
+        */}
+        <div className="mt-10 rounded-2xl border border-primary/25 bg-primary/5 p-6 sm:p-8">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-sm">
+              <Home className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <h3 className="text-base font-semibold text-foreground sm:text-lg">
+                Intercetta chi vuole valutare o vendere casa prima della concorrenza
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Chi scrive per comprare ha spesso una casa da vendere, e non lo dice finché nessuno
+                glielo chiede. La domanda è già dentro la qualificazione: da quella risposta il
+                contatto viene marcato{" "}
+                <strong className="font-semibold text-foreground">Venditore Singolo</strong>, e
+                diventa{" "}
+                <strong className="font-semibold text-foreground">
+                  Investitore / Multi-Proprietario
+                </strong>{" "}
+                quando una visura che carichi — o il tuo inserimento in scheda — mostra che gli
+                immobili sono più di uno. Lo richiami per la valutazione mentre gli altri stanno
+                ancora rispondendo al primo messaggio.
+              </p>
+              <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+                {[
+                  "Il potenziale venditore emerge dalla stessa conversazione",
+                  "Nessuna domanda in più al cliente: il dato passava già di lì",
+                  "Ordini l'elenco per portafoglio e i più promettenti salgono in cima",
+                  "L'incrocio con le visure te lo propone, non lo decide da solo",
+                ].map((voce) => (
+                  <li key={voce} className="flex items-start gap-2 text-sm text-foreground">
+                    <Check
+                      className="mt-0.5 h-4 w-4 shrink-0 text-status-qualified"
+                      aria-hidden="true"
+                    />
+                    {voce}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
         </div>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
