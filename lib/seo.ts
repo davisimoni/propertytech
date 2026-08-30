@@ -55,7 +55,7 @@ export const GEO_DESCRIPTION =
   "Trasforma le note vocali registrate dopo una visita in report professionali per i proprietari degli immobili. " +
   "Gestisce gli incarichi di mediazione con tipo di mandato, scadenza, provvigione e ubicazione delle chiavi, escludendo automaticamente dai portali gli immobili con incarico scaduto. " +
   "Il servizio e' rivolto ad agenzie immobiliari e agenti immobiliari che operano in Italia, con gestione dei ruoli fra titolare e collaboratori. " +
-  "I dati sono trattati esclusivamente su infrastruttura situata nell'Unione Europea, in conformita' al GDPR. " +
+  "Database e server principali sono situati nell'Unione Europea (Francoforte) e il trattamento e' conforme al GDPR. " +
   "E' disponibile un piano di prova gratuito che non richiede carta di credito. " +
   `I piani a pagamento possono essere fatturati mensilmente oppure annualmente, con uno sconto del ${YEARLY_DISCOUNT_LABEL} sulla fatturazione annuale.`;
 

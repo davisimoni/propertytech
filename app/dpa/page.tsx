@@ -83,7 +83,8 @@ export default async function DpaPage() {
           L&apos;infrastruttura applicativa e il database sono collocati in{" "}
           <strong className="text-foreground">Unione Europea</strong>. Eventuali trattamenti da
           parte di sub-responsabili al di fuori dello Spazio Economico Europeo avvengono solo in
-          presenza di garanzie adeguate ex artt. 44 e seguenti GDPR.
+          presenza di garanzie adeguate ex artt. 44 e seguenti GDPR, come indicato per ciascun
+          fornitore al punto 7.
         </p>
       </LegalSection>
 
@@ -159,12 +160,66 @@ export default async function DpaPage() {
 
       <LegalSection title="7. Sub-responsabili">
         <p>
-          L&apos;Agenzia autorizza il ricorso a sub-responsabili per hosting e database, pagamenti,
-          messaggistica WhatsApp, elaborazione tramite modelli di AI ed eventuale trascrizione
-          vocale. L&apos;elenco aggiornato è disponibile scrivendo a {LEGAL_ENTITY.email}. Le
-          variazioni sono comunicate con ragionevole preavviso e l&apos;Agenzia può opporsi
-          recedendo dal servizio.
+          L&apos;Agenzia autorizza il ricorso ai sub-responsabili elencati qui sotto, tutti
+          vincolati da obblighi di protezione dei dati non meno onerosi di quelli previsti dal
+          presente accordo. Le variazioni sono comunicate con ragionevole preavviso e
+          l&apos;Agenzia può opporsi recedendo dal servizio; per l&apos;elenco in vigore alla data
+          odierna si può scrivere a {LEGAL_ENTITY.email}.
         </p>
+        <LegalList
+          items={[
+            <>
+              <strong className="text-foreground">Vercel Inc.</strong> (Stati Uniti) — hosting
+              dell&apos;applicazione. Esecuzione vincolata alla regione di Francoforte
+              (<code className="text-foreground">fra1</code>). EU-U.S. Data Privacy Framework e
+              clausole contrattuali standard.
+            </>,
+            <>
+              <strong className="text-foreground">Supabase</strong> — database PostgreSQL, regione{" "}
+              <code className="text-foreground">eu-central-1</code> (Francoforte, Germania).
+            </>,
+            <>
+              <strong className="text-foreground">Anthropic PBC</strong> (Stati Uniti) — modelli di
+              AI per qualificazione, estrazione documentale, generazione di annunci e report.
+              Clausole contrattuali standard. I contenuti non sono usati per addestrare modelli.
+            </>,
+            <>
+              <strong className="text-foreground">OpenAI, L.L.C.</strong> (Stati Uniti) —{" "}
+              <strong className="text-foreground">
+                esclusivamente trascrizione (speech-to-text) delle note vocali inoltrate dagli
+                utenti
+              </strong>
+              : quelle ricevute dai contatti su WhatsApp e quelle dettate dall&apos;agente dopo una
+              visita. Nessun altro trattamento è affidato a questo fornitore. Base giuridica del
+              trasferimento extra-UE:{" "}
+              <strong className="text-foreground">
+                EU-U.S. Data Privacy Framework (DPF) e Clausole Contrattuali Standard (SCC) — artt.
+                45 e 46 GDPR
+              </strong>
+              .{" "}
+              <strong className="text-foreground">
+                I dati trasmessi tramite API non vengono utilizzati per l&apos;addestramento dei
+                modelli
+              </strong>
+              . L&apos;audio non è conservato dalla piattaforma: resta in memoria per la durata
+              della chiamata e viene eliminato una volta ottenuta la trascrizione, di cui si
+              conserva il solo testo.
+            </>,
+            <>
+              <strong className="text-foreground">Meta Platforms Ireland Ltd.</strong> (Irlanda) —
+              WhatsApp Cloud API. In alternativa, sessione su microservizio ospitato da{" "}
+              <strong className="text-foreground">Render</strong> (regione di Francoforte).
+            </>,
+            <>
+              <strong className="text-foreground">Resend</strong> — spedizione delle email di
+              servizio.
+            </>,
+            <>
+              <strong className="text-foreground">Stripe Payments Europe Ltd.</strong> (Irlanda) —
+              pagamenti e fatturazione. Nessun dato di carta transita dai sistemi del Responsabile.
+            </>,
+          ]}
+        />
       </LegalSection>
 
       <LegalSection title="8. Assistenza al titolare">

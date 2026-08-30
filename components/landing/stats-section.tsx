@@ -46,11 +46,9 @@ const STATS: Stat[] = [
     detail: `Conversazioni WhatsApp qualificate incluse nel piano ${PLANS.enterprise.name}`,
   },
   {
-    display: "100%",
-    countTo: 100,
-    suffix: "%",
-    label: "Dati in Europa",
-    detail: "Database a Francoforte ed elaborazione in UE, come impone il GDPR",
+    display: "UE",
+    label: "Server principali",
+    detail: "Database e applicazione a Francoforte; trattamento conforme al GDPR",
   },
 ];
 

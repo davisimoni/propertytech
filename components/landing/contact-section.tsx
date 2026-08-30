@@ -136,7 +136,8 @@ export function ContactSection() {
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-foreground">Garanzia GDPR</p>
                   <p className="text-sm text-muted-foreground">
-                    Dati e infrastruttura 100% protetti in Unione Europea (Francoforte)
+                    Database e server principali in Unione Europea (Francoforte), trattamento
+                    conforme al GDPR
                   </p>
                 </div>
               </li>

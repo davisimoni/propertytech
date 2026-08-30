@@ -23,16 +23,16 @@ export const AI_DISCLAIMER_SHORT =
  * ricostruibile *quale* testo è stato accettato e quando. Senza versione,
  * una revisione successiva renderebbe le accettazioni pregresse indimostrabili.
  */
-export const DPA_VERSION = "1.0";
+export const DPA_VERSION = "1.1";
 
 /** Data di entrata in vigore della versione corrente. */
-export const DPA_EFFECTIVE_DATE = "1 agosto 2026";
+export const DPA_EFFECTIVE_DATE = "30 agosto 2026";
 
 /** Sintesi degli impegni, mostrata al momento dell'accettazione. */
 export const DPA_SUMMARY_POINTS = [
   "I dati che carichi restano di tua esclusiva proprietà: ne sei e resti titolare del trattamento.",
   "Li trattiamo esclusivamente su tua istruzione, per erogare il servizio, mai per finalità nostre.",
-  "Sono conservati e trattati su server situati nell'Unione Europea.",
+  "Database e server principali sono situati nell'Unione Europea; i trasferimenti verso fornitori extra-UE avvengono solo con le garanzie previste dal GDPR.",
   "Non vengono utilizzati per addestrare modelli di intelligenza artificiale pubblici o di terzi.",
   "Puoi richiedere in qualsiasi momento l'esportazione o la cancellazione dei dati.",
 ] as const;

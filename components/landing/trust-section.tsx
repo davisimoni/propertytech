@@ -25,8 +25,8 @@ import { Reveal } from "./reveal";
 const GARANZIE = [
   {
     icon: MapPin,
-    title: "Server e dati in Unione Europea",
-    body: "Database e calcolo restano a Francoforte. Nessuna elaborazione fuori dall'UE: né i nomi dei tuoi clienti, né i telefoni, né i codici fiscali che leggiamo dalle visure.",
+    title: "Database e server principali in Unione Europea",
+    body: "Database e calcolo dell'applicazione restano a Francoforte: lì stanno i nomi dei tuoi clienti, i telefoni e i codici fiscali letti dalle visure. La sola trascrizione delle note vocali passa da un fornitore statunitense, con le garanzie previste dal GDPR e senza conservare l'audio.",
   },
   {
     icon: Lock,

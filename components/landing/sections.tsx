@@ -85,7 +85,7 @@ export function HeroSection() {
         {/* Le tre obiezioni che fermano un agente prima di cliccare: quanto mi
             costa, quanto tempo mi ruba, dove finiscono i dati dei miei clienti. */}
         <ul className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
-          {["Nessuna carta di credito", "Attivo in 2 minuti", "Conforme al GDPR, dati in UE"].map(
+          {["Nessuna carta di credito", "Attivo in 2 minuti", "Conforme al GDPR, server in UE"].map(
             (item) => (
               <li key={item} className="inline-flex items-center gap-1.5">
                 <Check className="h-3.5 w-3.5 shrink-0 text-status-qualified" aria-hidden="true" />

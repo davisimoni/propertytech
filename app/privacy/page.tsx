@@ -168,6 +168,20 @@ export default async function PrivacyPage() {
           di garanzie adeguate ai sensi degli artt. 44 e seguenti del GDPR (clausole contrattuali
           standard o decisione di adeguatezza).
         </p>
+        <p>
+          Un trasferimento è dichiarato qui perché riguarda una funzione specifica e attiva:{" "}
+          <strong className="text-foreground">
+            la trascrizione delle note vocali si avvale delle API di OpenAI, L.L.C. (Stati Uniti)
+          </strong>
+          . Il trasferimento è fondato sulla decisione di adeguatezza{" "}
+          <strong className="text-foreground">EU-U.S. Data Privacy Framework</strong> (art. 45
+          GDPR), integrata da <strong className="text-foreground">clausole contrattuali standard</strong>{" "}
+          (art. 46 GDPR). Il fornitore tratta il solo contenuto audio necessario a produrne la
+          trascrizione e, per i dati inviati tramite API,{" "}
+          <strong className="text-foreground">non li utilizza per addestrare i propri modelli</strong>.
+          L&apos;audio non viene conservato dalla piattaforma: resta in memoria per la durata della
+          chiamata e viene eliminato una volta ottenuto il testo.
+        </p>
       </LegalSection>
 
       <LegalSection title="9. Sub-responsabili: chi tratta i dati per nostro conto">
@@ -199,11 +213,18 @@ export default async function PrivacyPage() {
               standard. I contenuti non sono usati per addestrare modelli.
             </>,
             <>
-              <strong className="text-foreground">Fornitore di trascrizione vocale</strong>{" "}
-              (compatibile OpenAI Whisper, configurabile) — converte in testo le note vocali
-              ricevute su WhatsApp e quelle dettate dall&apos;agente dopo una visita. Attivo solo se
-              l&apos;agenzia ha configurato il servizio; senza configurazione le note vocali non
-              vengono elaborate.
+              <strong className="text-foreground">OpenAI, L.L.C.</strong> — trascrizione in testo
+              delle note vocali: quelle ricevute dai contatti su WhatsApp e quelle dettate
+              dall&apos;agente dopo una visita. Il trattamento è limitato a questa sola finalità.
+              Fornitore statunitense: il trasferimento è coperto dall&apos;EU-U.S. Data Privacy
+              Framework e da clausole contrattuali standard.{" "}
+              <strong className="text-foreground">
+                I dati inviati tramite API non sono utilizzati per addestrare i modelli del
+                fornitore
+              </strong>{" "}
+              e l&apos;audio non viene conservato dopo la trascrizione. È il solo componente della
+              piattaforma che tratta dati personali fuori dallo Spazio Economico Europeo oltre a
+              quelli già indicati sopra.
             </>,
             <>
               <strong className="text-foreground">Meta Platforms Ireland Ltd.</strong> — WhatsApp
