@@ -402,8 +402,8 @@ export function AcquisitionSection() {
         {/*
           Intestazione standard, non una card.
           Questo non è un settimo modulo: è ciò che i quattro pilastri
-          producono di riflesso, e per un titolare è la voce che pesa di più —
-          un acquirente porta una provvigione, un mandato ne porta una e apre
+          producono di riflesso, e per un titolare è la voce che pesa di più.
+          Un acquirente porta una provvigione, un mandato ne porta una e apre
           il portafoglio. Presentarlo dentro un riquadro colorato lo faceva
           leggere come un richiamo promozionale, cioè come la parte da saltare.
         */}
@@ -413,17 +413,14 @@ export function AcquisitionSection() {
           width="wide"
           subtitle={
             <>
-              Chi scrive per comprare ha spesso una casa da vendere, e non lo dice finché nessuno
-              glielo chiede. La domanda è già dentro la qualificazione: da quella risposta il
-              contatto viene marcato{" "}
-              <strong className="font-semibold text-foreground">Venditore Singolo</strong>, e
-              diventa{" "}
-              <strong className="font-semibold text-foreground">
-                Investitore / Multi-Proprietario
-              </strong>{" "}
-              quando una visura che carichi — o il tuo inserimento in scheda — mostra che gli
-              immobili sono più di uno. Lo richiami per la valutazione mentre gli altri stanno
-              ancora rispondendo al primo messaggio.
+              Chi ti scrive per acquistare una casa ha spesso un immobile da vendere prima di poter
+              comprare. L&apos;assistente virtuale lo individua subito durante la qualifica
+              iniziale e lo contrassegna nel tuo pannello come{" "}
+              <strong className="font-semibold text-foreground">Venditore</strong>, oppure come{" "}
+              <strong className="font-semibold text-foreground">Investitore</strong> quando gli
+              immobili risultano più di uno. In questo modo puoi ricontattarlo immediatamente per
+              fissare la valutazione del suo immobile, arrivando prima di qualsiasi agenzia
+              concorrente.
             </>
           }
         />
