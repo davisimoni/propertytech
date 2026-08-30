@@ -65,6 +65,21 @@ export default async function TerminiPage() {
             "Alcuni moduli sono inclusi esclusivamente in determinati piani e non sono acquistabili separatamente a consumo.",
           ]}
         />
+        <p>
+          <strong className="text-foreground">Avvisi di consumo.</strong> Al superamento
+          dell&apos;80% e del 90% della dotazione di un contatore, e al suo esaurimento, inviamo una
+          comunicazione al Titolare dell&apos;account. Ogni soglia genera un solo avviso per periodo
+          di fatturazione. Gli avvisi sono un servizio di cortesia: la responsabilità di monitorare
+          il consumo resta dell&apos;Agenzia, e il mancato recapito di un avviso — per una casella
+          piena, un filtro antispam o un indirizzo non più valido — non dà diritto a rimborsi né
+          proroghe.
+        </p>
+        <p>
+          <strong className="text-foreground">Operazioni che non consumano crediti.</strong> Non
+          sono conteggiati: i promemoria di appuntamento, i messaggi di conferma di cancellazione,
+          le risposte ai comandi di servizio e l&apos;invio di una proposta immobiliare a un
+          contatto con cui la conversazione è già stata avviata.
+        </p>
       </LegalSection>
 
       <LegalSection title="4. Prova gratuita">
@@ -112,6 +127,28 @@ export default async function TerminiPage() {
           notarile o di stima immobiliare, e non sostituiscono il controllo sulle fonti ufficiali. La
           responsabilità sulla correttezza di quanto pubblicato o comunicato a terzi resta
           dell&apos;agenzia.
+        </p>
+        <p>
+          Ogni contenuto generato che l&apos;agente può mostrare o inoltrare a terzi riporta
+          un&apos;avvertenza sulla sua origine automatica. L&apos;avvertenza è parte integrante del
+          contenuto: rimuoverla prima di trasmetterlo a un cliente o a un proprietario è una scelta
+          dell&apos;agenzia, che se ne assume le conseguenze.
+        </p>
+        <p>
+          <strong className="text-foreground">Manleva.</strong> L&apos;Agenzia tiene indenne{" "}
+          {LEGAL_ENTITY.name} da pretese di terzi derivanti da contenuti generati dal servizio e
+          diffusi, pubblicati o comunicati dall&apos;Agenzia senza la verifica di cui sopra — a
+          titolo esemplificativo: un dato catastale errato riportato in un annuncio, una valutazione
+          o una descrizione non corrispondente allo stato dell&apos;immobile, un messaggio inviato a
+          un destinatario che non aveva titolo per riceverlo.
+        </p>
+        <p>
+          <strong className="text-foreground">Uso di WhatsApp.</strong> L&apos;Agenzia risponde del
+          contenuto dei messaggi inviati dal proprio numero e del rispetto delle condizioni d&apos;uso
+          di Meta, incluse le regole sui messaggi avviati dall&apos;azienda. Il collegamento tramite
+          codice QR utilizza un client non ufficiale: Meta può sospendere o limitare i numeri che ne
+          fanno uso, e questa eventualità non è imputabile a {LEGAL_ENTITY.name}. Per un impiego
+          intensivo e continuativo raccomandiamo WhatsApp Cloud API.
         </p>
       </LegalSection>
 

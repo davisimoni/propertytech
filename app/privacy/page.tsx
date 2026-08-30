@@ -121,9 +121,39 @@ export default async function PrivacyPage() {
         <LegalList
           items={[
             "Dati di account: per la durata del rapporto contrattuale e per i termini di legge successivi alla chiusura.",
-            "Lead e conversazioni: finché l'agenzia mantiene attivo l'account o fino a cancellazione richiesta.",
-            "Registrazioni audio delle note vocali: mai conservate. Resta il solo testo trascritto insieme al report generato (vedi sezione 6).",
-            "Log tecnici: per il periodo necessario a garantire sicurezza e continuità del servizio.",
+            <>
+              <strong className="text-foreground">Cronologia delle conversazioni WhatsApp</strong> —
+              finché l&apos;agenzia mantiene attivo l&apos;account. Eliminando un contatto dalla
+              scheda, la conversazione viene cancellata insieme a lui, nello stesso istante e senza
+              copie residue.
+            </>,
+            <>
+              <strong className="text-foreground">Registrazioni audio</strong> — mai conservate. Il
+              file viene trascritto e scartato; resta il solo testo (vedi sezione 6).
+            </>,
+            <>
+              <strong className="text-foreground">Appuntamenti e promemoria</strong> — restano
+              collegati al contatto. Cancellando il contatto, lo slot in agenda torna libero.
+            </>,
+            <>
+              <strong className="text-foreground">Documenti del fascicolo</strong> — dieci anni, come
+              impone l&apos;art. 31 del D.Lgs. 231/2007 ai soggetti obbligati. Il termine è calcolato
+              all&apos;acquisizione e non blocca una richiesta di cancellazione: l&apos;agenzia resta
+              titolare dei propri atti e decide.
+            </>,
+            <>
+              <strong className="text-foreground">Link di recupero password</strong> — un&apos;ora, e
+              utilizzabili una sola volta. Del link resta nel database la sola impronta
+              crittografica, non ricostruibile.
+            </>,
+            <>
+              <strong className="text-foreground">Dispositivi riconosciuti</strong> — per avvisarti
+              di un accesso da un dispositivo nuovo conserviamo un&apos;impronta crittografica di
+              browser e rete, non l&apos;indirizzo IP. L&apos;indirizzo viene troncato prima di
+              essere trasformato in impronta: non è possibile risalire da essa al dispositivo o agli
+              spostamenti di una persona.
+            </>,
+            "Log tecnici: per il periodo necessario a garantire sicurezza e continuità del servizio. Non registriamo il testo dei messaggi né il contenuto dei documenti; i numeri di telefono compaiono troncati.",
           ]}
         />
       </LegalSection>
@@ -138,14 +168,64 @@ export default async function PrivacyPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="9. Fornitori che trattano dati per nostro conto">
+      <LegalSection title="9. Sub-responsabili: chi tratta i dati per nostro conto">
         <p>
-          Ci avvaliamo di responsabili esterni per erogare il servizio, tra cui il fornitore di
-          hosting e database, Stripe per i pagamenti, Meta (WhatsApp Cloud API) per la messaggistica,
-          Anthropic per l&apos;elaborazione dei contenuti tramite modelli di intelligenza artificiale
-          e, ove attivato, un fornitore di trascrizione vocale. L&apos;elenco aggiornato e completo è
-          disponibile su richiesta scrivendo a {LEGAL_ENTITY.email}.
+          Per erogare il servizio ci avvaliamo dei fornitori elencati qui sotto, tutti nominati
+          responsabili ai sensi dell&apos;art. 28 GDPR. L&apos;elenco è completo e aggiornato:
+          quando cambia, l&apos;agenzia viene informata prima che il nuovo fornitore entri in
+          servizio, con facoltà di opporsi.
         </p>
+        <LegalList
+          items={[
+            <>
+              <strong className="text-foreground">Vercel Inc.</strong> — hosting
+              dell&apos;applicazione ed esecuzione delle funzioni. Le funzioni sono vincolate alla
+              regione di Francoforte (<code className="text-foreground">fra1</code>): il calcolo
+              avviene in UE. Il fornitore è statunitense e aderisce all&apos;EU-U.S. Data Privacy
+              Framework; il trasferimento è inoltre coperto da clausole contrattuali standard.
+            </>,
+            <>
+              <strong className="text-foreground">Supabase</strong> — database PostgreSQL che
+              custodisce lead, immobili, documenti e conversazioni. Istanza collocata nella regione
+              <code className="text-foreground"> eu-central-1</code> (Francoforte, Germania).
+            </>,
+            <>
+              <strong className="text-foreground">Anthropic PBC</strong> — modelli di intelligenza
+              artificiale per la qualificazione su WhatsApp, il filtro di pertinenza dei messaggi,
+              l&apos;estrazione dei dati dai documenti, la generazione degli annunci e dei report
+              post-visita. Fornitore statunitense, trasferimento coperto da clausole contrattuali
+              standard. I contenuti non sono usati per addestrare modelli.
+            </>,
+            <>
+              <strong className="text-foreground">Fornitore di trascrizione vocale</strong>{" "}
+              (compatibile OpenAI Whisper, configurabile) — converte in testo le note vocali
+              ricevute su WhatsApp e quelle dettate dall&apos;agente dopo una visita. Attivo solo se
+              l&apos;agenzia ha configurato il servizio; senza configurazione le note vocali non
+              vengono elaborate.
+            </>,
+            <>
+              <strong className="text-foreground">Meta Platforms Ireland Ltd.</strong> — WhatsApp
+              Cloud API, per ricevere e inviare i messaggi di qualificazione. In alternativa
+              l&apos;agenzia può collegare il proprio numero tramite codice QR: in quel caso la
+              sessione è custodita da un microservizio ospitato su{" "}
+              <strong className="text-foreground">Render</strong> (regione di Francoforte), che
+              tiene aperta la connessione e non conserva il contenuto dei messaggi.
+            </>,
+            <>
+              <strong className="text-foreground">Resend</strong> — spedizione delle email di
+              servizio: invito ai collaboratori, avviso di lead qualificato, soglie di consumo,
+              scadenza degli incarichi, recupero password. Il corpo di questi messaggi può contenere
+              nome, telefono e budget di un contatto.
+            </>,
+            <>
+              <strong className="text-foreground">Stripe Payments Europe Ltd.</strong> — pagamenti,
+              abbonamenti e fatturazione. <strong className="text-foreground">Nessun dato di carta
+              transita dai nostri sistemi</strong>: conserviamo solo identificativi opachi
+              (<code className="text-foreground">stripeCustomerId</code>,{" "}
+              <code className="text-foreground">stripeSubscriptionId</code>).
+            </>,
+          ]}
+        />
       </LegalSection>
 
       <LegalSection title="10. Elaborazione tramite intelligenza artificiale">
@@ -154,6 +234,21 @@ export default async function PrivacyPage() {
           generazione dei testi e la redazione dei report. Il servizio non assume decisioni
           automatizzate che producano effetti giuridici sugli interessati: gli output sono proposte
           che l&apos;agente rivede e approva prima di ogni utilizzo.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="10-bis. Filtro di pertinenza dei messaggi">
+        <p>
+          Ogni messaggio in arrivo passa da una valutazione automatica che stabilisce se riguarda
+          l&apos;attività dell&apos;agenzia. I messaggi palesemente estranei — conversazioni
+          personali, pubblicità, numeri sbagliati — non ricevono risposta automatica e, dopo due
+          messaggi consecutivi di questo tipo, l&apos;assistente si sospende da solo su quel
+          contatto. È un trattamento minimizzante: serve a <em>non</em> scrivere a chi non ha
+          chiesto nulla.
+        </p>
+        <p>
+          La valutazione non produce effetti giuridici e non nega alcun servizio: nel dubbio il
+          messaggio passa e la conversazione prosegue normalmente.
         </p>
       </LegalSection>
 

@@ -85,14 +85,72 @@ export default async function DpaPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="6. Riservatezza e sicurezza">
+      <LegalSection title="6. Misure tecniche e organizzative (art. 32 GDPR)">
+        <p>
+          Le misure elencate qui sotto sono quelle effettivamente implementate nella piattaforma,
+          non un elenco di intenzioni. Sono descritte con la specificità che serve a renderle
+          verificabili in sede di audit.
+        </p>
         <LegalList
           items={[
+            <>
+              <strong className="text-foreground">Cifratura in transito</strong> — tutte le
+              comunicazioni avvengono su TLS. La piattaforma non espone endpoint in chiaro.
+            </>,
+            <>
+              <strong className="text-foreground">Cifratura a riposo dei segreti</strong> — il token
+              di accesso WhatsApp e le chiavi API dei gestionali sono cifrati in AES-256-GCM prima
+              di essere scritti. Un valore <em>non</em> cifrato viene rifiutato in lettura e non
+              usato come ripiego: la protezione non è aggirabile ripristinando un backup precedente.
+            </>,
+            <>
+              <strong className="text-foreground">Password</strong> — conservate solo come hash
+              bcrypt. I token di invito e di recupero password esistono nel database unicamente
+              come impronta SHA-256, non ricostruibile.
+            </>,
+            <>
+              <strong className="text-foreground">Isolamento multi-tenant</strong> — ogni tabella
+              con dati di agenzia porta la colonna{" "}
+              <code className="text-foreground">organizationId</code>, e il filtro è applicato
+              <em> nella clausola di interrogazione</em>, non con un controllo a valle. Un
+              identificativo appartenente a un&apos;altra agenzia semplicemente non restituisce
+              righe, invece di restituirle e affidarsi a un controllo che qualcuno potrebbe
+              dimenticare.
+            </>,
+            <>
+              <strong className="text-foreground">Separazione dei ruoli</strong> — le operazioni che
+              riguardano l&apos;agenzia nel suo insieme (abbonamento, identità, scheda agenzia, feed
+              verso i portali) sono riservate al Titolare dell&apos;account. I collaboratori
+              operano su lead, immobili, documenti e report.
+            </>,
+            <>
+              <strong className="text-foreground">Prevenzione dell&apos;enumerazione degli
+              account</strong> — la richiesta di recupero password restituisce sempre la stessa
+              risposta, che l&apos;indirizzo esista o meno, così l&apos;endpoint non può essere
+              usato per accertare quali email siano registrate. Nemmeno un guasto interno modifica
+              la risposta.
+            </>,
+            <>
+              <strong className="text-foreground">Autenticazione delle integrazioni</strong> — i
+              webhook in ingresso sono autenticati con confronto a tempo costante e sono{" "}
+              <em>fail-closed</em>: in assenza del segreto configurato rifiutano chiunque, invece di
+              restare aperti.
+            </>,
+            <>
+              <strong className="text-foreground">Registrazioni audio</strong> — elaborate in
+              memoria ed eliminate al termine della trascrizione. Non vengono mai scritte su disco.
+            </>,
+            <>
+              <strong className="text-foreground">Minimizzazione nei log</strong> — non registriamo
+              il testo dei messaggi, il contenuto dei documenti né le credenziali. I numeri di
+              telefono compaiono troncati; gli indirizzi IP sono troncati e trasformati in impronta
+              prima di essere conservati.
+            </>,
+            <>
+              <strong className="text-foreground">Avviso di accesso</strong> — un accesso da un
+              dispositivo mai visto genera una notifica all&apos;indirizzo dell&apos;utente.
+            </>,
             "Il personale autorizzato al trattamento è vincolato alla riservatezza.",
-            "Le password sono conservate esclusivamente in forma cifrata; i dati delle carte di pagamento non transitano mai dai nostri sistemi.",
-            "Ogni agenzia accede unicamente ai propri dati: la separazione è applicata a livello di interrogazione al database, non con soli controlli d'interfaccia.",
-            "Le registrazioni audio delle note vocali sono elaborate in memoria ed eliminate al termine della trascrizione.",
-            "Le credenziali di integrazione fornite dall'Agenzia sono conservate per il solo funzionamento delle integrazioni richieste.",
           ]}
         />
       </LegalSection>
