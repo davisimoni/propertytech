@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -8,6 +9,7 @@ import { handleInboundWhatsAppMessage } from "@/lib/whatsapp/inbound";
 import { transcribeVoiceNote } from "@/lib/whatsapp/voice-note";
 import { decryptAccessToken } from "@/lib/whatsapp/credentials";
 import { sendWhatsAppMessage } from "@/lib/whatsapp/client";
+import { readSecret } from "@/lib/env";
 
 /**
  * La rotta più esposta al timeout dell'intera applicazione: un solo messaggio
@@ -105,8 +107,83 @@ const webhookPayloadSchema = z.object({
  * un errore applicativo su un singolo messaggio genererebbe una tempesta di
  * retry. Gli errori sono loggati lato server, non propagati a Meta.
  */
+/**
+ * Verifica `X-Hub-Signature-256`, come documentato da Meta: HMAC-SHA256 del
+ * **corpo grezzo** della richiesta, chiave l'App Secret dell'app Meta, valore
+ * nell'header nella forma `sha256=<esadecimale>`.
+ *
+ * # Perché il corpo grezzo e non l'oggetto già interpretato
+ *
+ * La firma copre i byte esatti che Meta ha spedito. Interpretare il JSON e
+ * riserializzarlo produce quasi sempre byte diversi — ordine delle chiavi,
+ * spaziatura, come vengono resi i numeri — e il confronto fallirebbe su
+ * richieste perfettamente legittime. È l'errore classico di questa verifica,
+ * e si manifesta come "tutto rifiutato" senza una causa evidente.
+ *
+ * # Perché `timingSafeEqual`
+ *
+ * Un confronto normale esce al primo byte diverso, e il tempo che impiega
+ * rivela quanti byte iniziali erano corretti: ripetendo, una firma si indovina
+ * un carattere alla volta. Stesso schema già usato per Twilio.
+ */
+function verifyMetaSignature(appSecret: string, rawBody: string, header: string): boolean {
+  const [algoritmo, firmaRicevuta] = header.split("=");
+  if (algoritmo !== "sha256" || !firmaRicevuta) return false;
+
+  const atteso = createHmac("sha256", appSecret).update(rawBody, "utf8").digest("hex");
+
+  const attesoBuf = Buffer.from(atteso, "utf8");
+  const ricevutoBuf = Buffer.from(firmaRicevuta, "utf8");
+  // `timingSafeEqual` lancia su lunghezze diverse: il controllo va fatto
+  // prima, e una lunghezza sbagliata è comunque una firma sbagliata.
+  if (attesoBuf.length !== ricevutoBuf.length) return false;
+  return timingSafeEqual(attesoBuf, ricevutoBuf);
+}
+
 export async function POST(request: Request) {
-  const payload = await request.json().catch(() => null);
+  /*
+   * Firma prima di tutto il resto.
+   *
+   * Senza questa verifica la rotta accettava qualsiasi POST: chi conoscesse un
+   * `phone_number_id` — che non e' un segreto, Meta lo restituisce dalle
+   * proprie API — poteva iniettare messaggi inventati, far nascere schede,
+   * consumare crediti dell'agenzia e soprattutto far scrivere l'assistente a
+   * un numero scelto da lui, dal numero WhatsApp dell'agenzia.
+   *
+   * Fail-closed: senza `META_APP_SECRET` configurato si rifiuta, non si lascia
+   * passare. Una verifica che si disattiva da sola quando manca una variabile
+   * d'ambiente non e' una verifica, ed e' aggirabile da chiunque riesca a far
+   * ripartire l'applicazione senza quel valore.
+   */
+  const appSecret = readSecret("META_APP_SECRET");
+  const firma = request.headers.get("x-hub-signature-256");
+
+  // Il corpo si legge UNA volta sola e come testo: serve identico alla firma,
+  // e `request.json()` lo consumerebbe rendendolo irrecuperabile.
+  const rawBody = await request.text();
+
+  if (!appSecret) {
+    console.error("[api/whatsapp/webhook] META_APP_SECRET assente: rotta chiusa.");
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+
+  if (!firma || !verifyMetaSignature(appSecret, rawBody, firma)) {
+    console.warn("[WEBHOOK IGNORATO]: firma X-Hub-Signature-256 assente o non valida", {
+      firmaPresente: Boolean(firma),
+      byteCorpo: rawBody.length,
+    });
+    // 403 e non 200: una firma sbagliata non e' un messaggio da riconsegnare,
+    // e Meta non ritenta sugli errori di autenticazione come fa sui 5xx.
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+
+  const payload = ((): unknown => {
+    try {
+      return JSON.parse(rawBody);
+    } catch {
+      return null;
+    }
+  })();
   const parsed = webhookPayloadSchema.safeParse(payload);
 
   if (!parsed.success) {
