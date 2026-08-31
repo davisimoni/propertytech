@@ -84,7 +84,9 @@ export function LeadNotesCard({ leadId }: { leadId: string }) {
       const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        setError(data?.message ?? "Nota non salvata. Riprova.");
+        // Il messaggio del server quando c'e': "Riprova" su una sessione
+        // scaduta manda l'agente a ripremere un tasto che non funzionera' mai.
+        setError(data?.message ?? `Nota non salvata (errore ${response.status}). Riprova.`);
         return;
       }
 

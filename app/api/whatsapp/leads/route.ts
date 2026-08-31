@@ -46,8 +46,12 @@ export async function GET(request: Request) {
    * sfogliare il lavoro di un collega scrivendolo nell'indirizzo, che e' una
    * cosa diversa da un filtro e va decisa a parte.
    */
-  if (searchParams.get("assignee") === "me" && session.user.id) {
-    where.assignedToId = session.user.id;
+  // `userId` e non `id`: quest'ultimo non viene mai popolato da questo
+  // progetto, quindi la condizione era sempre falsa e l'interruttore "I miei
+  // lead" restituiva comunque tutto — un guasto silenzioso, perche' la
+  // schermata non mostrava alcun errore.
+  if (searchParams.get("assignee") === "me" && session.user.userId) {
+    where.assignedToId = session.user.userId;
   }
 
   // "Prima i multi-proprietari": i lead con più immobili in cima, i non ancora

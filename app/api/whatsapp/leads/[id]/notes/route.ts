@@ -76,8 +76,16 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if (!session?.user?.organizationId || !session.user.id) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // `userId` e non `id`: `session.user.id` esiste nel tipo di NextAuth ma
+  // questo progetto non lo popola mai — vale `undefined` a ogni richiesta.
+  // Con `id` questa guardia rispondeva 401 a chiunque, e la scheda mostrava
+  // "Nota non salvata" a ogni tentativo. La stessa trappola e' gia'
+  // documentata in lib/calendar/oauth-handlers.ts.
+  if (!session?.user?.organizationId || !session.user.userId) {
+    return NextResponse.json(
+      { error: "unauthorized", message: "Sessione scaduta. Ricarica la pagina e riprova." },
+      { status: 401 }
+    );
   }
 
   const { id } = await context.params;
@@ -94,7 +102,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
 
   const autore = await prisma.user.findUnique({
-    where: { id: session.user.id },
+    where: { id: session.user.userId },
     select: { firstName: true, lastName: true, email: true },
   });
 
@@ -102,7 +110,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     data: {
       leadId: id,
       organizationId: session.user.organizationId,
-      authorId: session.user.id,
+      authorId: session.user.userId,
       // Il nome è congelato qui: serve a firmare la nota anche dopo che la
       // persona ha lasciato l'agenzia e la relazione è stata azzerata.
       authorName: autore ? nomeAutore(autore) : null,
