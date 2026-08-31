@@ -5,7 +5,16 @@ import { handleInboundWhatsAppMessage } from "@/lib/whatsapp/inbound";
 
 const genericInboundSchema = z.object({
   from: z.string().min(6).max(20),
-  text: z.string().min(1).max(4000),
+  /**
+   * Limite alzato a 16.000 caratteri.
+   *
+   * A 4.000 una richiesta incollata dall'email di un portale — intestazione,
+   * campi, messaggio del cliente, firma — poteva superarlo e veniva rifiutata
+   * insieme a tutto il payload. Un tetto serve comunque, perche' un corpo
+   * illimitato e' una rotta pubblica che accetta qualsiasi cosa, ma va messo
+   * dove sta un abuso e non dove sta un lead lungo.
+   */
+  text: z.string().min(1).max(16_000),
   profileName: z.string().max(120).optional(),
 });
 

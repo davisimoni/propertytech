@@ -77,8 +77,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const parsed = eventSchema.safeParse(await request.json().catch(() => null));
+  const corpo = await request.json().catch(() => null);
+  const parsed = eventSchema.safeParse(corpo);
   if (!parsed.success) {
+    /*
+     * Scarto tracciato, non silenzioso.
+     *
+     * Questa era l'unica uscita della rotta che non lasciava traccia: un
+     * payload rifiutato spariva con un 400 e nei log di Vercel non restava
+     * nulla, quindi un lead mai comparso era indistinguibile da un messaggio
+     * mai inviato. Si registrano i **campi** che non hanno superato lo schema,
+     * mai i loro valori: il testo di un messaggio e il numero di chi scrive
+     * sono dati personali e nei log non ci vanno (CLAUDE.md §5).
+     */
+    console.error("[WA-PAYLOAD-REJECTED] Payload non conforme allo schema", {
+      campi: parsed.error.issues.map((i) => `${i.path.join(".") || "(radice)"}: ${i.code}`),
+      chiaviRicevute:
+        corpo && typeof corpo === "object" ? Object.keys(corpo as object) : "(non e' un oggetto)",
+    });
     return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
   }
 
@@ -194,6 +210,14 @@ export async function POST(request: Request) {
   }
 
   if (!messageText.trim()) {
+    // Anche questo scarto lasciava la rotta senza traccia. Un messaggio di soli
+    // allegati o di sole emoji finisce qui legittimamente, ma se ci finisce un
+    // messaggio vero si deve poterlo vedere.
+    console.warn("[WA-EMPTY-TEXT] Messaggio senza testo utilizzabile, ignorato", {
+      sessionId,
+      haAudio: Boolean(message.audio),
+      charsGrezzi: message.text.length,
+    });
     return NextResponse.json({ status: "ok" });
   }
 

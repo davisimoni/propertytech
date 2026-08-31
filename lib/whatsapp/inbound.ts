@@ -13,6 +13,7 @@ import { sendWhatsAppMessageForProvider } from "./client";
 import { resolveWhatsAppCredentials } from "./credentials";
 import { recordClientMessage } from "./conversation";
 import type { InboundWhatsAppMessage } from "./provider";
+import { countInvisibleChars, sanitizeInboundText } from "./sanitize";
 
 export type WhatsAppConfigWithOrganization = WhatsAppConfig & { organization: Organization };
 
@@ -96,8 +97,23 @@ async function applyAgentCommand(
  */
 export async function handleInboundWhatsAppMessage(
   config: WhatsAppConfigWithOrganization,
-  message: InboundWhatsAppMessage
+  rawMessage: InboundWhatsAppMessage
 ): Promise<void> {
+  /**
+   * Ripulitura prima di ogni altra cosa.
+   *
+   * Qui e non nelle quattro rotte di trasporto: la regola vale per Meta, QR,
+   * Twilio e webhook generico allo stesso modo, e quattro copie diventerebbero
+   * quattro versioni diverse al primo ritocco. Da questo punto in avanti il
+   * resto della funzione lavora sul testo pulito senza sapere che esiste una
+   * ripulitura.
+   */
+  const invisibili = countInvisibleChars(rawMessage.text);
+  const message: InboundWhatsAppMessage = {
+    ...rawMessage,
+    text: sanitizeInboundText(rawMessage.text),
+  };
+
   const clientPhone = normalizePhone(message.fromPhone);
 
   console.info("[WA-INBOUND-MESSAGE]", {
@@ -108,7 +124,29 @@ export async function handleInboundWhatsAppMessage(
     // che ha solo chiesto informazioni su una casa (CLAUDE.md §5).
     from: `${clientPhone.slice(0, 6)}…`,
     chars: message.text.length,
+    // Utili a distinguere un messaggio scritto a mano da uno incollato da
+    // un'email di portale, quando si indaga su un lead che non e' comparso.
+    charsGrezzi: rawMessage.text.length,
+    invisibili,
+    righe: message.text.split("\n").length,
   });
+
+  /*
+   * Un messaggio fatto di soli caratteri invisibili arriva vuoto qui.
+   *
+   * Prima della ripulitura passava i controlli, perche' `trim()` non rimuove
+   * U+200B: apriva una scheda senza contenuto e mandava l'assistente a
+   * qualificare il nulla. Fermarlo qui, con un log, e' diverso da lasciarlo
+   * cadere in silenzio: se ricapita si vede.
+   */
+  if (!message.text.trim()) {
+    console.warn("[WA-INBOUND-EMPTY] Messaggio vuoto dopo la ripulitura, ignorato", {
+      organizationId: config.organizationId,
+      charsGrezzi: rawMessage.text.length,
+      invisibili,
+    });
+    return;
+  }
 
   /**
    * Comando dell'agente, scritto dentro la chat col cliente.
