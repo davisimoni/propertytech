@@ -90,7 +90,7 @@ export async function POST(request: Request) {
      * mai i loro valori: il testo di un messaggio e il numero di chi scrive
      * sono dati personali e nei log non ci vanno (CLAUDE.md §5).
      */
-    console.error("[WA-PAYLOAD-REJECTED] Payload non conforme allo schema", {
+    console.error("[WEBHOOK IGNORATO]: payload non conforme allo schema", {
       campi: parsed.error.issues.map((i) => `${i.path.join(".") || "(radice)"}: ${i.code}`),
       chiaviRicevute:
         corpo && typeof corpo === "object" ? Object.keys(corpo as object) : "(non e' un oggetto)",
@@ -111,7 +111,7 @@ export async function POST(request: Request) {
   // Sessione sconosciuta: 200 e non 404. Il microservizio non deve ritentare
   // all'infinito per un'agenzia che nel frattempo si è scollegata.
   if (!config) {
-    console.warn("[api/whatsapp/qr/webhook] Sessione sconosciuta", { sessionId });
+    console.warn("[WEBHOOK IGNORATO]: sessione sconosciuta", { sessionId });
     return NextResponse.json({ status: "ignored" });
   }
 
@@ -173,7 +173,24 @@ export async function POST(request: Request) {
   }
 
   if (!message) {
+    console.warn("[WEBHOOK IGNORATO]: evento 'message' senza corpo del messaggio", { sessionId });
     return NextResponse.json({ error: "missing_message" }, { status: 400 });
+  }
+
+  /*
+   * Sessione risultante disconnessa.
+   *
+   * Non blocca: se un messaggio arriva, la sessione **e' viva** — e' il nostro
+   * flag a essere rimasto indietro, perche' quando il microservizio muore non
+   * fa in tempo a mandare l'evento `disconnected`. Scartare qui significherebbe
+   * perdere un lead vero per un dato stantio. Si registra e si prosegue, cosi'
+   * la discrepanza e' visibile invece che silenziosa.
+   */
+  if (!config.isConnected) {
+    console.warn("[WEBHOOK IGNORATO]: nessuno scarto, ma la sessione risultava disconnessa", {
+      sessionId,
+      nota: "flag isConnected disallineato: il messaggio viene comunque elaborato",
+    });
   }
 
   /**
@@ -200,7 +217,9 @@ export async function POST(request: Request) {
     );
 
     if (!outcome.ok) {
-      console.warn("[WA-VOICE-NOTE] Trascrizione non riuscita", { reason: outcome.reason });
+      console.warn("[WEBHOOK IGNORATO]: trascrizione della nota vocale non riuscita", {
+      reason: outcome.reason,
+    });
       await replyToUntranscribableVoiceNote(config, message, outcome.reply);
       return NextResponse.json({ status: "ok" });
     }
@@ -213,7 +232,7 @@ export async function POST(request: Request) {
     // Anche questo scarto lasciava la rotta senza traccia. Un messaggio di soli
     // allegati o di sole emoji finisce qui legittimamente, ma se ci finisce un
     // messaggio vero si deve poterlo vedere.
-    console.warn("[WA-EMPTY-TEXT] Messaggio senza testo utilizzabile, ignorato", {
+    console.warn("[WEBHOOK IGNORATO]: messaggio senza testo utilizzabile", {
       sessionId,
       haAudio: Boolean(message.audio),
       charsGrezzi: message.text.length,

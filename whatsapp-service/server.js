@@ -246,7 +246,14 @@ async function startSession(sessionId) {
       // cliente resta affar suo e non ci riguarda.
       const fromAgent = Boolean(msg.key.fromMe);
       const looksLikeCommand = /^![\p{L}\p{N}-]+$/u.test(text.trim());
-      if (fromAgent && !looksLikeCommand) continue;
+      if (fromAgent && !looksLikeCommand) {
+        // Messaggio scritto dall'agenzia al cliente: non e' un lead da
+        // qualificare. Registrato e non solo saltato, perche' e' lo scarto
+        // piu' frequente e il primo da escludere quando un messaggio di
+        // prova non arriva in piattaforma.
+        console.log(`[WEBHOOK IGNORATO]: messaggio in uscita dall'agenzia (fromMe) su ${sessionId}`);
+        continue;
+      }
 
       // Si consegna il JID COMPLETO, dominio incluso.
       //

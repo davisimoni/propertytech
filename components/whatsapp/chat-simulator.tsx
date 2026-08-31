@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FlaskConical, Loader2, RotateCcw, Send } from "lucide-react";
+import { FlaskConical, Loader2, MessageSquarePlus, RotateCcw, Send, ShieldAlert } from "lucide-react";
 import { QUALIFICATION_QUESTIONS } from "@/lib/whatsapp/questions";
 import { buildOpeningMessage } from "@/lib/whatsapp/compliance";
 import type { ChatMessage } from "@/lib/whatsapp/types";
@@ -15,13 +15,32 @@ interface ExtractedFields {
   mustSellFirst: boolean | null;
   timeframe: string | null;
   budget: string | null;
+  preferredZone?: string | null;
 }
+
+interface IntentVerdict {
+  pertinente: boolean;
+  nuovaRichiesta: boolean;
+  motivo: string;
+}
+
+/**
+ * Esempio precaricato: una richiesta formale come quelle inoltrate dai
+ * portali.
+ *
+ * E' il formato su cui e' piu' facile avere dubbi — sembra un messaggio
+ * automatico — ed e' quindi quello che vale la pena poter provare con un
+ * clic invece di riscriverlo a mano ogni volta.
+ */
+const ESEMPIO_FORMALE =
+  "Gentile Agenzia, vi contatto perché sono alla ricerca di un immobile a Vignola, preferibilmente una villa indipendente con giardino. Il mio budget è di circa 300.000€. Resto in attesa di un vostro riscontro. Cordiali saluti.";
 
 const OUTCOME_STYLES: Record<string, string> = {
   QUALIFIED: "bg-status-qualified/10 text-status-qualified",
   UNQUALIFIED: "bg-status-blocked/10 text-status-blocked",
   OPT_OUT: "bg-status-blocked/10 text-status-blocked",
   CONTINUE: "bg-status-pending/10 text-status-pending",
+  OFF_TOPIC: "bg-muted text-muted-foreground",
 };
 
 const OUTCOME_LABELS: Record<string, string> = {
@@ -29,6 +48,7 @@ const OUTCOME_LABELS: Record<string, string> = {
   UNQUALIFIED: "Non qualificato",
   OPT_OUT: "Opt-out",
   CONTINUE: "Qualificazione in corso",
+  OFF_TOPIC: "Ignorato dal filtro",
 };
 
 function openingMessage(agencyName: string): ChatMessage {
@@ -45,6 +65,17 @@ function openingMessage(agencyName: string): ChatMessage {
 }
 
 export function ChatSimulator({ agencyName = "la tua agenzia" }: { agencyName?: string }) {
+  /**
+   * Primo contatto: la conversazione parte vuota e il primo messaggio è
+   * quello del cliente.
+   *
+   * È la modalità che serve quando un lead non è comparso in pipeline: si
+   * incolla il messaggio davvero ricevuto e si vede se sarebbe stato
+   * raccolto. Nell'altra modalità si parte dall'apertura dell'agenzia e si
+   * prova come l'assistente conduce la qualificazione: due domande diverse.
+   */
+  const [firstContact, setFirstContact] = useState(false);
+  const [intent, setIntent] = useState<IntentVerdict | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>(() => [openingMessage(agencyName)]);
   const [draft, setDraft] = useState("");
   const [isThinking, setIsThinking] = useState(false);
@@ -75,7 +106,12 @@ export function ChatSimulator({ agencyName = "la tua agenzia" }: { agencyName?: 
       const response = await fetch("/api/whatsapp/simulate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientName: DEMO_CLIENT, propertyRef: DEMO_PROPERTY, history }),
+        body: JSON.stringify({
+          clientName: DEMO_CLIENT,
+          propertyRef: DEMO_PROPERTY,
+          history,
+          firstContact,
+        }),
       });
 
       const body = await response.json();
@@ -85,12 +121,19 @@ export function ChatSimulator({ agencyName = "la tua agenzia" }: { agencyName?: 
         return;
       }
 
+      setIntent((body.intent as IntentVerdict | null) ?? null);
+      setOutcome(body.outcome as string);
+      setExtracted((body.extracted as ExtractedFields | null) ?? null);
+
+      // Messaggio scartato dal filtro: in produzione l'assistente resta zitto,
+      // e qui si mostra lo stesso silenzio invece di inventare una risposta.
+      // Il motivo compare nel riquadro del verdetto.
+      if (body.ignored) return;
+
       setMessages((current) => [
         ...current,
         { sender: "bot", text: body.reply as string, timestamp: new Date().toISOString() },
       ]);
-      setOutcome(body.outcome as string);
-      setExtracted((body.extracted as ExtractedFields | null) ?? null);
     } catch {
       setError("Errore di rete durante la simulazione.");
     } finally {
@@ -98,11 +141,15 @@ export function ChatSimulator({ agencyName = "la tua agenzia" }: { agencyName?: 
     }
   }
 
-  function reset() {
-    setMessages([openingMessage(agencyName)]);
+  function reset(modalitaPrimoContatto = firstContact) {
+    setFirstContact(modalitaPrimoContatto);
+    // In modalità primo contatto la chat parte vuota: il primo messaggio deve
+    // essere quello del cliente, o non si sta provando un primo contatto.
+    setMessages(modalitaPrimoContatto ? [] : [openingMessage(agencyName)]);
     setDraft("");
     setOutcome("CONTINUE");
     setExtracted(null);
+    setIntent(null);
     setError(null);
   }
 
@@ -115,18 +162,57 @@ export function ChatSimulator({ agencyName = "la tua agenzia" }: { agencyName?: 
             Testa l&apos;AI
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Scrivi come farebbe un cliente e vedi la risposta dell&apos;assistente. Nessun messaggio
-            WhatsApp viene inviato e nessun credito viene consumato.
+            {firstContact
+              ? "Incolla il messaggio che un contatto ha davvero inviato e verifica se sarebbe stato raccolto: il filtro di pertinenza è lo stesso della produzione."
+              : "Scrivi come farebbe un cliente e vedi la risposta dell'assistente."}{" "}
+            Nessun messaggio WhatsApp viene inviato e nessun credito viene consumato.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={reset}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
-        >
-          <RotateCcw className="h-3.5 w-3.5" />
-          Ricomincia
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Le due modalità rispondono a domande diverse, quindi cambiare
+              modalità azzera la conversazione: proseguire quella in corso con
+              regole diverse darebbe un risultato che non vale per nessuna
+              delle due. */}
+          <div className="inline-flex rounded-lg border border-border p-0.5">
+            {[
+              { valore: false, etichetta: "Qualificazione" },
+              { valore: true, etichetta: "Primo contatto" },
+            ].map((modo) => (
+              <button
+                key={String(modo.valore)}
+                type="button"
+                onClick={() => reset(modo.valore)}
+                aria-pressed={firstContact === modo.valore}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-xs font-medium transition-colors duration-200",
+                  firstContact === modo.valore
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted"
+                )}
+              >
+                {modo.etichetta}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setDraft(ESEMPIO_FORMALE)}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+          >
+            <MessageSquarePlus className="h-3.5 w-3.5" />
+            Esempio formale
+          </button>
+
+          <button
+            type="button"
+            onClick={() => reset()}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Ricomincia
+          </button>
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -141,6 +227,12 @@ export function ChatSimulator({ agencyName = "la tua agenzia" }: { agencyName?: 
         ref={scrollRef}
         className="mt-4 max-h-80 space-y-3 overflow-y-auto rounded-xl border border-border bg-muted/30 p-4"
       >
+        {messages.length === 0 && (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            Nessun messaggio. Scrivi qui sotto il primo messaggio del contatto, come lo hai
+            ricevuto.
+          </p>
+        )}
         {messages.map((message, index) => (
           <div
             key={index}
@@ -168,6 +260,44 @@ export function ChatSimulator({ agencyName = "la tua agenzia" }: { agencyName?: 
           </div>
         )}
       </div>
+
+      {intent && (
+        <div
+          className={cn(
+            "mt-3 flex items-start gap-2.5 rounded-lg border p-3 text-sm",
+            intent.pertinente
+              ? "border-status-qualified/30 bg-status-qualified/5"
+              : "border-status-blocked/30 bg-status-blocked/5"
+          )}
+        >
+          <ShieldAlert
+            className={cn(
+              "mt-0.5 h-4 w-4 shrink-0",
+              intent.pertinente ? "text-status-qualified" : "text-status-blocked"
+            )}
+            aria-hidden="true"
+          />
+          <div className="min-w-0">
+            <p className="font-medium text-foreground">
+              {intent.pertinente
+                ? "Il filtro lo riconosce come richiesta immobiliare"
+                : "Il filtro lo scarta: l'assistente non risponderebbe"}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Motivo registrato: {intent.motivo}
+              {intent.pertinente && intent.nuovaRichiesta
+                ? " · riaprirebbe una pratica già chiusa"
+                : ""}
+            </p>
+            {!intent.pertinente && (
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                In produzione nessuna scheda verrebbe creata e nessun credito consumato: è il
+                comportamento previsto per i messaggi personali e la pubblicità.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {extracted && (
         <div className="mt-3 grid gap-2 sm:grid-cols-4">
@@ -204,7 +334,11 @@ export function ChatSimulator({ agencyName = "la tua agenzia" }: { agencyName?: 
               send();
             }
           }}
-          placeholder="Rispondi come farebbe il cliente…"
+          placeholder={
+            firstContact && messages.length === 0
+              ? "Incolla qui il messaggio ricevuto…"
+              : "Rispondi come farebbe il cliente…"
+          }
           aria-label="Messaggio di prova"
           className="input-field flex-1"
         />

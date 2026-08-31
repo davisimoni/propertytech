@@ -217,7 +217,7 @@ export async function handleInboundWhatsAppMessage(
    * cadere in silenzio: se ricapita si vede.
    */
   if (!message.text.trim()) {
-    console.warn("[WA-INBOUND-EMPTY] Messaggio vuoto dopo la ripulitura, ignorato", {
+    console.warn("[WEBHOOK IGNORATO]: messaggio vuoto dopo la ripulitura", {
       organizationId: config.organizationId,
       charsGrezzi: rawMessage.text.length,
       invisibili,
@@ -251,7 +251,7 @@ export async function handleInboundWhatsAppMessage(
    * confronto fra stringhe.
    */
   if (config.phoneNumber && clientPhone === normalizePhone(config.phoneNumber)) {
-    console.warn("[WA-INBOUND-MESSAGE] Ignorato: mittente uguale al numero dell'agenzia", {
+    console.warn("[WEBHOOK IGNORATO]: mittente uguale al numero dell'agenzia (guardia anti-loop)", {
       organizationId: config.organizationId,
     });
     return;
@@ -266,7 +266,7 @@ export async function handleInboundWhatsAppMessage(
    * decisione e' gia' stata presa da una persona e non c'e' nulla da valutare.
    */
   if (await isMutedContact(config.organizationId, clientPhone)) {
-    console.info("[WA-MUTED] Contatto silenziato, nessuna risposta", {
+    console.info("[WEBHOOK IGNORATO]: contatto silenziato con !pausa", {
       organizationId: config.organizationId,
       from: `${clientPhone.slice(0, 6)}…`,
     });
@@ -310,7 +310,7 @@ export async function handleInboundWhatsAppMessage(
     const verdetto = await classifyIntent({ message: message.text });
 
     if (!verdetto.pertinente) {
-      console.info("[WA-OFF-TOPIC] Primo contatto ignorato", {
+      console.info("[WEBHOOK IGNORATO]: primo contatto fuori tema", {
         organizationId: config.organizationId,
         motivo: verdetto.motivo,
       });
