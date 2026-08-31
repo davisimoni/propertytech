@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import { describeSender, resolveSendJid } from "./jid.js";
 import {
   makeWASocket,
+  makeCacheableSignalKeyStore,
   useMultiFileAuthState,
   DisconnectReason,
   downloadMediaMessage,
@@ -43,6 +44,51 @@ if (!TOKEN) {
   // scrivere ai clienti dell'agenzia a suo nome.
   throw new Error("SERVICE_TOKEN mancante: il servizio resterebbe aperto a chiunque.");
 }
+
+/**
+ * Cache minima con l'interfaccia che Baileys si aspetta (`get`, `set`,
+ * `del`, `flushAll`).
+ *
+ * Scritta a mano invece di aggiungere `node-cache`: servono quattro metodi
+ * su una Map, e una dipendenza in meno e' una dipendenza in meno da
+ * aggiornare su un servizio che deve solo restare in piedi.
+ *
+ * Il tetto sulle voci evita che una sessione longeva accumuli chiavi per
+ * sempre: superata la soglia si scarta la piu' vecchia, che e' anche quella
+ * con meno probabilita' di servire ancora.
+ */
+function creaCache(maxVoci = 1000) {
+  const dati = new Map();
+  return {
+    get: (chiave) => dati.get(chiave),
+    set: (chiave, valore) => {
+      if (dati.size >= maxVoci) dati.delete(dati.keys().next().value);
+      dati.set(chiave, valore);
+      return true;
+    },
+    del: (chiave) => dati.delete(chiave),
+    flushAll: () => dati.clear(),
+  };
+}
+
+/**
+ * Logger minimo per Baileys.
+ *
+ * Baileys si aspetta un'interfaccia tipo pino. Qui interessa solo che gli
+ * errori si vedano nei log di Render: il resto e' rumore a volume altissimo
+ * su una connessione WhatsApp, e finirebbe per nascondere proprio le righe
+ * che servono a diagnosticare.
+ */
+const loggerBaileys = {
+  level: "error",
+  trace: () => {},
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: (...args) => console.error("[baileys]", ...args),
+  fatal: (...args) => console.error("[baileys][fatal]", ...args),
+  child: () => loggerBaileys,
+};
 
 /** Una sessione per agenzia. In memoria, ricostruita dal disco alla riconnessione. */
 const sessions = new Map();
@@ -223,7 +269,52 @@ async function startSession(sessionId) {
 
   const { state, saveCreds } = await useMultiFileAuthState(`${SESSIONS_DIR}/${sessionId}`);
 
-  const sock = makeWASocket({ auth: state, printQRInTerminal: false });
+  /**
+   * Cache dei tentativi di riconsegna.
+   *
+   * E' la correzione dell'errore `failed to find key` sui messaggi `pkmsg`.
+   * Quando arriva un messaggio cifrato con una chiave che non abbiamo — capita
+   * dopo un abbinamento nuovo, perche' il mittente sta ancora usando la
+   * sessione precedente — Baileys deve poter mandare una *retry receipt* e
+   * farselo rispedire. Senza questa cache non tiene il conto dei tentativi,
+   * non manda la ricevuta, e il messaggio resta indecifrabile per sempre: si
+   * vede l'errore in rosso e il messaggio non arriva mai alla piattaforma.
+   */
+  const msgRetryCounterCache = creaCache();
+
+  /**
+   * Messaggi che abbiamo inviato, per poterli rispedire se il telefono del
+   * cliente ci manda una richiesta di retry. Tenuti in memoria e in numero
+   * limitato: se il servizio riparte si perdono, e Baileys ripiega da solo.
+   */
+  entry.inviati = new Map();
+
+  const sock = makeWASocket({
+    auth: {
+      creds: state.creds,
+      /*
+       * Le chiavi Signal passano da una cache in memoria.
+       *
+       * `useMultiFileAuthState` legge e scrive un file per chiave: sotto
+       * raffica di messaggi le letture si accavallano e una chiave appena
+       * scritta puo' non essere ancora visibile, che e' una delle strade per
+       * cui compare `failed to find key`.
+       */
+      keys: makeCacheableSignalKeyStore(state.keys, loggerBaileys),
+    },
+    printQRInTerminal: false,
+    logger: loggerBaileys,
+    msgRetryCounterCache,
+    /**
+     * Serve a Baileys quando il cliente chiede di rispedire un messaggio che
+     * non e' riuscito a decifrare. Senza, Baileys non ha nulla da mandare e
+     * registra un errore; con questo, il cliente riceve davvero il messaggio.
+     */
+    getMessage: async (key) => {
+      const salvato = entry.inviati.get(`${key.remoteJid}:${key.id}`);
+      return salvato || undefined;
+    },
+  });
   entry.sock = sock;
   entry.starting = false;
 
@@ -248,6 +339,27 @@ async function startSession(sessionId) {
     if (connection === "close") {
       entry.status = "disconnected";
       const code = lastDisconnect?.error?.output?.statusCode;
+
+      /*
+       * 515 (restartRequired): non e' una caduta, e' un passaggio previsto.
+       *
+       * WhatsApp lo manda subito dopo l'abbinamento e pretende che il socket
+       * venga riaperto: i file di autenticazione sono validi e vanno lasciati
+       * dove sono. Prima finiva nel percorso generico e produceva due effetti
+       * sbagliati: la piattaforma riceveva `disconnected` un istante dopo un
+       * abbinamento riuscito — ed e' il motivo per cui in scheda la sessione
+       * risultava staccata — e la riapertura aspettava il ritardo progressivo
+       * pensato per le cadute vere.
+       */
+      if (code === DisconnectReason.restartRequired) {
+        console.log(`[${sessionId}] riavvio richiesto dopo l'abbinamento (515): riapro subito`);
+        sessions.delete(sessionId);
+        // Nessun `notify` di disconnessione: la sessione non e' caduta, e
+        // dirlo alla piattaforma la farebbe risultare scollegata per nulla.
+        setTimeout(() => startSession(sessionId), 0);
+        return;
+      }
+
       console.log(`[${sessionId}] disconnesso (codice ${code})`);
       await notify({ sessionId, event: "disconnected" });
 
@@ -267,13 +379,45 @@ async function startSession(sessionId) {
     }
   });
 
+  /*
+   * Ogni messaggio nel proprio try/catch, non l'intero lotto.
+   *
+   * WhatsApp consegna i messaggi a gruppi. Con un solo try attorno al ciclo,
+   * un'eccezione su uno — una nota vocale malformata, un tipo inatteso —
+   * scartava anche tutti quelli che venivano dopo nello stesso lotto, in
+   * silenzio. Ed essendo il gestore `async`, l'eccezione diventava una
+   * promise rifiutata senza gestore: su Node recente basta a terminare il
+   * processo, cioe' a far cadere la sessione WhatsApp per un singolo
+   * messaggio storto.
+   */
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     if (type !== "notify") return;
 
-    for (const msg of messages) {
+    const gestisciMessaggio = async (msg) => {
       // I gruppi restano fuori: la qualificazione riguarda conversazioni
       // uno-a-uno con un cliente.
-      if (msg.key.remoteJid?.endsWith("@g.us")) continue;
+      if (msg.key.remoteJid?.endsWith("@g.us")) return;
+
+      /*
+       * Messaggio arrivato ma non decifrabile.
+       *
+       * Quando Baileys non trova la chiave Signal, il messaggio arriva con
+       * `message` a null e spesso un `messageStubType`. Non e' un guasto
+       * nostro e non c'e' niente da inoltrare: la richiesta di riconsegna la
+       * manda Baileys da solo grazie a `msgRetryCounterCache`, e il messaggio
+       * ricompare qui decifrato pochi secondi dopo.
+       *
+       * Va registrato e saltato, non lasciato proseguire: senza `message` il
+       * resto del ciclo lavorerebbe su campi vuoti e aprirebbe una scheda
+       * senza contenuto.
+       */
+      if (!msg.message) {
+        console.warn(
+          `[${sessionId}] messaggio non decifrabile (attendo la riconsegna automatica)`,
+          { da: String(msg.key.remoteJid || "").slice(0, 8) + "...", stub: msg.messageStubType }
+        );
+        return;
+      }
 
       const testo = msg.message?.conversation || msg.message?.extendedTextMessage?.text || "";
       const audioMsg = msg.message?.audioMessage || null;
@@ -313,7 +457,7 @@ async function startSession(sessionId) {
       }
 
       // Senza testo e senza audio non c'e' nulla da qualificare.
-      if (!testo && !audio && !audioTooLarge) continue;
+      if (!testo && !audio && !audioTooLarge) return;
 
       const text = testo;
 
@@ -332,7 +476,7 @@ async function startSession(sessionId) {
         // piu' frequente e il primo da escludere quando un messaggio di
         // prova non arriva in piattaforma.
         console.log(`[WEBHOOK IGNORATO]: messaggio in uscita dall'agenzia (fromMe) su ${sessionId}`);
-        continue;
+        return;
       }
 
       // Si consegna il JID COMPLETO, dominio incluso.
@@ -372,6 +516,20 @@ async function startSession(sessionId) {
           profileName: msg.pushName || undefined,
         },
       });
+    };
+
+    for (const msg of messages) {
+      try {
+        await gestisciMessaggio(msg);
+      } catch (error) {
+        // Un messaggio storto non porta giu' quelli dopo di lui, ne' la
+        // sessione. Il mittente e' troncato: nei log serve riconoscere la
+        // conversazione, non conservare il recapito di una persona.
+        console.error(`[${sessionId}] errore nel gestire un messaggio:`, error.message, {
+          da: String(msg?.key?.remoteJid || "").slice(0, 8) + "...",
+          tipo: msg?.message ? Object.keys(msg.message)[0] : "(non decifrato)",
+        });
+      }
     }
   });
 
@@ -463,7 +621,25 @@ app.post("/sessions/:id/send", async (req, res) => {
   }
 
   try {
-    await entry.sock.sendMessage(resolved.jid, { text });
+    const inviato = await entry.sock.sendMessage(resolved.jid, { text });
+
+    /*
+     * Conservato per `getMessage`: se il telefono del cliente non riesce a
+     * decifrare e chiede la riconsegna, Baileys ha bisogno del contenuto
+     * originale. Senza, la richiesta di retry non puo' essere servita e il
+     * cliente resta senza quel messaggio.
+     *
+     * Tetto a 200 voci per sessione: le richieste di retry arrivano entro
+     * pochi minuti, e tenere tutto significherebbe far crescere la memoria
+     * del servizio per l'intera durata di una sessione.
+     */
+    if (inviato?.key?.id) {
+      if (entry.inviati.size >= 200) {
+        entry.inviati.delete(entry.inviati.keys().next().value);
+      }
+      entry.inviati.set(`${resolved.jid}:${inviato.key.id}`, inviato.message);
+    }
+
     res.json({ ok: true });
   } catch (error) {
     console.error("[send] errore:", error.message);
