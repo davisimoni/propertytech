@@ -282,6 +282,31 @@ export function hasSendableCredentials(credentials: ResolvedWhatsAppCredentials)
  * numero" senza sapere quale trasporto c'è dietro: `conversation.ts` e
  * `reminders.ts` chiamano questa funzione, non più direttamente Meta.
  */
+/**
+ * Annuncia "sta scrivendo..." nella chat del cliente.
+ *
+ * Solo il trasporto QR lo supporta: passa da Baileys, che espone la presenza
+ * come fa WhatsApp Web. Meta Cloud API e Twilio non offrono l'indicatore per i
+ * messaggi in uscita, e per loro questa funzione non fa nulla — l'attesa resta,
+ * l'annuncio no.
+ *
+ * Non lancia mai. E' un ornamento: se non parte, la risposta arriva comunque.
+ */
+export async function sendTypingIndicatorForProvider(
+  credentials: ResolvedWhatsAppCredentials,
+  toPhone: string,
+  chatJid?: string | null
+): Promise<void> {
+  if (credentials.provider !== "qr" || !credentials.qr) return;
+
+  try {
+    const { sendTypingIndicator } = await import("./qr-service");
+    await sendTypingIndicator(credentials.qr.sessionId, toPhone, chatJid);
+  } catch {
+    // Già registrato a valle: qui si assorbe e basta.
+  }
+}
+
 export async function sendWhatsAppMessageForProvider(
   credentials: ResolvedWhatsAppCredentials,
   toPhone: string,

@@ -105,4 +105,16 @@ export interface InboundWhatsAppMessage {
    * davvero al cliente non ci vengono inoltrati.
    */
   fromAgent?: boolean;
+  /**
+   * Vero se il mittente e' salvato nella rubrica del telefono dell'agenzia.
+   *
+   * E' il segnale che distingue una persona conosciuta da una richiesta
+   * arrivata da un portale: un acquirente che scrive per la prima volta dopo
+   * aver visto un annuncio, per definizione, in rubrica non c'e'.
+   *
+   * Facoltativo: i trasporti che non lo espongono (Meta Cloud API, Twilio) e i
+   * microservizi non aggiornati lo lasciano assente, e in quel caso il
+   * comportamento resta quello di prima.
+   */
+  isKnownContact?: boolean;
 }

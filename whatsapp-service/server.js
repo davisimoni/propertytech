@@ -149,6 +149,36 @@ async function startSession(sessionId) {
 
   sock.ev.on("creds.update", saveCreds);
 
+  /*
+   * Rubrica del telefono abbinato.
+   *
+   * Baileys distingue due nomi: `notify`/`verifiedName` e' come la persona ha
+   * chiamato se stessa su WhatsApp, e ce l'hanno tutti; `name` c'e' solo se
+   * quel numero e' salvato nella rubrica del telefono. E' quest'ultimo che
+   * distingue un conoscente da uno sconosciuto arrivato da un portale.
+   *
+   * L'insieme sta in memoria e non su disco: se il processo riparte si
+   * ripopola al primo `contacts.set` della sessione, e nel frattempo il
+   * campo semplicemente non viene inviato — la piattaforma tratta l'assenza
+   * come "non lo so" e si comporta come prima, invece di dedurre "sconosciuto"
+   * e rispondere a chi non doveva.
+   */
+  const inRubrica = new Set();
+
+  const registraContatti = (contatti) => {
+    for (const c of contatti ?? []) {
+      if (!c?.id) continue;
+      if (c.name) inRubrica.add(c.id.split("@")[0]);
+      else inRubrica.delete(c.id.split("@")[0]);
+    }
+  };
+
+  sock.ev.on("contacts.set", ({ contacts }) => registraContatti(contacts));
+  sock.ev.on("contacts.upsert", (contatti) => registraContatti(contatti));
+  sock.ev.on("contacts.update", (contatti) => registraContatti(contatti));
+
+  entry.inRubrica = inRubrica;
+
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect, qr } = update;
 
@@ -282,6 +312,13 @@ async function startSession(sessionId) {
           ...(audio ? { audio } : {}),
           ...(audioTooLarge ? { audioTooLarge: true } : {}),
           profileName: msg.pushName || undefined,
+          // Inviato solo quando la rubrica e' stata ricevuta: un insieme vuoto
+          // significa "non ancora sincronizzata", non "nessun contatto
+          // salvato", e mandare `false` in quel momento direbbe alla
+          // piattaforma una cosa che non sappiamo.
+          ...(inRubrica.size > 0
+            ? { isKnownContact: inRubrica.has((phoneFromPn || jid.split("@")[0]).replace(/\D/g, "")) }
+            : {}),
         },
       });
     }
@@ -320,6 +357,40 @@ app.get("/sessions/:id/status", (req, res) => {
     status: entry?.status ?? "disconnected",
     phoneNumber: entry?.phoneNumber ?? null,
   });
+});
+
+/**
+ * Stato "sta scrivendo...".
+ *
+ * Separato dall'invio perche' i due momenti sono distinti: si annuncia la
+ * digitazione, si aspetta, poi si manda. Un solo endpoint che facesse
+ * entrambe le cose costringerebbe la piattaforma a tenere aperta la richiesta
+ * per tutta l'attesa anche quando non le serve.
+ *
+ * Non e' un'operazione critica: se fallisce si risponde comunque 200 con
+ * l'esito dentro, perche' chi chiama non deve avere motivo di interrompere
+ * l'invio di un messaggio vero per un indicatore estetico.
+ */
+app.post("/sessions/:id/typing", async (req, res) => {
+  const entry = sessions.get(req.params.id);
+  if (!entry || entry.status !== "connected") {
+    return res.status(409).json({ error: "session_not_connected" });
+  }
+
+  const { to, jid: providedJid, state } = req.body || {};
+  const resolved = resolveSendJid({ to, jid: providedJid });
+  if (!resolved) return res.status(400).json({ error: "missing_recipient" });
+
+  try {
+    // `subscribe` prima di `composing`: senza, alcuni client non mostrano
+    // l'indicatore perche' non stanno osservando la presenza di quella chat.
+    await entry.sock.presenceSubscribe(resolved);
+    await entry.sock.sendPresenceUpdate(state === "paused" ? "paused" : "composing", resolved);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("[typing] fallito:", error.message);
+    res.json({ ok: false, error: "presence_failed" });
+  }
 });
 
 app.post("/sessions/:id/send", async (req, res) => {

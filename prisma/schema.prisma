@@ -408,6 +408,7 @@ model Organization {
   /// Referral in cui questa agenzia è l'invitata (al massimo uno: non si può
   /// essere invitati due volte).
   referredBy           Referral?              @relation("ReferralsReceived")
+  mutedContacts        WhatsAppMutedContact[]
 }
 
 /// Programma Referral B2B: un'agenzia (Referrer) invita un'altra (Referee) col
@@ -1284,4 +1285,32 @@ model VoiceReport {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, createdAt])
+}
+
+/// Numeri su cui l'assistente non deve intervenire, per questa agenzia.
+///
+/// Serve al caso che una scheda lead non copre: la chat personale, il
+/// fornitore, il collega. Lì `!pausa` non aveva nulla su cui agire, perché il
+/// comando spegne `Lead.aiEnabled` e un lead non esiste ancora — e non deve
+/// esistere, perché creare una scheda per poterla zittire sporcherebbe la
+/// pipeline con contatti che nessuno ha chiesto di qualificare.
+///
+/// Tabella minima di proposito: è un elenco di numeri, non una relazione. Ha
+/// senso finché resta l'eccezione manuale accanto al filtro automatico.
+model WhatsAppMutedContact {
+  id String @id @default(cuid())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Numero normalizzato, nella stessa forma usata da `Lead.clientPhone`.
+  clientPhone String
+
+  /// Chi o cosa lo ha silenziato: comando dell'agente, o filtro automatico.
+  reason String @default("comando_agente")
+
+  createdAt DateTime @default(now())
+
+  @@unique([organizationId, clientPhone])
+  @@index([organizationId])
 }

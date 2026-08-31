@@ -14,6 +14,7 @@ import { resolveWhatsAppCredentials } from "./credentials";
 import { recordClientMessage } from "./conversation";
 import type { InboundWhatsAppMessage } from "./provider";
 import { countInvisibleChars, sanitizeInboundText } from "./sanitize";
+import { isMutedContact, muteContact, unmuteContact } from "./muted-contacts";
 
 export type WhatsAppConfigWithOrganization = WhatsAppConfig & { organization: Organization };
 
@@ -45,11 +46,50 @@ async function applyAgentCommand(
       where: { organizationId_clientPhone: { organizationId: config.organizationId, clientPhone } },
     }));
 
+  /*
+   * Comando su una chat che non ha una scheda.
+   *
+   * E' il caso piu' frequente per cui un agente scrive `!pausa`: la chat
+   * personale, il fornitore, il collega. Prima si usciva con un avviso nei
+   * log e senza fare nulla, quindi il comando sembrava ignorato — e a chi
+   * l'ha scritto restava il dubbio se l'assistente avrebbe risposto o no.
+   *
+   * Il numero finisce nell'elenco dei silenziati, che non richiede una
+   * scheda. Non se ne crea una apposta: una scheda esiste per qualificare
+   * qualcuno, e aprirne una per poterla zittire conterebbe fra i lead
+   * dell'agenzia un contatto che nessuno ha chiesto di qualificare.
+   */
   if (!lead) {
-    console.warn("[WA-AGENT-COMMAND] Comando su una chat senza scheda", {
-      organizationId: config.organizationId,
-      command,
-    });
+    if (command === "pause_ai" || command === "resume_ai") {
+      if (command === "pause_ai") {
+        await muteContact(config.organizationId, clientPhone, "comando_agente");
+      } else {
+        await unmuteContact(config.organizationId, clientPhone);
+      }
+
+      console.info("[WA-AGENT-COMMAND] Chat senza scheda", {
+        organizationId: config.organizationId,
+        command,
+        from: `${clientPhone.slice(0, 6)}…`,
+      });
+    } else {
+      console.info("[WA-AGENT-COMMAND] Richiesta di aiuto su chat senza scheda", {
+        organizationId: config.organizationId,
+      });
+    }
+
+    // La conferma parte comunque: e' l'unico modo che l'agente ha di sapere
+    // che il comando e' stato capito.
+    try {
+      await sendWhatsAppMessageForProvider(
+        resolveWhatsAppCredentials(config),
+        clientPhone,
+        AGENT_COMMAND_REPLIES[command],
+        message.chatJid
+      );
+    } catch (error) {
+      console.error("[WA-AGENT-COMMAND] Conferma non inviata (chat senza scheda)", { error });
+    }
     return;
   }
 
@@ -180,6 +220,22 @@ export async function handleInboundWhatsAppMessage(
     return;
   }
 
+  /*
+   * Numero silenziato: nessuna risposta, nessuna scheda, nessun credito.
+   *
+   * Il controllo sta **dopo** i comandi dell'agente, cosi' `!riprendi` puo'
+   * ancora arrivare su una chat silenziata: un silenzio da cui non si torna
+   * indietro sarebbe una trappola. Sta **prima** di tutto il resto perche' la
+   * decisione e' gia' stata presa da una persona e non c'e' nulla da valutare.
+   */
+  if (await isMutedContact(config.organizationId, clientPhone)) {
+    console.info("[WA-MUTED] Contatto silenziato, nessuna risposta", {
+      organizationId: config.organizationId,
+      from: `${clientPhone.slice(0, 6)}…`,
+    });
+    return;
+  }
+
   const existing =
     (await prisma.lead.findUnique({
       where: { organizationId_clientPhone: { organizationId: config.organizationId, clientPhone } },
@@ -214,6 +270,32 @@ export async function handleInboundWhatsAppMessage(
      * qualunque apertura generica ("Buongiorno", "Ho visto l'annuncio"): e'
      * proprio qui che un falso negativo costerebbe un cliente vero.
      */
+    /*
+     * Mittente in rubrica: non e' un lead da portale.
+     *
+     * Chi scrive dopo aver visto un annuncio non e' salvato fra i contatti
+     * dell'agenzia: e' uno sconosciuto. Un numero che invece c'e' gia' e'
+     * quasi sempre una persona che l'agenzia conosce - un collega, un
+     * fornitore, un familiare - e aprirle una scheda significa mandarle
+     * l'informativa privacy e le domande sul mutuo.
+     *
+     * La regola vale **solo al primo contatto**. Se una scheda esiste gia',
+     * il messaggio prosegue normalmente anche da un numero in rubrica: un
+     * acquirente vero viene salvato fra i contatti proprio perche' e'
+     * diventato un cliente, e zittirlo a meta' qualificazione sarebbe peggio
+     * del problema che questa regola risolve.
+     *
+     * Non silenzia in permanenza: se domani quella persona scrive davvero per
+     * una casa, l'agente puo' rispondere a mano o usare `!riprendi`.
+     */
+    if (message.isKnownContact) {
+      console.info("[WA-KNOWN-CONTACT] Primo contatto da un numero in rubrica, ignorato", {
+        organizationId: config.organizationId,
+        from: `${clientPhone.slice(0, 6)}…`,
+      });
+      return;
+    }
+
     const verdetto = await classifyIntent({ message: message.text });
 
     if (!verdetto.pertinente) {

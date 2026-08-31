@@ -27,9 +27,23 @@ import type { ChatMessage } from "./types";
  *   appena arrivata da un portale e la cui rapidità è il prodotto.
  */
 
-/** Estremi del ritardo, in millisecondi. */
-export const TYPING_DELAY_MIN_MS = 2_500;
-export const TYPING_DELAY_MAX_MS = 4_500;
+/**
+ * Estremi del ritardo, in millisecondi.
+ *
+ * Cinque-dieci secondi e non due-quattro: e' il tempo che impiega una persona
+ * a leggere un messaggio, pensarci e scrivere due righe sul telefono. Sotto i
+ * cinque secondi la costanza dell'intervallo resta riconoscibile, ed e' la
+ * regolarita' - piu' della rapidita' - a far classificare un numero come
+ * automatico.
+ *
+ * Il tetto sta a dieci perche' l'attesa e' dentro la richiesta: la rotta ha
+ * `maxDuration = 60` e il microservizio rinuncia dopo 45 secondi, quindi
+ * dieci secondi di attesa piu' la generazione della risposta restano
+ * abbondantemente dentro il margine. Alzarlo ancora significherebbe far
+ * scadere la consegna per sembrare piu' umani, che e' un cattivo affare.
+ */
+export const TYPING_DELAY_MIN_MS = 5_000;
+export const TYPING_DELAY_MAX_MS = 10_000;
 
 /** Messaggi che l'assistente può inviare allo stesso contatto in un minuto. */
 export const MAX_MESSAGES_PER_MINUTE = 3;

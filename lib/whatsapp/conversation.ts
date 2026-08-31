@@ -4,7 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { incrementUsage } from "@/lib/usage";
 import { formatSlotForChat } from "@/lib/calendar";
 import { resolveCalendarProvider } from "@/lib/calendar/provider";
-import { hasSendableCredentials, sendWhatsAppMessageForProvider } from "./client";
+import {
+  hasSendableCredentials,
+  sendTypingIndicatorForProvider,
+  sendWhatsAppMessageForProvider,
+} from "./client";
 import { appendMessage } from "./chat-history";
 import { buildOpeningMessage, OPT_OUT_CONFIRMATION } from "./compliance";
 import { generateAgentReply, AGENT_FALLBACK_MESSAGE, type AgencyProfile } from "@/lib/ai/whatsapp-agent";
@@ -298,11 +302,25 @@ export async function handleIncomingMessage(
   // WhatsApp classifica i numeri anche su questo. Dopo il log e prima
   // dell'invio, cosi' nei registri resta traccia della risposta anche se la
   // consegna fallisce.
+  /*
+   * Prima l'annuncio, poi l'attesa, poi il messaggio.
+   *
+   * L'ordine e' quello di una persona: si vede "sta scrivendo...", passa
+   * qualche secondo, arriva la risposta. Annunciare dopo l'attesa mostrerebbe
+   * l'indicatore per un istante prima del messaggio, che e' peggio di non
+   * mostrarlo: si nota che e' finto.
+   *
+   * L'annuncio non blocca nulla — non lancia e non ha esito — perche' un
+   * indicatore mancato non vale il fallimento di una risposta vera.
+   */
+  const credenziali = resolveWhatsAppCredentials(config);
+  await sendTypingIndicatorForProvider(credenziali, lead.clientPhone, lead.waChatJid);
+
   const attesa = await humanTypingDelay();
   console.info("[WA-TYPING-DELAY]", { leadId: lead.id, ms: attesa });
 
   await sendWhatsAppMessageForProvider(
-    resolveWhatsAppCredentials(config),
+    credenziali,
     lead.clientPhone,
     replyText,
     lead.waChatJid

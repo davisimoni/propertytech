@@ -143,6 +143,32 @@ export async function destroyQrSession(sessionId: string): Promise<void> {
   });
 }
 
+/**
+ * Annuncia "sta scrivendo..." nella chat, se il microservizio lo supporta.
+ *
+ * Non lancia mai e non ha un valore di ritorno: e' un ornamento della
+ * conversazione, e far fallire l'invio di una risposta vera perche' un
+ * indicatore non e' partito sarebbe sproporzionato. Un microservizio non
+ * aggiornato risponde 404 e il messaggio arriva comunque, solo senza
+ * preavviso.
+ */
+export async function sendTypingIndicator(
+  sessionId: string,
+  toPhone: string,
+  chatJid?: string | null
+): Promise<void> {
+  try {
+    await callService<{ ok: boolean }>(`/sessions/${encodeURIComponent(sessionId)}/typing`, {
+      method: "POST",
+      body: JSON.stringify({ to: toPhone, ...(chatJid ? { jid: chatJid } : {}) }),
+    });
+  } catch (error) {
+    console.warn("[WA-TYPING] Indicatore non inviato", {
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+  }
+}
+
 /** Invia un messaggio attraverso la sessione abbinata. */
 export async function sendViaQrSession(
   sessionId: string,

@@ -54,6 +54,8 @@ const eventSchema = z.object({
       isLid: z.boolean().optional(),
       /** Comando scritto dall'agenzia dentro la chat, non messaggio del cliente. */
       fromAgent: z.boolean().optional(),
+      /** Mittente presente nella rubrica del telefono. Assente dai microservizi non aggiornati. */
+      isKnownContact: z.boolean().optional(),
     })
     .optional(),
 });
@@ -228,6 +230,7 @@ export async function POST(request: Request) {
       profileName: message.profileName,
       chatJid: message.jid,
       fromAgent: message.fromAgent,
+      isKnownContact: message.isKnownContact,
     });
   } catch (error) {
     // 200 comunque: un errore nostro non deve innescare rinvii a ripetizione
