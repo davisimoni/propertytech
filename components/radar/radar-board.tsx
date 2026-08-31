@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import type { AppraisalStatus, OccupancyStatus, PropertyType, RiskLevel } from "@prisma/client";
 import { RadarPropertyForm } from "./radar-property-form";
 import { AppraisalPanel } from "./appraisal-panel";
+import { RadarMatchesCard } from "./radar-matches-card";
 
 export interface RadarItem {
   id: string;
@@ -228,8 +229,14 @@ export function RadarBoard() {
               </button>
 
               {aperto && (
-                <div className="border-t border-border p-4">
+                <div className="space-y-5 border-t border-border p-4">
                   <AppraisalPanel radarPropertyId={item.id} onChanged={load} />
+
+                  {/* Sotto la perizia: si decide a chi proporre il lotto dopo
+                      aver visto in che stato e'. */}
+                  <div className="border-t border-border pt-4">
+                    <RadarMatchesCard radarPropertyId={item.id} />
+                  </div>
                 </div>
               )}
             </article>
