@@ -17,12 +17,20 @@
  * una persona scriva spontaneamente.
  */
 
-export type AgentCommand = "pause_ai" | "resume_ai" | "help";
+export type AgentCommand = "pause_ai" | "resume_ai" | "reset" | "help";
 
 /** Comando → sinonimi accettati, tutti col prefisso `!`. */
 const COMMANDS: Record<AgentCommand, string[]> = {
   pause_ai: ["stop-ai", "stopai", "pausa", "pausa-ai", "umano", "prendo-io"],
   resume_ai: ["start-ai", "startai", "riprendi", "riprendi-ai", "ai"],
+  /**
+   * Azzeramento della conversazione.
+   *
+   * Nessun sinonimo breve e nessun alias generico: e' l'unico comando che
+   * cancella dati, e un alias in piu' e' un modo in piu' di attivarlo per
+   * sbaglio. "azzera" e "reset" bastano, e nessuno dei due si scrive per caso.
+   */
+  reset: ["reset", "azzera"],
   help: ["comandi", "help", "aiuto"],
 };
 
@@ -62,5 +70,7 @@ export const AGENT_COMMAND_REPLIES: Record<AgentCommand, string> = {
     "🔕 Assistente in pausa su questa conversazione. Da ora rispondi tu: scrivi !riprendi per riattivarlo.",
   resume_ai:
     "🔔 Assistente riattivato su questa conversazione: torna a rispondere lui dal prossimo messaggio del cliente.",
-  help: "Comandi disponibili: !pausa per rispondere tu, !riprendi per riattivare l'assistente.",
+  reset:
+    "🧹 Conversazione azzerata. La scheda e la cronologia di questo contatto sono state eliminate: il prossimo messaggio riparte da zero.",
+  help: "Comandi disponibili: !pausa per rispondere tu, !riprendi per riattivare l'assistente, !reset per azzerare questa conversazione.",
 };

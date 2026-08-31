@@ -15,6 +15,7 @@ import { recordClientMessage } from "./conversation";
 import type { InboundWhatsAppMessage } from "./provider";
 import { countInvisibleChars, sanitizeInboundText } from "./sanitize";
 import { isMutedContact, muteContact, unmuteContact } from "./muted-contacts";
+import { resetConversation } from "./reset-conversation";
 
 export type WhatsAppConfigWithOrganization = WhatsAppConfig & { organization: Organization };
 
@@ -60,7 +61,15 @@ async function applyAgentCommand(
    * dell'agenzia un contatto che nessuno ha chiesto di qualificare.
    */
   if (!lead) {
-    if (command === "pause_ai" || command === "resume_ai") {
+    if (command === "reset") {
+      // Nessuna scheda da cancellare, ma il silenzio va tolto lo stesso: dopo
+      // un `!reset` il contatto deve essere nello stato in cui era prima che
+      // qualcuno lo toccasse.
+      await resetConversation(config.organizationId, clientPhone, message.chatJid);
+      console.info("[WA-RESET] Nessuna scheda da azzerare", {
+        organizationId: config.organizationId,
+      });
+    } else if (command === "pause_ai" || command === "resume_ai") {
       if (command === "pause_ai") {
         await muteContact(config.organizationId, clientPhone, "comando_agente");
       } else {
@@ -89,6 +98,34 @@ async function applyAgentCommand(
       );
     } catch (error) {
       console.error("[WA-AGENT-COMMAND] Conferma non inviata (chat senza scheda)", { error });
+    }
+    return;
+  }
+
+  if (command === "reset") {
+    /*
+     * Recapito catturato PRIMA della cancellazione: subito dopo la scheda non
+     * esiste piu' e non c'e' da dove leggere numero e indirizzo di chat a cui
+     * mandare la conferma.
+     */
+    const destinatario = { phone: lead.clientPhone, jid: lead.waChatJid ?? message.chatJid };
+    const esito = await resetConversation(config.organizationId, clientPhone, message.chatJid);
+
+    console.warn("[WA-RESET] Conversazione azzerata", {
+      leadId: lead.id,
+      organizationId: config.organizationId,
+      appuntamentoLiberato: esito.freedSlot,
+    });
+
+    try {
+      await sendWhatsAppMessageForProvider(
+        resolveWhatsAppCredentials(config),
+        destinatario.phone,
+        AGENT_COMMAND_REPLIES.reset,
+        destinatario.jid
+      );
+    } catch (error) {
+      console.error("[WA-RESET] Conferma non inviata", { error });
     }
     return;
   }
@@ -330,11 +367,70 @@ export async function handleInboundWhatsAppMessage(
         organizationId: config.organizationId,
       });
     } else if (lead.qualificationStatus === "QUALIFIED" || lead.qualificationStatus === "UNQUALIFIED") {
-      // Qualificazione conclusa: il ciclo si ferma qui. Rifarlo girare
-      // costerebbe una chiamata al modello per ogni frase successiva e, quel
-      // che e' peggio, potrebbe ribaltare un esito gia' raggiunto e gia'
-      // consegnato al gestionale.
-      await handleClosedConversation(lead, config, message.text);
+      /**
+       * Qualificazione conclusa: di regola il ciclo si ferma qui, perche'
+       * rifarlo girare a ogni frase potrebbe ribaltare un esito gia'
+       * raggiunto e gia' consegnato al gestionale.
+       *
+       * L'eccezione e' la persona che torna **mesi dopo con un'altra
+       * richiesta**. Prima finiva contro questo muro: riceveva una volta il
+       * messaggio di chiusura e da li' in poi il silenzio, perche'
+       * `handleClosedConversation` non risponde due volte di seguito la stessa
+       * cosa. Una richiesta nuova da un contatto che l'agenzia ha gia' servito
+       * e' fra i lead piu' facili da chiudere, e restava senza risposta senza
+       * che nessuno se ne accorgesse.
+       *
+       * La soglia per riaprire e' `nuovaRichiesta`, non la sola pertinenza: un
+       * "grazie mille" o un "a presto" sono pertinenti e non devono far
+       * ripartire nulla. Il classificatore ha istruzione di stare basso e di
+       * scegliere `false` nel dubbio.
+       */
+      const storicoChiuso = parseChatMessages(
+        (await prisma.whatsAppChat.findUnique({
+          where: { leadId: lead.id },
+          select: { messages: true },
+        }))?.messages
+      );
+
+      const verdettoChiuso = await classifyIntent({
+        message: message.text,
+        recentContext: storicoChiuso
+          .slice(-4)
+          .map((m) => `${m.sender === "bot" ? "Agenzia" : "Cliente"}: ${m.text}`),
+      });
+
+      if (verdettoChiuso.pertinente && verdettoChiuso.nuovaRichiesta) {
+        /*
+         * Si riapre lo stato, non si cancellano i dati.
+         *
+         * Mutuo, tempistiche e budget raccolti la volta scorsa restano: sono
+         * fatti su quella persona, non su quella pratica, e buttarli
+         * significherebbe rifare domande a cui ha gia' risposto. Se nel
+         * frattempo sono cambiati, e' la conversazione stessa ad aggiornarli.
+         */
+        const riaperto = await prisma.lead.update({
+          where: { id: lead.id },
+          data: { qualificationStatus: "IN_PROGRESS" },
+        });
+
+        console.info("[WA-LEAD-REOPENED]", {
+          leadId: lead.id,
+          organizationId: config.organizationId,
+          statoPrecedente: lead.qualificationStatus,
+          motivo: verdettoChiuso.motivo,
+        });
+
+        await resetOffTopicStreak(riaperto);
+        await handleIncomingMessage(
+          riaperto,
+          config,
+          config.organization.agencyName,
+          message.text,
+          config.organization
+        );
+      } else {
+        await handleClosedConversation(lead, config, message.text);
+      }
     } else {
       /**
        * Filtro di pertinenza, davanti all'agente di qualificazione.

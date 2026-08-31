@@ -46,6 +46,11 @@ const intentSchema = z.object({
     .describe(
       "true se il messaggio può riguardare l'attività di un'agenzia immobiliare; false SOLO se è palesemente estraneo."
     ),
+  nuovaRichiesta: z
+    .boolean()
+    .describe(
+      "true SOLO se il messaggio avvia una richiesta immobiliare nuova, distinta da quella eventualmente gia' trattata nella conversazione. false per ringraziamenti, conferme, saluti di commiato e domande di seguito su ciò di cui si è già parlato."
+    ),
   motivo: z
     .string()
     .describe("Categoria in due o tre parole, per i log. Es. 'saluto iniziale', 'pubblicità'."),
@@ -73,6 +78,13 @@ Solo quando è **evidente** che non c'entra nulla:
 - Pubblicità, catene, truffe, phishing, messaggi automatici di altri servizi.
 - Numeri sbagliati dichiarati ("scusi ho sbagliato numero").
 - Contenuti offensivi o provocatori senza alcuna richiesta.
+
+# Richiesta nuova (nuovaRichiesta)
+Serve a decidere se **riaprire** una pratica gia' chiusa, quindi la soglia e' alta: la si alza solo per un messaggio che porta una domanda immobiliare che sta in piedi da sola.
+- nuovaRichiesta: true — "Gentile Agenzia, vorrei informazioni su…", "sto cercando un trilocale a…", "avrei un immobile da far valutare", una scheda inoltrata da un portale, una richiesta su un immobile o una zona diversi da quelli gia' discussi.
+- nuovaRichiesta: false — ringraziamenti, "va bene", "a presto", conferme, saluti di commiato, domande di seguito su cio' di cui si e' gia' parlato, risposte alle domande di qualificazione.
+Se pertinente e' false, nuovaRichiesta e' false.
+Nel dubbio, false: riaprire una pratica chiusa fa ripartire l'assistente sopra un agente che l'aveva gia' presa in carico, ed e' un danno peggiore di una riapertura mancata, che l'agente vede comunque in cronologia.
 
 # La regola che vince su tutte
 Nel dubbio, pertinente: true.
@@ -108,7 +120,7 @@ export async function classifyIntent(params: {
     });
 
     if (response.stop_reason === "refusal" || !response.parsed_output) {
-      return { pertinente: true, motivo: "classificazione non disponibile" };
+      return { pertinente: true, nuovaRichiesta: false, motivo: "classificazione non disponibile" };
     }
 
     return response.parsed_output;
@@ -116,6 +128,9 @@ export async function classifyIntent(params: {
     console.error("[intent-gateway] Classificazione non riuscita", {
       reason: error instanceof Error ? error.message : "unknown",
     });
-    return { pertinente: true, motivo: "errore del filtro" };
+    // Il ripiego non riapre mai una pratica chiusa: in caso di guasto si
+    // lascia passare il messaggio, ma la riapertura resta una decisione
+    // che qualcuno deve avere effettivamente preso.
+    return { pertinente: true, nuovaRichiesta: false, motivo: "errore del filtro" };
   }
 }
