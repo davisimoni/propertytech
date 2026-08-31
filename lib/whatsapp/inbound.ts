@@ -270,32 +270,6 @@ export async function handleInboundWhatsAppMessage(
      * qualunque apertura generica ("Buongiorno", "Ho visto l'annuncio"): e'
      * proprio qui che un falso negativo costerebbe un cliente vero.
      */
-    /*
-     * Mittente in rubrica: non e' un lead da portale.
-     *
-     * Chi scrive dopo aver visto un annuncio non e' salvato fra i contatti
-     * dell'agenzia: e' uno sconosciuto. Un numero che invece c'e' gia' e'
-     * quasi sempre una persona che l'agenzia conosce - un collega, un
-     * fornitore, un familiare - e aprirle una scheda significa mandarle
-     * l'informativa privacy e le domande sul mutuo.
-     *
-     * La regola vale **solo al primo contatto**. Se una scheda esiste gia',
-     * il messaggio prosegue normalmente anche da un numero in rubrica: un
-     * acquirente vero viene salvato fra i contatti proprio perche' e'
-     * diventato un cliente, e zittirlo a meta' qualificazione sarebbe peggio
-     * del problema che questa regola risolve.
-     *
-     * Non silenzia in permanenza: se domani quella persona scrive davvero per
-     * una casa, l'agente puo' rispondere a mano o usare `!riprendi`.
-     */
-    if (message.isKnownContact) {
-      console.info("[WA-KNOWN-CONTACT] Primo contatto da un numero in rubrica, ignorato", {
-        organizationId: config.organizationId,
-        from: `${clientPhone.slice(0, 6)}…`,
-      });
-      return;
-    }
-
     const verdetto = await classifyIntent({ message: message.text });
 
     if (!verdetto.pertinente) {

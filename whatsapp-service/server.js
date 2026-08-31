@@ -149,35 +149,6 @@ async function startSession(sessionId) {
 
   sock.ev.on("creds.update", saveCreds);
 
-  /*
-   * Rubrica del telefono abbinato.
-   *
-   * Baileys distingue due nomi: `notify`/`verifiedName` e' come la persona ha
-   * chiamato se stessa su WhatsApp, e ce l'hanno tutti; `name` c'e' solo se
-   * quel numero e' salvato nella rubrica del telefono. E' quest'ultimo che
-   * distingue un conoscente da uno sconosciuto arrivato da un portale.
-   *
-   * L'insieme sta in memoria e non su disco: se il processo riparte si
-   * ripopola al primo `contacts.set` della sessione, e nel frattempo il
-   * campo semplicemente non viene inviato — la piattaforma tratta l'assenza
-   * come "non lo so" e si comporta come prima, invece di dedurre "sconosciuto"
-   * e rispondere a chi non doveva.
-   */
-  const inRubrica = new Set();
-
-  const registraContatti = (contatti) => {
-    for (const c of contatti ?? []) {
-      if (!c?.id) continue;
-      if (c.name) inRubrica.add(c.id.split("@")[0]);
-      else inRubrica.delete(c.id.split("@")[0]);
-    }
-  };
-
-  sock.ev.on("contacts.set", ({ contacts }) => registraContatti(contacts));
-  sock.ev.on("contacts.upsert", (contatti) => registraContatti(contatti));
-  sock.ev.on("contacts.update", (contatti) => registraContatti(contatti));
-
-  entry.inRubrica = inRubrica;
 
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect, qr } = update;
@@ -312,13 +283,6 @@ async function startSession(sessionId) {
           ...(audio ? { audio } : {}),
           ...(audioTooLarge ? { audioTooLarge: true } : {}),
           profileName: msg.pushName || undefined,
-          // Inviato solo quando la rubrica e' stata ricevuta: un insieme vuoto
-          // significa "non ancora sincronizzata", non "nessun contatto
-          // salvato", e mandare `false` in quel momento direbbe alla
-          // piattaforma una cosa che non sappiamo.
-          ...(inRubrica.size > 0
-            ? { isKnownContact: inRubrica.has((phoneFromPn || jid.split("@")[0]).replace(/\D/g, "")) }
-            : {}),
         },
       });
     }
