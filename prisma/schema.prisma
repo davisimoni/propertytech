@@ -244,6 +244,7 @@ model User {
   calendarConnections CalendarConnection[]
 
   @@index([organizationId, role])
+  leadNotes      LeadNote[]
 }
 
 /// Ogni Agenzia immobiliare è un tenant isolato.
@@ -409,6 +410,7 @@ model Organization {
   /// essere invitati due volte).
   referredBy           Referral?              @relation("ReferralsReceived")
   mutedContacts        WhatsAppMutedContact[]
+  leadNotes            LeadNote[]
 }
 
 /// Programma Referral B2B: un'agenzia (Referrer) invita un'altra (Referee) col
@@ -784,6 +786,7 @@ model Lead {
   @@index([organizationId, assignedToId])
   /// Supporta l'ordinamento "prima i multi-proprietari" della pipeline lead.
   @@index([organizationId, ownedPropertiesCount])
+  notes            LeadNote[]
 }
 
 /// Corrispondenza proposta fra un intestatario di visura (Modulo 2) e un lead
@@ -1312,5 +1315,53 @@ model WhatsAppMutedContact {
   createdAt DateTime @default(now())
 
   @@unique([organizationId, clientPhone])
+  @@index([organizationId])
+}
+
+/// Nota interna di un agente su un lead.
+///
+/// # Perché una tabella e non un campo di testo sul lead
+///
+/// Una nota ha un autore e un momento. Con un campo unico due agenti che
+/// scrivono nello stesso minuto si sovrascrivono a vicenda, e fra un mese
+/// nessuno sa chi abbia scritto "richiamare dopo il 15" né quando: è proprio
+/// l'informazione che serve a chi subentra su una trattativa.
+///
+/// # Perché l'autore sopravvive alla persona
+///
+/// `onDelete: SetNull` sull'autore: quando un collaboratore lascia l'agenzia
+/// le sue note restano, con l'autore vuoto. Cancellarle porterebbe via la
+/// storia della trattativa proprio nel momento in cui qualcun altro deve
+/// prenderla in mano — che è il caso peggiore possibile.
+///
+/// Sul lead invece è `Cascade`: cancellata la scheda, le sue note non hanno
+/// più un soggetto di cui parlare.
+model LeadNote {
+  id String @id @default(cuid())
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  /// `null` quando l'autore non fa più parte dell'agenzia.
+  authorId String?
+  author   User?   @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  /// Nome dell'autore al momento della scrittura.
+  ///
+  /// Ridondante rispetto alla relazione, e voluto: è l'unico modo di mostrare
+  /// "scritta da Marco" dopo che Marco è stato rimosso. Una nota firmata da
+  /// nessuno vale molto meno di una nota firmata da chi non lavora più qui.
+  authorName String?
+
+  content String
+
+  /// Il tenant è ripetuto qui e non solo dedotto dal lead: ogni query filtra
+  /// sull'agenzia senza dover passare da una join (CLAUDE.md §5).
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([leadId, createdAt])
   @@index([organizationId])
 }

@@ -21,6 +21,7 @@ import { PortfolioCard } from "./portfolio-card";
 import { LeadPreferencesCard } from "./lead-preferences-card";
 import { LeadMatchesCard } from "./lead-matches-card";
 import { LeadAssignment } from "./lead-assignment";
+import { LeadNotesCard } from "./lead-notes-card";
 import { LeadTimeline } from "@/components/whatsapp/lead-timeline";
 import { DocumentVault } from "@/components/documents/document-vault";
 import { CrmExportCard } from "./crm-export-card";
@@ -328,6 +329,12 @@ export function ChatSlideOver({
 
           <div className="border-b border-border p-4">
             <LeadAssignment lead={lead} onAssigned={onAssigned} />
+          </div>
+
+          {/* Subito sotto l'assegnazione: chi prende in carico un contatto
+              legge nell'ordine chi lo segue e cosa si sono detti finora. */}
+          <div className="border-b border-border p-4">
+            <LeadNotesCard leadId={lead.id} />
           </div>
 
           <div className="border-b border-border p-4">

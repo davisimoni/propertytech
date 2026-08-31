@@ -14,6 +14,7 @@ import {
   RefreshCw,
   ShieldQuestion,
   Table2,
+  UserCheck,
   Users,
   Upload,
   FlaskConical,
@@ -82,6 +83,14 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
   const [leads, setLeads] = useState<LeadView[]>([]);
   const [filter, setFilter] = useState<Filter>("ALL");
   const [sortByPortfolio, setSortByPortfolio] = useState(false);
+  /**
+   * "I miei lead": filtro di vista, non di permesso.
+   *
+   * Chi lo spegne rivede tutto, ed e' voluto: in un'agenzia piccola il
+   * collega che copre un'assenza deve poter aprire una scheda che non e'
+   * sua. Serve a togliere rumore, non a nascondere il lavoro altrui.
+   */
+  const [onlyMine, setOnlyMine] = useState(false);
   const [view, setView] = useState<"table" | "kanban">("table");
   const [isLoading, setIsLoading] = useState(true);
   /**
@@ -94,10 +103,14 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
   const [loadError, setLoadError] = useState(false);
   const [selectedLead, setSelectedLead] = useState<LeadView | null>(null);
 
-  const fetchLeads = useCallback(async (status: Filter, byPortfolio: boolean) => {
+  const fetchLeads = useCallback(
+    async (status: Filter, byPortfolio: boolean, mineOnly: boolean) => {
     const params = new URLSearchParams();
     if (status !== "ALL") params.set("status", status);
     if (byPortfolio) params.set("sort", "portfolio");
+    // Il filtro lo applica il server: filtrare qui vorrebbe dire scaricare
+    // comunque tutti i lead dell'agenzia e nasconderne una parte.
+    if (mineOnly) params.set("assignee", "me");
 
     const query = params.toString();
 
@@ -120,7 +133,9 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
       setLoadError(true);
       return;
     }
-  }, []);
+    },
+    []
+  );
 
   /**
    * Applica subito una modifica manuale del portafoglio, senza aspettare il
@@ -218,18 +233,21 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
 
     async function load() {
       setIsLoading(true);
-      await fetchLeads(filter, sortByPortfolio);
+      await fetchLeads(filter, sortByPortfolio, onlyMine);
       if (!cancelled) setIsLoading(false);
     }
 
     load();
-    const interval = setInterval(() => fetchLeads(filter, sortByPortfolio), REFRESH_INTERVAL_MS);
+    const interval = setInterval(
+      () => fetchLeads(filter, sortByPortfolio, onlyMine),
+      REFRESH_INTERVAL_MS
+    );
 
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [filter, sortByPortfolio, fetchLeads]);
+  }, [filter, sortByPortfolio, onlyMine, fetchLeads]);
 
   return (
     <section className="rounded-xl border border-border bg-card p-4 md:p-5">
@@ -265,6 +283,22 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
               </button>
             ))}
           </div>
+          {/* Accanto agli altri filtri di vista, non fra le azioni: non fa
+              nulla, cambia solo cosa si guarda. */}
+          <button
+            type="button"
+            onClick={() => setOnlyMine((value) => !value)}
+            aria-pressed={onlyMine}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all duration-200",
+              onlyMine
+                ? "bg-primary/10 text-primary"
+                : "border border-border text-muted-foreground hover:border-primary/40 hover:bg-muted"
+            )}
+          >
+            <UserCheck className="h-3.5 w-3.5" />
+            {onlyMine ? "I miei lead" : "Tutti i lead"}
+          </button>
           <button
             type="button"
             onClick={() => setSortByPortfolio((value) => !value)}
@@ -281,7 +315,7 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
           </button>
           <button
             type="button"
-            onClick={() => fetchLeads(filter, sortByPortfolio)}
+            onClick={() => fetchLeads(filter, sortByPortfolio, onlyMine)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
           >
             <RefreshCw className="h-3.5 w-3.5" />

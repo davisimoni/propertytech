@@ -34,6 +34,22 @@ export async function GET(request: Request) {
     where.qualificationStatus = statusParam;
   }
 
+  /*
+   * "I miei lead": solo quelli assegnati a chi sta guardando.
+   *
+   * E' un filtro di vista, non un permesso. Chi lo toglie rivede tutto, ed e'
+   * voluto: in un'agenzia piccola il collega che copre un'assenza deve poter
+   * aprire una scheda che non e' sua, e nasconderla renderebbe il prodotto
+   * inutilizzabile proprio nei giorni in cui serve di piu'.
+   *
+   * Il valore accettato e' solo `me`. Un id arbitrario permetterebbe di
+   * sfogliare il lavoro di un collega scrivendolo nell'indirizzo, che e' una
+   * cosa diversa da un filtro e va decisa a parte.
+   */
+  if (searchParams.get("assignee") === "me" && session.user.id) {
+    where.assignedToId = session.user.id;
+  }
+
   // "Prima i multi-proprietari": i lead con più immobili in cima, i non ancora
   // rilevati in fondo. A parità di portafoglio resta l'ordine cronologico, così
   // fra due Lead Oro si chiama prima quello che ha scritto per ultimo.
