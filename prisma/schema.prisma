@@ -411,6 +411,9 @@ model Organization {
   referredBy           Referral?              @relation("ReferralsReceived")
   mutedContacts        WhatsAppMutedContact[]
   leadNotes            LeadNote[]
+  radarProperties      RadarProperty[]
+  auctionAppraisals    AuctionAppraisal[]
+  auctionMatches       AuctionLeadMatch[]
 }
 
 /// Programma Referral B2B: un'agenzia (Referrer) invita un'altra (Referee) col
@@ -787,6 +790,7 @@ model Lead {
   /// Supporta l'ordinamento "prima i multi-proprietari" della pipeline lead.
   @@index([organizationId, ownedPropertiesCount])
   notes            LeadNote[]
+  auctionMatches   AuctionLeadMatch[]
 }
 
 /// Corrispondenza proposta fra un intestatario di visura (Modulo 2) e un lead
@@ -1364,4 +1368,185 @@ model LeadNote {
 
   @@index([leadId, createdAt])
   @@index([organizationId])
+}
+
+// ─────────────────────────── Radar Immobili & Aste ───────────────────────────
+//
+// Modulo isolato dal resto: tabelle proprie, rotte proprie sotto /api/radar.
+// L'unico punto di contatto con il nucleo esistente è `AuctionLeadMatch`, che
+// riusa `Lead` in sola lettura per gli abbinamenti.
+
+/// Da dove arriva l'opportunità. Oggi solo `MANUALE`: le altre voci esistono
+/// perché il campo non cambi il giorno in cui si aggiunge una fonte, non
+/// perché siano già implementate.
+enum RadarSource {
+  MANUALE
+  PVP
+  ASTALEGALE
+  PORTALE
+}
+
+enum RadarKind {
+  /// Asta giudiziaria.
+  ASTA
+  /// Ribasso di prezzo su un immobile di mercato.
+  RIBASSO
+}
+
+/// Semaforo di rischio.
+///
+/// **Non è un giudizio del modello**: è il risultato di `lib/radar/risk.ts`
+/// applicato ai fatti estratti. Il modello dice cosa c'è scritto nella
+/// perizia, le regole dicono che colore ne consegue — e le regole sono
+/// mostrate accanto al colore, così l'agente vede *perché*.
+enum RiskLevel {
+  VERDE
+  GIALLO
+  ROSSO
+}
+
+enum OccupancyStatus {
+  LIBERO
+  OCCUPATO_CON_TITOLO
+  OCCUPATO_SENZA_TITOLO
+  NON_DETERMINATO
+}
+
+/// Stato dell'analisi della perizia.
+///
+/// Serve perché l'elaborazione è asincrona: la scheda esiste subito, la
+/// sintesi arriva dopo. Senza uno stato esplicito l'agente non distingue "sto
+/// ancora leggendo" da "non sono riuscito a leggere".
+enum AppraisalStatus {
+  IN_ANALISI
+  PRONTA
+  FALLITA
+}
+
+model RadarProperty {
+  id String @id @default(cuid())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  kind   RadarKind
+  source RadarSource @default(MANUALE)
+  /// Identificativo sul portale d'origine, quando esiste.
+  sourceRef String?
+  sourceUrl String?
+
+  /// I cinque campi che `scorePropertyForLead` sa già leggere: tenerli con
+  /// questi nomi permette di riusare il motore di matching senza adattatori.
+  comune       String
+  zona         String?
+  type         PropertyType
+  /// Offerta minima per un'asta, prezzo corrente per un ribasso.
+  priceEur     Int
+  squareMeters Int
+
+  /// Valore di perizia, per il confronto con l'offerta minima.
+  basePriceEur     Int?
+  /// Prezzo precedente, da cui si calcola l'entità del ribasso.
+  previousPriceEur Int?
+  auctionDate      DateTime?
+  lotto            String?
+  notes            String?
+
+  /// Archiviato invece che cancellato: un'asta conclusa resta consultabile,
+  /// e gli abbinamenti già mostrati all'agente non spariscono dalla storia.
+  archivedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appraisal AuctionAppraisal?
+  matches   AuctionLeadMatch[]
+
+  /// Reimportare la stessa fonte aggiorna invece di duplicare.
+  @@unique([organizationId, source, sourceRef])
+  @@index([organizationId, kind, auctionDate])
+  @@index([organizationId, archivedAt])
+}
+
+/// Sintesi AI di una perizia giudiziaria.
+///
+/// # Cosa NON viene conservato
+///
+/// Il PDF della perizia non viene salvato: resta in memoria per la durata
+/// dell'analisi e viene scartato. Una perizia contiene nome, situazione
+/// patrimoniale e talvolta condizioni familiari del debitore esecutato —
+/// persone che non sono clienti dell'agenzia e non hanno prestato alcun
+/// consenso. Di quel documento serve il contenuto tecnico, non l'identità di
+/// chi ha subito l'esecuzione, e il prompt ha istruzione esplicita di
+/// escluderla. Chi vuole archiviare il PDF lo carica nel Fascicolo, dove la
+/// conservazione è una scelta dichiarata.
+model AuctionAppraisal {
+  id String @id @default(cuid())
+
+  radarPropertyId String        @unique
+  radarProperty   RadarProperty @relation(fields: [radarPropertyId], references: [id], onDelete: Cascade)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  status        AppraisalStatus @default(IN_ANALISI)
+  /// Messaggio comprensibile all'agente quando `status` è FALLITA.
+  failureReason String?
+
+  occupancy      OccupancyStatus @default(NON_DETERMINATO)
+  risk           RiskLevel       @default(GIALLO)
+  /// I criteri che hanno prodotto quel colore, in chiaro.
+  riskReasons    String[]        @default([])
+  irregularities String[]        @default([])
+  encumbrances   String[]        @default([])
+
+  remediationCostMinEur Int?
+  remediationCostMaxEur Int?
+
+  summary String?
+
+  /// Quante pagine sono state effettivamente analizzate: con la selezione
+  /// manuale può essere un sottoinsieme, e l'agente deve saperlo prima di
+  /// fidarsi della sintesi.
+  pagesAnalysed Int?
+  pageRange     String?
+  /// Modello usato, per poter ricostruire come è stato prodotto un esito.
+  model         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, status])
+}
+
+/// Abbinamento fra un'opportunità del Radar e un lead già in pipeline.
+///
+/// Distinto da `PropertyLeadMatch`, che riguarda il portafoglio dell'agenzia:
+/// stesso motore di punteggio, oggetti diversi. Unirli significherebbe una
+/// colonna nullable per lato e query che devono sempre ricordarsi quale dei
+/// due sta guardando.
+model AuctionLeadMatch {
+  id String @id @default(cuid())
+
+  radarPropertyId String
+  radarProperty   RadarProperty @relation(fields: [radarPropertyId], references: [id], onDelete: Cascade)
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  score   Int
+  reasons String[] @default([])
+
+  seenAt DateTime?
+  /// Quando l'agente ha approvato l'invio del messaggio al cliente. `null`
+  /// significa "mai inviato": non esiste invio automatico.
+  notifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([radarPropertyId, leadId])
+  @@index([organizationId, score])
 }
