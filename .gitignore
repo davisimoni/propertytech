@@ -1,5 +1,7 @@
 # dependencies
 /node_modules
+# Anche quelle dei sottoprogetti (whatsapp-service ha un package.json proprio).
+**/node_modules
 
 # next.js
 /.next/

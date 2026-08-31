@@ -85,11 +85,61 @@ app.use((req, res, next) => {
  */
 const NOTIFY_TIMEOUT_MS = 45_000;
 
+/**
+ * URL di destinazione su Vercel, atteso in `PLATFORM_WEBHOOK_URL`.
+ *
+ * In produzione vale:
+ *   https://propertytechsolutions.net/api/whatsapp/qr/webhook
+ *
+ * Non c'e' un valore predefinito di proposito. Un default punterebbe alla
+ * produzione anche da un'istanza di prova, e i messaggi di collaudo
+ * finirebbero nella pipeline dell'agenzia vera: un guasto peggiore di quello
+ * che il default eviterebbe. Meglio non consegnare e dirlo forte.
+ */
+const WEBHOOK_ATTESO = "https://propertytechsolutions.net/api/whatsapp/qr/webhook";
+
+/** Riassunto del payload per i log, senza versarci dentro dati personali. */
+function riassuntoPayload(payload) {
+  const m = payload.message;
+  if (!m) return { evento: payload.event, sessionId: payload.sessionId };
+
+  return {
+    evento: payload.event,
+    sessionId: payload.sessionId,
+    // Numero troncato: nei log resta abbastanza per riconoscere una
+    // conversazione senza conservare il recapito di una persona.
+    da: String(m.from || "").slice(0, 6) + "...",
+    jid: m.jid,
+    caratteri: (m.text || "").length,
+    anteprima: (m.text || "").replace(/\s+/g, " ").slice(0, 60),
+    audio: Boolean(m.audio),
+    dallAgenzia: Boolean(m.fromAgent),
+  };
+}
+
 async function notify(payload) {
-  if (!WEBHOOK) return;
+  if (!WEBHOOK) {
+    /*
+     * Era `return` e basta: nessun log, nessuna traccia.
+     *
+     * E' il guasto peggiore possibile qui, perche' silenzioso e
+     * indistinguibile dal servizio spento. Il servizio risulta "Live", Baileys
+     * riceve i messaggi, e sulla piattaforma non arriva nulla: nei log di
+     * Render non compare una riga e in quelli di Vercel nemmeno, perche' la
+     * richiesta non parte proprio.
+     */
+    console.error(
+      `[RENDER WEBHOOK OUT] NON INVIATO: PLATFORM_WEBHOOK_URL non impostata. ` +
+        `Impostala nelle variabili d'ambiente di Render a ${WEBHOOK_ATTESO} e riavvia il servizio.`,
+      riassuntoPayload(payload)
+    );
+    return;
+  }
+
+  console.log("[RENDER WEBHOOK OUT]", WEBHOOK, riassuntoPayload(payload));
 
   try {
-    await fetch(WEBHOOK, {
+    const risposta = await fetch(WEBHOOK, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${TOKEN}`,
@@ -102,11 +152,41 @@ async function notify(payload) {
       // messaggi successivi di quella sessione, in silenzio.
       signal: AbortSignal.timeout(NOTIFY_TIMEOUT_MS),
     });
+
+    /*
+     * `fetch` non lancia sugli stati di errore: risolve anche con 401 o 500.
+     * Senza questo controllo una consegna rifiutata risultava riuscita, e un
+     * token disallineato fra Render e Vercel sarebbe stato invisibile da
+     * entrambe le parti.
+     */
+    if (!risposta.ok) {
+      const dettaglio = await risposta.text().catch(() => "");
+      console.error(
+        `[RENDER WEBHOOK OUT] RIFIUTATO dalla piattaforma: HTTP ${risposta.status}`,
+        {
+          dettaglio: dettaglio.slice(0, 200),
+          suggerimento:
+            risposta.status === 401
+              ? "SERVICE_TOKEN su Render deve coincidere con WHATSAPP_SERVICE_TOKEN su Vercel."
+              : risposta.status === 404
+                ? `URL errato: atteso un percorso come ${WEBHOOK_ATTESO}.`
+                : undefined,
+        }
+      );
+      return;
+    }
+
+    console.log(`[RENDER WEBHOOK OUT] consegnato: HTTP ${risposta.status}`);
   } catch (error) {
     // Non blocca: la piattaforma interroga comunque /status mentre il QR è a
     // schermo, quindi un webhook perso non impedisce l'abbinamento. Impedisce
     // però la ricezione dei messaggi, quindi va guardato nei log.
-    console.error("[notify] fallito:", error.message);
+    const scaduto = error && error.name === "TimeoutError";
+    console.error(
+      `[RENDER WEBHOOK OUT] ERRORE DI RETE${scaduto ? " (timeout)" : ""}:`,
+      error.message,
+      { url: WEBHOOK, timeoutMs: NOTIFY_TIMEOUT_MS }
+    );
   }
 }
 
@@ -410,6 +490,24 @@ app.listen(PORT, () => {
   console.log(`whatsapp-service in ascolto sulla porta ${PORT}`);
   console.log(`sessioni in ${SESSIONS_DIR}`);
   if (!WEBHOOK) {
-    console.warn("PLATFORM_WEBHOOK_URL non impostata: i messaggi in arrivo non verranno inoltrati.");
+    // Ripetuto e in errore, non un avviso solo: all'avvio scorre via, e il
+    // sintomo (nessun lead) si manifesta ore dopo.
+    console.error("=".repeat(72));
+    console.error("PLATFORM_WEBHOOK_URL NON IMPOSTATA.");
+    console.error("Il servizio riceve i messaggi da WhatsApp ma NON li inoltra alla piattaforma.");
+    console.error(`Impostala su Render a: ${WEBHOOK_ATTESO}`);
+    console.error("=".repeat(72));
+  } else {
+    console.log(`webhook di destinazione: ${WEBHOOK}`);
   }
 });
+
+/**
+ * Esportata per poterla provare.
+ *
+ * Il modulo è ESM e Render lo avvia con `node server.js`: questa riga non
+ * cambia nulla per lui, e permette di esercitare la consegna verso la
+ * piattaforma senza una sessione WhatsApp vera — l'unica parte di questo file
+ * verificabile fuori dal campo.
+ */
+export { notify };
