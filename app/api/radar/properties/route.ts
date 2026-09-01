@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import type { Prisma, PropertyType } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  radarPropertyCreateSchema,
+  raccogliErroriPerCampo,
+} from "@/lib/radar/property-schema";
 
 /**
  * Opportunità del Radar: aste giudiziarie e ribassi di mercato.
@@ -11,41 +15,6 @@ import { prisma } from "@/lib/prisma";
  * L'unica lettura verso l'esterno avviene nel matchmaking, che interroga i
  * lead senza modificarli.
  */
-
-const PROPERTY_TYPES: PropertyType[] = [
-  "APPARTAMENTO",
-  "ATTICO",
-  "VILLA",
-  "VILLETTA",
-  "LOFT",
-  "RUSTICO",
-  "TERRENO",
-  "NEGOZIO",
-  "UFFICIO",
-  "BOX",
-  "ALTRO",
-];
-
-const createSchema = z.object({
-  kind: z.enum(["ASTA", "RIBASSO"]),
-  comune: z.string().trim().min(2, "Indica il comune").max(120),
-  zona: z.string().trim().max(120).optional().or(z.literal("")),
-  /** Indirizzo e civico dell'immobile: sposta il pin dal centro del comune. */
-  address: z.string().trim().max(200).optional().or(z.literal("")),
-  type: z.enum(PROPERTY_TYPES as [PropertyType, ...PropertyType[]]),
-  priceEur: z.coerce.number().int().positive("Il prezzo deve essere maggiore di zero"),
-  squareMeters: z.coerce.number().int().positive("Indica i metri quadri"),
-  basePriceEur: z.coerce.number().int().positive().optional().nullable(),
-  previousPriceEur: z.coerce.number().int().positive().optional().nullable(),
-  /** Data dell'asta in formato ISO; `null` per i ribassi di mercato. */
-  auctionDate: z.string().datetime().optional().nullable(),
-  lotto: z.string().trim().max(60).optional().or(z.literal("")),
-  sourceUrl: z.string().trim().url("Indirizzo non valido").max(500).optional().or(z.literal("")),
-  notes: z.string().trim().max(2000).optional().or(z.literal("")),
-  /** Coordinate per la mappa. Facoltative: senza, il lotto resta solo in elenco. */
-  latitude: z.coerce.number().min(-90).max(90).optional().nullable(),
-  longitude: z.coerce.number().min(-180).max(180).optional().nullable(),
-});
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -96,10 +65,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const parsed = createSchema.safeParse(await request.json().catch(() => null));
+  const parsed = radarPropertyCreateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
+    /*
+     * Un messaggio per campo, non uno solo per tutto il modulo.
+     *
+     * "Invalid input" in cima a quattordici campi non dice quale correggere,
+     * e l'agente prova a caso finche' non rinuncia. La mappa campo -> errore
+     * permette al modulo di segnare l'input che ha causato il rifiuto.
+     */
+    const fieldErrors = raccogliErroriPerCampo(parsed.error);
+
     return NextResponse.json(
-      { error: "invalid_payload", message: parsed.error.issues[0]?.message ?? "Dati non validi." },
+      {
+        error: "invalid_payload",
+        message:
+          Object.keys(fieldErrors).length > 0
+            ? "Controlla i campi segnalati."
+            : "Dati non validi.",
+        fieldErrors,
+      },
       { status: 400 }
     );
   }

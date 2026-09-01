@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { runRadarMatching } from "@/lib/radar/matching";
 import { dropPercent } from "@/lib/radar/roi";
 import { geocodeZona } from "@/lib/radar/geocode";
+import { raccogliErroriPerCampo, PROPERTY_TYPES } from "@/lib/radar/property-schema";
 import type { PropertyType } from "@prisma/client";
 
 /**
@@ -23,10 +24,6 @@ import type { PropertyType } from "@prisma/client";
 
 export const maxDuration = 60;
 
-const PROPERTY_TYPES: PropertyType[] = [
-  "APPARTAMENTO", "ATTICO", "VILLA", "VILLETTA", "LOFT", "RUSTICO",
-  "TERRENO", "NEGOZIO", "UFFICIO", "BOX", "ALTRO",
-];
 
 const patchSchema = z.object({
   // --- Dati del lotto ---
@@ -34,7 +31,11 @@ const patchSchema = z.object({
   zona: z.string().trim().max(120).optional().nullable(),
   address: z.string().trim().max(200).optional().nullable(),
   type: z.enum(PROPERTY_TYPES as [PropertyType, ...PropertyType[]]).optional(),
-  squareMeters: z.coerce.number().int().positive().optional(),
+  squareMeters: z.coerce
+    .number({ error: "Inserisci un numero valido" })
+    .int("Inserisci un numero intero")
+    .positive("Indica i metri quadri")
+    .optional(),
   basePriceEur: z.coerce.number().int().positive().optional().nullable(),
   previousPriceEur: z.coerce.number().int().positive().optional().nullable(),
   auctionDate: z.string().datetime().optional().nullable(),
@@ -50,7 +51,11 @@ const patchSchema = z.object({
    */
   archived: z.boolean().optional(),
 
-  priceEur: z.coerce.number().int().positive().optional(),
+  priceEur: z.coerce
+    .number({ error: "Inserisci un numero valido" })
+    .int("Inserisci un numero intero")
+    .positive("Il prezzo deve essere maggiore di zero")
+    .optional(),
   transferCostsEur: z.coerce.number().int().min(0).optional().nullable(),
   renovationCostEur: z.coerce.number().int().min(0).optional().nullable(),
   marketValueEur: z.coerce.number().int().min(0).optional().nullable(),
@@ -69,8 +74,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   const parsed = patchSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
+    const fieldErrors = raccogliErroriPerCampo(parsed.error);
+
     return NextResponse.json(
-      { error: "invalid_payload", message: parsed.error.issues[0]?.message ?? "Dati non validi." },
+      {
+        error: "invalid_payload",
+        message:
+          Object.keys(fieldErrors).length > 0 ? "Controlla i campi segnalati." : "Dati non validi.",
+        fieldErrors,
+      },
       { status: 400 }
     );
   }

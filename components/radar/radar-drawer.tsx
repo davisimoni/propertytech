@@ -54,6 +54,13 @@ export function RadarDrawer({
   const [salvato, setSalvato] = useState<RadarItem | null>(item);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Errori per campo, come li restituisce la rotta.
+   *
+   * Un messaggio unico in cima a quattordici campi non dice quale
+   * correggere: si prova a caso finche' non si rinuncia.
+   */
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const [coord, setCoord] = useState<{ lat: number; lng: number; label: string } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
@@ -132,6 +139,7 @@ export function RadarDrawer({
 
     setIsSaving(true);
     setError(null);
+    setFieldErrors({});
 
     try {
       const response = await fetch(
@@ -145,6 +153,7 @@ export function RadarDrawer({
       const body = await response.json().catch(() => null);
 
       if (!response.ok) {
+        setFieldErrors(body?.fieldErrors ?? {});
         setError(body?.message ?? `Salvataggio non riuscito (errore ${response.status}).`);
         return;
       }
@@ -249,15 +258,15 @@ export function RadarDrawer({
               )}
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <Campo id="d-comune" label="Comune" required>
-                  <input id="d-comune" name="comune" defaultValue={item?.comune ?? ""} required maxLength={120} className="input-field h-9 w-full text-base sm:text-sm" />
+                <Campo id="d-comune" label="Comune" required error={fieldErrors.comune}>
+                  <input id="d-comune" aria-invalid={Boolean(fieldErrors.comune)} name="comune" defaultValue={item?.comune ?? ""} required maxLength={120} className="input-field h-9 w-full text-base sm:text-sm" />
                 </Campo>
-                <Campo id="d-zona" label="Zona o frazione">
+                <Campo id="d-zona" label="Zona o frazione" error={fieldErrors.zona}>
                   <input id="d-zona" name="zona" defaultValue={item?.zona ?? ""} maxLength={120} className="input-field h-9 w-full text-base sm:text-sm" />
                 </Campo>
               </div>
 
-              <Campo id="d-address" label="Indirizzo e civico" hint="porta il pin sul portone">
+              <Campo id="d-address" label="Indirizzo e civico" hint="porta il pin sul portone" error={fieldErrors.address}>
                 <input id="d-address" name="address" defaultValue={item?.address ?? ""} placeholder="Es. Via Emilia 45" maxLength={200} className="input-field h-9 w-full text-base sm:text-sm" />
               </Campo>
 
@@ -288,7 +297,7 @@ export function RadarDrawer({
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <Campo id="d-type" label="Tipologia" required>
+                <Campo id="d-type" label="Tipologia" required error={fieldErrors.type}>
                   <select id="d-type" name="type" required defaultValue={item?.type ?? "APPARTAMENTO"} className="input-field h-9 w-full text-base sm:text-sm">
                     {(Object.keys(PROPERTY_TYPE_LABELS) as PropertyType[]).map((t) => (
                       <option key={t} value={t}>
@@ -297,41 +306,41 @@ export function RadarDrawer({
                     ))}
                   </select>
                 </Campo>
-                <Campo id="d-mq" label="Metri quadri" required>
-                  <input id="d-mq" name="squareMeters" defaultValue={item?.squareMeters ?? ""} required inputMode="numeric" className="input-field h-9 w-full text-base sm:text-sm" />
+                <Campo id="d-mq" label="Metri quadri" required error={fieldErrors.squareMeters}>
+                  <input id="d-mq" aria-invalid={Boolean(fieldErrors.squareMeters)} name="squareMeters" defaultValue={item?.squareMeters ?? ""} required inputMode="numeric" className="input-field h-9 w-full text-base sm:text-sm" />
                 </Campo>
 
-                <Campo id="d-prezzo" label={kind === "ASTA" ? "Offerta minima (€)" : "Prezzo attuale (€)"} required hint={modifica ? "abbassandolo si registra il ribasso" : undefined}>
-                  <input id="d-prezzo" name="priceEur" defaultValue={item?.priceEur ?? ""} required inputMode="numeric" className="input-field h-9 w-full text-base sm:text-sm" />
+                <Campo id="d-prezzo" label={kind === "ASTA" ? "Offerta minima (€)" : "Prezzo attuale (€)"} required hint={modifica ? "abbassandolo si registra il ribasso" : undefined} error={fieldErrors.priceEur}>
+                  <input id="d-prezzo" aria-invalid={Boolean(fieldErrors.priceEur)} name="priceEur" defaultValue={item?.priceEur ?? ""} required inputMode="numeric" className="input-field h-9 w-full text-base sm:text-sm" />
                 </Campo>
 
                 {kind === "ASTA" ? (
-                  <Campo id="d-base" label="Valore di perizia (€)" hint="lo ricava anche dalla perizia">
+                  <Campo id="d-base" label="Valore di perizia (€)" hint="lo ricava anche dalla perizia" error={fieldErrors.basePriceEur}>
                     <input id="d-base" name="basePriceEur" defaultValue={item?.basePriceEur ?? ""} inputMode="numeric" className="input-field h-9 w-full text-base sm:text-sm" />
                   </Campo>
                 ) : (
-                  <Campo id="d-prec" label="Prezzo precedente (€)" hint="per calcolare il ribasso">
+                  <Campo id="d-prec" label="Prezzo precedente (€)" hint="per calcolare il ribasso" error={fieldErrors.previousPriceEur}>
                     <input id="d-prec" name="previousPriceEur" defaultValue={item?.previousPriceEur ?? ""} inputMode="numeric" className="input-field h-9 w-full text-base sm:text-sm" />
                   </Campo>
                 )}
 
                 {kind === "ASTA" && (
                   <>
-                    <Campo id="d-data" label="Data dell'asta">
+                    <Campo id="d-data" label="Data dell'asta" error={fieldErrors.auctionDate}>
                       <input id="d-data" name="auctionDate" type="date" defaultValue={item?.auctionDate ? item.auctionDate.slice(0, 10) : ""} className="input-field h-9 w-full text-base sm:text-sm" />
                     </Campo>
-                    <Campo id="d-lotto" label="Lotto">
+                    <Campo id="d-lotto" label="Lotto" error={fieldErrors.lotto}>
                       <input id="d-lotto" name="lotto" defaultValue={item?.lotto ?? ""} maxLength={60} className="input-field h-9 w-full text-base sm:text-sm" />
                     </Campo>
                   </>
                 )}
 
-                <Campo id="d-url" label="Link all'annuncio">
+                <Campo id="d-url" label="Link all'annuncio" error={fieldErrors.sourceUrl}>
                   <input id="d-url" name="sourceUrl" type="url" defaultValue={item?.sourceUrl ?? ""} maxLength={500} className="input-field h-9 w-full text-base sm:text-sm" />
                 </Campo>
               </div>
 
-              <Campo id="d-note" label="Note">
+              <Campo id="d-note" label="Note" error={fieldErrors.notes}>
                 <textarea id="d-note" name="notes" defaultValue={item?.notes ?? ""} rows={2} maxLength={2000} className="input-field w-full resize-y text-base sm:text-sm" />
               </Campo>
 
@@ -352,7 +361,15 @@ export function RadarDrawer({
           )}
         </div>
 
-        <footer className="flex items-center justify-end gap-2 border-t border-border p-4">
+        {/*
+          Spazio in fondo, non solo padding.
+          Il widget della chat galleggia in basso a destra: senza margine i
+          tasti del pannello gli finiscono sotto proprio sul telefono, dove il
+          widget e' piu' in alto per scavalcare la barra di navigazione. Il
+          margine e' sul lato basso e non simmetrico, perche' il problema sta
+          li'.
+        */}
+        <footer className="flex items-center justify-end gap-2 border-t border-border p-4 pb-10 sm:pb-6">
           <button
             type="button"
             onClick={onClose}
@@ -382,12 +399,14 @@ function Campo({
   label,
   hint,
   required,
+  error,
   children,
 }: {
   id: string;
   label: string;
   hint?: string;
   required?: boolean;
+  error?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -402,7 +421,25 @@ function Campo({
         )}
         {hint && <span className="font-normal text-muted-foreground"> ({hint})</span>}
       </label>
-      <div className="mt-1.5">{children}</div>
+      {/*
+        Il bordo rosso si applica al contenitore e ricade sull'input: cosi'
+        vale per `input`, `select` e `textarea` senza doverli toccare uno per
+        uno. `aria-invalid` sta sul campo vero, dove un lettore di schermo lo
+        cerca.
+      */}
+      <div
+        className={cn(
+          "mt-1.5",
+          error && "[&_input]:border-status-blocked [&_select]:border-status-blocked [&_textarea]:border-status-blocked"
+        )}
+      >
+        {children}
+      </div>
+      {error && (
+        <p className="mt-1 text-xs text-status-blocked" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
