@@ -1,5 +1,6 @@
 import { z } from "zod";
-import type { PropertyType } from "@prisma/client";
+import type { AuctionStatus, PropertyType } from "@prisma/client";
+import { RADAR_TAGS } from "./tags";
 
 /**
  * Validazione di un lotto del Radar.
@@ -68,6 +69,11 @@ export const radarPropertyCreateSchema = z.object({
   lotto: testoFacoltativo(60),
   sourceUrl: z.string().trim().url("Indirizzo non valido").max(500).nullish().or(z.literal("")),
   notes: testoFacoltativo(2000),
+  /** Insieme chiuso: un tag ignoto e' un filtro che non trovera' nulla. */
+  tags: z.array(z.enum(RADAR_TAGS as unknown as [string, ...string[]])).max(6).optional(),
+  auctionStatus: z
+    .enum(["IN_ARRIVO", "ATTIVA", "DESERTA", "AGGIUDICATA"] as [AuctionStatus, ...AuctionStatus[]])
+    .nullish(),
   latitude: z.coerce.number().min(-90).max(90).nullish(),
   longitude: z.coerce.number().min(-180).max(180).nullish(),
 });

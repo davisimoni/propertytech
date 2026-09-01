@@ -99,6 +99,8 @@ export async function POST(request: Request) {
       comune: d.comune,
       zona: d.zona || null,
       address: d.address || null,
+      tags: d.tags ?? [],
+      auctionStatus: d.auctionStatus ?? null,
       type: d.type,
       priceEur: d.priceEur,
       squareMeters: d.squareMeters,

@@ -6,6 +6,7 @@ import { runRadarMatching } from "@/lib/radar/matching";
 import { dropPercent } from "@/lib/radar/roi";
 import { geocodeZona } from "@/lib/radar/geocode";
 import { raccogliErroriPerCampo, PROPERTY_TYPES } from "@/lib/radar/property-schema";
+import { RADAR_TAGS } from "@/lib/radar/tags";
 import type { PropertyType } from "@prisma/client";
 
 /**
@@ -30,6 +31,11 @@ const patchSchema = z.object({
   comune: z.string().trim().min(2).max(120).optional(),
   zona: z.string().trim().max(120).optional().nullable(),
   address: z.string().trim().max(200).optional().nullable(),
+  tags: z.array(z.enum(RADAR_TAGS as unknown as [string, ...string[]])).max(6).optional(),
+  auctionStatus: z
+    .enum(["IN_ARRIVO", "ATTIVA", "DESERTA", "AGGIUDICATA"])
+    .optional()
+    .nullable(),
   type: z.enum(PROPERTY_TYPES as [PropertyType, ...PropertyType[]]).optional(),
   squareMeters: z.coerce
     .number({ error: "Inserisci un numero valido" })
@@ -143,6 +149,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       ...(d.comune !== undefined ? { comune: d.comune } : {}),
       ...(d.zona !== undefined ? { zona: d.zona || null } : {}),
       ...(d.address !== undefined ? { address: d.address || null } : {}),
+      ...(d.tags !== undefined ? { tags: d.tags } : {}),
+      ...(d.auctionStatus !== undefined ? { auctionStatus: d.auctionStatus } : {}),
       ...(d.type !== undefined ? { type: d.type } : {}),
       ...(d.squareMeters !== undefined ? { squareMeters: d.squareMeters } : {}),
       ...(d.basePriceEur !== undefined ? { basePriceEur: d.basePriceEur } : {}),

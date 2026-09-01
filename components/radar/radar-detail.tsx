@@ -12,9 +12,13 @@ import {
   Send,
   Trash2,
   Users,
+  ClipboardCheck,
+  Copy,
 } from "lucide-react";
 import { PROPERTY_TYPE_LABELS } from "@/lib/listings/property-fields";
 import { RISK_CLASSES, RISK_LABELS } from "@/lib/radar/risk";
+import { AUCTION_STATUS_CLASSES, AUCTION_STATUS_LABELS } from "@/lib/radar/tags";
+import { buildSocialCopy, type CopyVariant } from "@/lib/radar/social-copy";
 import { downloadPdf, fetchPdfBranding } from "@/lib/pdf/client";
 import { cn } from "@/lib/utils";
 import type { RadarItem } from "./radar-board";
@@ -46,11 +50,14 @@ const euro = (v: number) => new Intl.NumberFormat("it-IT").format(v);
 
 export function RadarDetail({
   item,
+  nomeAgenzia,
   onChanged,
   onDeleted,
   onEdit,
 }: {
   item: RadarItem;
+  /** Firma in fondo al copy: il testo esce a nome dell'agenzia. */
+  nomeAgenzia: string;
   onChanged: () => void;
   onDeleted: () => void;
   onEdit: () => void;
@@ -61,6 +68,7 @@ export function RadarDetail({
   const [conferma, setConferma] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [avviso, setAvviso] = useState<string | null>(null);
+  const [copiato, setCopiato] = useState<CopyVariant | null>(null);
 
   const pronta = item.appraisal?.status === "PRONTA";
   const roiDisponibile = item.marketValueEur !== null || item.monthlyRentEur !== null;
@@ -138,6 +146,49 @@ export function RadarDetail({
     }
   }
 
+  /**
+   * Copia negli appunti il testo pronto da pubblicare.
+   *
+   * Due versioni perche' sono due pubblici opposti: il post lo legge un
+   * acquirente, a cui dire quanto pensiamo di guadagnarci non aiuta a
+   * vendere; la lettera all'investitore vive proprio di quel numero. Il
+   * semaforo e le difformita' non entrano in nessuna delle due — sono la
+   * lettura automatica di una perizia, e trasformarle in un'affermazione
+   * pubblica su un immobile significherebbe risponderne.
+   */
+  async function copiaCopy(variant: CopyVariant) {
+    setError(null);
+    const testo = buildSocialCopy(
+      {
+        kind: item.kind,
+        comune: item.comune,
+        zona: item.zona,
+        type: item.type,
+        squareMeters: item.squareMeters,
+        priceEur: item.priceEur,
+        basePriceEur: item.basePriceEur,
+        previousPriceEur: item.previousPriceEur,
+        auctionDate: item.auctionDate,
+        transferCostsEur: item.transferCostsEur,
+        renovationCostEur: item.renovationCostEur,
+        marketValueEur: item.marketValueEur,
+        monthlyRentEur: item.monthlyRentEur,
+        agencyName: nomeAgenzia,
+      },
+      variant
+    );
+
+    try {
+      await navigator.clipboard.writeText(testo);
+      setCopiato(variant);
+      setTimeout(() => setCopiato(null), 2500);
+    } catch {
+      // Gli appunti richiedono un contesto sicuro e il permesso: se manca,
+      // meglio dirlo che lasciare l'agente a chiedersi se ha copiato.
+      setError("Il browser non ha concesso l'accesso agli appunti. Copia il testo a mano.");
+    }
+  }
+
   async function elimina() {
     setInCorso(true);
     try {
@@ -185,6 +236,27 @@ export function RadarDetail({
                 {RISK_LABELS[item.appraisal.risk]}
               </span>
             )}
+            {item.auctionStatus && (
+              <span
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-xs font-medium",
+                  AUCTION_STATUS_CLASSES[item.auctionStatus]
+                )}
+              >
+                {AUCTION_STATUS_LABELS[item.auctionStatus]}
+              </span>
+            )}
+          </div>
+
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {item.tags.map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground"
+              >
+                {tag}
+              </span>
+            ))}
           </div>
         </div>
 
@@ -299,6 +371,27 @@ export function RadarDetail({
             </>
           )}
         </button>
+
+        {(
+          [
+            ["social", "Copy social"],
+            ["investitori", "Copy investitori"],
+          ] as const
+        ).map(([variant, etichetta]) => (
+          <button
+            key={variant}
+            type="button"
+            onClick={() => copiaCopy(variant)}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+          >
+            {copiato === variant ? (
+              <ClipboardCheck className="h-3.5 w-3.5 text-status-qualified" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
+            {copiato === variant ? "Copiato" : etichetta}
+          </button>
+        ))}
 
         <button
           type="button"

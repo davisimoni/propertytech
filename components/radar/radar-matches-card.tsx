@@ -192,9 +192,17 @@ export function RadarMatchesCard({
                   {match.score}/100
                 </span>
                 {match.notifiedAt && (
+                  // Con la data, non solo "inviata": senza, chi riapre la
+                  // scheda dopo due settimane non sa se ha scritto ieri o il
+                  // mese scorso, e nel dubbio riscrive.
                   <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                     <CheckCircle2 className="h-3 w-3 text-status-qualified" />
-                    Proposta inviata
+                    Proposta inviata il{" "}
+                    {new Date(match.notifiedAt).toLocaleDateString("it-IT", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })}
                   </span>
                 )}
               </div>

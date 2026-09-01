@@ -1418,6 +1418,20 @@ enum OccupancyStatus {
 /// Serve perché l'elaborazione è asincrona: la scheda esiste subito, la
 /// sintesi arriva dopo. Senza uno stato esplicito l'agente non distingue "sto
 /// ancora leggendo" da "non sono riuscito a leggere".
+/// Fase della vendita giudiziaria.
+///
+/// Distinta da `archivedAt`, che riguarda la visibilita' in elenco e non la
+/// pratica: un lotto andato DESERTA e' concluso come tentativo ma resta
+/// interessante — si ripresenta a prezzo ribassato, ed e' il momento in cui
+/// conviene guardarlo. Un solo campo per le due cose farebbe sparire dalla
+/// vista proprio le occasioni migliori.
+enum AuctionStatus {
+  IN_ARRIVO
+  ATTIVA
+  DESERTA
+  AGGIUDICATA
+}
+
 enum AppraisalStatus {
   IN_ANALISI
   PRONTA
@@ -1503,6 +1517,23 @@ model RadarProperty {
 
   /// Archiviato invece che cancellato: un'asta conclusa resta consultabile,
   /// e gli abbinamenti già mostrati all'agente non spariscono dalla storia.
+  /// Etichette scelte dall'agente per ritrovare un lotto fra cento.
+  ///
+  /// Insieme chiuso, non testo libero: sono il criterio di un filtro, e con la
+  /// scrittura libera nascono "reddito", "a reddito" e "Reddito" come tre
+  /// categorie diverse che nessun filtro rimette insieme.
+  ///
+  /// Non contiene "Occupato" e "Libero": quel dato lo produce gia' la perizia
+  /// in `AuctionAppraisal.occupancy`, e un'etichetta scritta a mano che lo
+  /// contraddice lascerebbe l'agente davanti a due risposte senza sapere
+  /// quale credere.
+  tags String[] @default([])
+
+  /// Fase della vendita. `null` finche' l'agente non la indica: dedurla dalla
+  /// data d'asta sarebbe sbagliato, perche' una vendita puo' essere rinviata
+  /// e il calendario non lo sa.
+  auctionStatus AuctionStatus?
+
   archivedAt DateTime?
 
   createdAt DateTime @default(now())

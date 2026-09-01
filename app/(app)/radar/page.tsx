@@ -1,6 +1,14 @@
+import { auth } from "@/auth";
 import { RadarBoard } from "@/components/radar/radar-board";
 
-export default function RadarPage() {
+/**
+ * Il nome dell'agenzia si legge qui e scende come proprieta': i componenti
+ * client non hanno accesso alla sessione, e il copy da pubblicare esce
+ * firmato — senza nome finirebbe con una firma vuota sotto un post.
+ */
+export default async function RadarPage() {
+  const session = await auth();
+
   return (
     <div className="space-y-6">
       <div>
@@ -12,7 +20,7 @@ export default function RadarPage() {
         </p>
       </div>
 
-      <RadarBoard />
+      <RadarBoard nomeAgenzia={session?.user?.agencyName ?? "la tua agenzia"} />
     </div>
   );
 }

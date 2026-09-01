@@ -7,9 +7,16 @@ import { PROPERTY_TYPE_LABELS } from "@/lib/listings/property-fields";
 import { RISK_CLASSES, RISK_LABELS, OCCUPANCY_LABELS } from "@/lib/radar/risk";
 import { RadarDrawer } from "./radar-drawer";
 import { RadarDetail } from "./radar-detail";
+import { AUCTION_STATUS_CLASSES, AUCTION_STATUS_LABELS, RADAR_TAGS } from "@/lib/radar/tags";
 import { AI_DISCLAIMER } from "@/lib/compliance";
 import { cn } from "@/lib/utils";
-import type { AppraisalStatus, OccupancyStatus, PropertyType, RiskLevel } from "@prisma/client";
+import type {
+  AppraisalStatus,
+  AuctionStatus,
+  OccupancyStatus,
+  PropertyType,
+  RiskLevel,
+} from "@prisma/client";
 
 /*
  * Leaflet tocca `window` al caricamento: importato normalmente romperebbe il
@@ -50,6 +57,8 @@ export interface RadarItem {
   priceDropNewMatches: number | null;
   priceDropSeenAt: string | null;
   archivedAt: string | null;
+  tags: string[];
+  auctionStatus: AuctionStatus | null;
   appraisal: {
     status: AppraisalStatus;
     risk: RiskLevel;
@@ -72,7 +81,7 @@ function scontoPercentuale(item: RadarItem): number | null {
   return Math.round(((riferimento - item.priceEur) / riferimento) * 100);
 }
 
-export function RadarBoard() {
+export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
   const [items, setItems] = useState<RadarItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   /**
@@ -91,6 +100,8 @@ export function RadarBoard() {
   const [zona, setZona] = useState("");
   /** Gli archiviati restano fuori salvo richiesta: sono pratiche chiuse. */
   const [mostraArchiviati, setMostraArchiviati] = useState(false);
+  const [filtroTag, setFiltroTag] = useState<string>("TUTTI");
+  const [filtroFase, setFiltroFase] = useState<string>("TUTTE");
 
   const load = useCallback(async () => {
     try {
@@ -146,6 +157,10 @@ export function RadarBoard() {
       const tetto = Number(budgetMax.replace(/[.\s]/g, ""));
       if (Number.isFinite(tetto) && tetto > 0 && item.priceEur > tetto) return false;
     }
+
+    if (filtroTag !== "TUTTI" && !item.tags.includes(filtroTag)) return false;
+
+    if (filtroFase !== "TUTTE" && item.auctionStatus !== filtroFase) return false;
 
     if (zona.trim()) {
       const cercato = zona.trim().toLowerCase();
@@ -256,6 +271,36 @@ export function RadarBoard() {
             />
           </Filtro>
 
+          <Filtro label="Etichetta">
+            <select
+              value={filtroTag}
+              onChange={(e) => setFiltroTag(e.target.value)}
+              className="input-field h-9 text-base sm:text-sm"
+            >
+              <option value="TUTTI">Tutte</option>
+              {RADAR_TAGS.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </Filtro>
+
+          <Filtro label="Fase">
+            <select
+              value={filtroFase}
+              onChange={(e) => setFiltroFase(e.target.value)}
+              className="input-field h-9 text-base sm:text-sm"
+            >
+              <option value="TUTTE">Tutte</option>
+              {(Object.keys(AUCTION_STATUS_LABELS) as AuctionStatus[]).map((v) => (
+                <option key={v} value={v}>
+                  {AUCTION_STATUS_LABELS[v]}
+                </option>
+              ))}
+            </select>
+          </Filtro>
+
           <Filtro label="Archiviate">
             <select
               value={mostraArchiviati ? "SI" : "NO"}
@@ -276,12 +321,19 @@ export function RadarBoard() {
             />
           </Filtro>
 
-          {(filtroTipo !== "TUTTI" || filtroRischio !== "TUTTI" || budgetMax || zona) && (
+          {(filtroTipo !== "TUTTI" ||
+            filtroRischio !== "TUTTI" ||
+            filtroTag !== "TUTTI" ||
+            filtroFase !== "TUTTE" ||
+            budgetMax ||
+            zona) && (
             <button
               type="button"
               onClick={() => {
                 setFiltroTipo("TUTTI");
                 setFiltroRischio("TUTTI");
+                setFiltroTag("TUTTI");
+                setFiltroFase("TUTTE");
                 setBudgetMax("");
                 setZona("");
               }}
@@ -381,6 +433,16 @@ export function RadarBoard() {
                         Perizia in analisi
                       </span>
                     )}
+                    {item.auctionStatus && (
+                      <span
+                        className={cn(
+                          "rounded-full px-2 py-0.5 text-xs font-medium",
+                          AUCTION_STATUS_CLASSES[item.auctionStatus]
+                        )}
+                      >
+                        {AUCTION_STATUS_LABELS[item.auctionStatus]}
+                      </span>
+                    )}
                     {item.priceDropPct !== null && item.priceDropPct > 0 && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-status-qualified/10 px-2 py-0.5 text-xs font-semibold text-status-qualified">
                         <ArrowDown className="h-3 w-3" />
@@ -426,6 +488,7 @@ export function RadarBoard() {
                 <div className="border-t border-border p-4">
                   <RadarDetail
                     item={item}
+                    nomeAgenzia={nomeAgenzia}
                     onChanged={load}
                     onEdit={() => setDrawer(item)}
                     onDeleted={() => {

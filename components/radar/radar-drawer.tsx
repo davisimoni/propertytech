@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { Check, Loader2, MapPin, X } from "lucide-react";
 import { PROPERTY_TYPE_LABELS } from "@/lib/listings/property-fields";
 import { cn } from "@/lib/utils";
-import type { PropertyType } from "@prisma/client";
+import type { AuctionStatus, PropertyType } from "@prisma/client";
+import { AUCTION_STATUS_LABELS, RADAR_TAGS } from "@/lib/radar/tags";
 import type { RadarItem } from "./radar-board";
 import { AppraisalPanel } from "./appraisal-panel";
 
@@ -52,6 +53,10 @@ export function RadarDrawer({
   const [kind, setKind] = useState<"ASTA" | "RIBASSO">(item?.kind ?? "ASTA");
   const [step, setStep] = useState<1 | 2>(1);
   const [salvato, setSalvato] = useState<RadarItem | null>(item);
+  const [tags, setTags] = useState<string[]>(item?.tags ?? []);
+  const [auctionStatus, setAuctionStatus] = useState<AuctionStatus | "">(
+    item?.auctionStatus ?? ""
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /**
@@ -134,6 +139,8 @@ export function RadarDrawer({
       lotto: v("lotto") || null,
       sourceUrl: v("sourceUrl") || null,
       notes: v("notes") || null,
+      tags,
+      auctionStatus: auctionStatus || null,
       ...(coord ? { latitude: coord.lat, longitude: coord.lng } : {}),
     };
 
@@ -338,6 +345,62 @@ export function RadarDrawer({
                 <Campo id="d-url" label="Link all'annuncio" error={fieldErrors.sourceUrl}>
                   <input id="d-url" name="sourceUrl" type="url" defaultValue={item?.sourceUrl ?? ""} maxLength={500} className="input-field h-9 w-full text-base sm:text-sm" />
                 </Campo>
+              </div>
+
+              {kind === "ASTA" && (
+                <Campo id="d-stato" label="Fase della vendita" error={fieldErrors.auctionStatus}>
+                  <select
+                    id="d-stato"
+                    value={auctionStatus}
+                    onChange={(e) => setAuctionStatus(e.target.value as AuctionStatus | "")}
+                    className="input-field h-9 w-full text-base sm:text-sm"
+                  >
+                    <option value="">Non indicata</option>
+                    {(Object.keys(AUCTION_STATUS_LABELS) as AuctionStatus[]).map((v) => (
+                      <option key={v} value={v}>
+                        {AUCTION_STATUS_LABELS[v]}
+                      </option>
+                    ))}
+                  </select>
+                </Campo>
+              )}
+
+              <div>
+                <span className="text-xs font-medium text-foreground">
+                  Etichette <span className="font-normal text-muted-foreground">(facoltative)</span>
+                </span>
+                {/* Insieme chiuso: sono il criterio di un filtro, e con la
+                    scrittura libera "reddito" e "a reddito" diventerebbero due
+                    categorie che nessun filtro rimette insieme. */}
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {RADAR_TAGS.map((tag) => {
+                    const attivo = tags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        aria-pressed={attivo}
+                        onClick={() =>
+                          setTags((current) =>
+                            attivo ? current.filter((t) => t !== tag) : [...current, tag]
+                          )
+                        }
+                        className={cn(
+                          "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors duration-200",
+                          attivo
+                            ? "border-primary/30 bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground hover:bg-muted"
+                        )}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Lo stato occupazionale non è fra le etichette: lo ricava la perizia, ed è
+                  mostrato in scheda.
+                </p>
               </div>
 
               <Campo id="d-note" label="Note" error={fieldErrors.notes}>
