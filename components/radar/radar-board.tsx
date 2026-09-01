@@ -5,14 +5,11 @@ import dynamic from "next/dynamic";
 import { ArrowDown, Gavel, Loader2, Map as MapIcon, Plus, Table2, TrendingDown } from "lucide-react";
 import { PROPERTY_TYPE_LABELS } from "@/lib/listings/property-fields";
 import { RISK_CLASSES, RISK_LABELS, OCCUPANCY_LABELS } from "@/lib/radar/risk";
+import { RadarDrawer } from "./radar-drawer";
+import { RadarDetail } from "./radar-detail";
 import { AI_DISCLAIMER } from "@/lib/compliance";
 import { cn } from "@/lib/utils";
 import type { AppraisalStatus, OccupancyStatus, PropertyType, RiskLevel } from "@prisma/client";
-import { RadarPropertyForm } from "./radar-property-form";
-import { AppraisalPanel } from "./appraisal-panel";
-import { RoiCalculator } from "./roi-calculator";
-import { RadarActions } from "./radar-actions";
-import { RadarMatchesCard } from "./radar-matches-card";
 
 /*
  * Leaflet tocca `window` al caricamento: importato normalmente romperebbe il
@@ -78,7 +75,12 @@ function scontoPercentuale(item: RadarItem): number | null {
 export function RadarBoard() {
   const [items, setItems] = useState<RadarItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
+  /**
+   * Pannello laterale: `"nuovo"` per creare, un lotto per modificarlo,
+   * `null` chiuso. Un solo stato per due usi, perche' sono lo stesso
+   * pannello e due stati distinti finirebbero per aprirsi insieme.
+   */
+  const [drawer, setDrawer] = useState<RadarItem | "nuovo" | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -205,11 +207,11 @@ export function RadarBoard() {
 
         <button
           type="button"
-          onClick={() => setShowForm((v) => !v)}
+          onClick={() => setDrawer("nuovo")}
           className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-gradient px-3 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110"
         >
           <Plus className="h-3.5 w-3.5" />
-          Aggiungi opportunità
+          Nuova opportunità
         </button>
         </div>
       </div>
@@ -291,17 +293,6 @@ export function RadarBoard() {
         </div>
       )}
 
-      {showForm && (
-        <RadarPropertyForm
-          onCreated={(item) => {
-            setItems((current) => [item, ...current]);
-            setShowForm(false);
-            setOpenId(item.id);
-          }}
-          onCancel={() => setShowForm(false)}
-        />
-      )}
-
       {error && (
         <p role="alert" className="text-sm text-status-blocked">
           {error}
@@ -310,7 +301,7 @@ export function RadarBoard() {
 
       {isLoading && <p className="text-sm text-muted-foreground">Caricamento…</p>}
 
-      {!isLoading && items.length === 0 && !showForm && (
+      {!isLoading && items.length === 0 && (
         <div className="card-surface p-8 text-center">
           <Gavel className="mx-auto h-8 w-8 text-muted-foreground" />
           <p className="mt-3 text-sm font-medium text-foreground">Nessuna opportunità seguita</p>
@@ -432,40 +423,16 @@ export function RadarBoard() {
               </button>
 
               {aperto && (
-                <div className="space-y-5 border-t border-border p-4">
-                  <AppraisalPanel radarPropertyId={item.id} onChanged={load} />
-
-                  <div className="border-t border-border pt-4">
-                    <RoiCalculator
-                      item={item}
-                      suggestedRenovationEur={item.appraisal?.remediationCostMaxEur ?? null}
-                      onSaved={load}
-                    />
-                  </div>
-
-                  {/* Sotto la perizia e i conti: si decide a chi proporre il
-                      lotto dopo aver visto in che stato e' e quanto rende. */}
-                  <div className="border-t border-border pt-4">
-                    <RadarMatchesCard
-                      radarPropertyId={item.id}
-                      roiDisponibile={
-                        item.marketValueEur !== null || item.monthlyRentEur !== null
-                      }
-                    />
-                  </div>
-
-                  {/* In fondo, non in cima: i comandi che cambiano o cancellano
-                      stanno dopo tutto cio' che serve a decidere se farlo. */}
-                  <div className="border-t border-border pt-4">
-                    <RadarActions
-                      item={item}
-                      onChanged={load}
-                      onDeleted={() => {
-                        setOpenId(null);
-                        setItems((current) => current.filter((i) => i.id !== item.id));
-                      }}
-                    />
-                  </div>
+                <div className="border-t border-border p-4">
+                  <RadarDetail
+                    item={item}
+                    onChanged={load}
+                    onEdit={() => setDrawer(item)}
+                    onDeleted={() => {
+                      setOpenId(null);
+                      setItems((current) => current.filter((i) => i.id !== item.id));
+                    }}
+                  />
                 </div>
               )}
             </article>
@@ -475,6 +442,27 @@ export function RadarBoard() {
 
       {items.length > 0 && (
         <p className="text-xs leading-relaxed text-muted-foreground">{AI_DISCLAIMER}</p>
+      )}
+
+      {drawer !== null && (
+        <RadarDrawer
+          item={drawer === "nuovo" ? null : drawer}
+          onClose={() => setDrawer(null)}
+          onSaved={(salvato, creato) => {
+            if (creato) {
+              setItems((current) => [salvato, ...current]);
+              setOpenId(salvato.id);
+            } else {
+              setItems((current) =>
+                current.map((i) => (i.id === salvato.id ? { ...i, ...salvato } : i))
+              );
+            }
+            // Ricarica comunque: il salvataggio puo' aver rifatto le
+            // coordinate o ricalcolato gli abbinamenti, e la riga in elenco
+            // deve dirlo.
+            void load();
+          }}
+        />
       )}
     </div>
   );

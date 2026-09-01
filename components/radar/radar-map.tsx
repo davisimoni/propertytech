@@ -295,7 +295,10 @@ export function RadarMap({
     <div className="space-y-2">
       <div
         ref={contenitore}
-        className="h-[28rem] w-full overflow-hidden rounded-xl border border-border"
+        // Altezza fissa ma per fascia: su telefono 28rem mangerebbe tutto lo
+        // schermo e i filtri sopra sparirebbero, su desktop 22rem sprecherebbe
+        // lo spazio che serve a distinguere i pin vicini.
+        className="h-[22rem] w-full overflow-hidden rounded-xl border border-border sm:h-[28rem] lg:h-[34rem]"
         // Leaflet misura il contenitore alla creazione: senza un'altezza
         // esplicita la mappa nasce alta zero e non mostra nulla.
         style={{ background: "var(--muted, #f1f5f9)" }}
