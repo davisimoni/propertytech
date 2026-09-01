@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, Loader2, Percent, RefreshCw, Send, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -72,11 +72,7 @@ export function RadarMatchesCard({
     }
   }, [radarPropertyId]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  async function scan() {
+  const scan = useCallback(async () => {
     setIsScanning(true);
     setError(null);
     try {
@@ -90,7 +86,40 @@ export function RadarMatchesCard({
     } finally {
       setIsScanning(false);
     }
-  }
+  }, [load, radarPropertyId]);
+
+  /**
+   * Ricalcolo automatico all'apertura della scheda.
+   *
+   * # Perché l'ordine è questo e non l'inverso
+   *
+   * Prima la lettura di quello che c'è già, poi il ricalcolo. Invertendoli
+   * l'agente resterebbe davanti a un pannello vuoto per tutta la durata della
+   * scansione, che interroga ogni lead dell'agenzia: vede subito gli
+   * abbinamenti noti, e si aggiornano sotto.
+   *
+   * # Perché una volta sola per lotto
+   *
+   * La scheda si monta a ogni clic sulla linguetta, e senza guardia passare
+   * avanti e indietro fra le tre schede lancerebbe una scansione completa a
+   * ogni passaggio. Il riferimento tiene l'id del lotto, non un booleano:
+   * aprendo un altro lotto la scansione deve ripartire, ed è la stessa
+   * distinzione che separa "già fatto" da "già fatto per questo".
+   *
+   * Il pulsante resta: è la strada per rileggere dopo aver modificato un
+   * lead o il prezzo del lotto, senza chiudere e riaprire la scheda.
+   */
+  const lottoGiaScansionato = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (lottoGiaScansionato.current === radarPropertyId) return;
+    lottoGiaScansionato.current = radarPropertyId;
+
+    void (async () => {
+      await load();
+      await scan();
+    })();
+  }, [load, scan, radarPropertyId]);
 
   async function openPreview(match: Match, variant: Variante) {
     setSendError(null);
@@ -162,11 +191,14 @@ export function RadarMatchesCard({
 
       {isLoading && <p className="mt-2 text-xs text-muted-foreground">Caricamento…</p>}
 
-      {!isLoading && matches.length === 0 && (
+      {/* Lo stato vuoto tace finché la scansione non è finita: comparire
+          durante il ricalcolo automatico direbbe "nessun lead compatibile"
+          proprio mentre li stiamo cercando. */}
+      {!isLoading && !isScanning && matches.length === 0 && (
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-          Nessun lead compatibile. Premi &laquo;Cerca abbinamenti&raquo; per incrociare questo
-          lotto con i contatti in pipeline: vengono considerati solo quelli con almeno un criterio
-          fra budget, zona e tipologia.
+          Nessun lead compatibile. L&apos;incrocio con i contatti in pipeline considera solo
+          quelli con almeno un criterio fra budget, zona e tipologia: se la pipeline è ancora
+          vuota, o nessuno rientra nei parametri di questo lotto, qui non compare nulla.
         </p>
       )}
 
