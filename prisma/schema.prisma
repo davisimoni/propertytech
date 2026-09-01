@@ -414,6 +414,7 @@ model Organization {
   radarProperties      RadarProperty[]
   auctionAppraisals    AuctionAppraisal[]
   auctionMatches       AuctionLeadMatch[]
+  radarZoneDemand      RadarZoneDemand[]
 }
 
 /// Programma Referral B2B: un'agenzia (Referrer) invita un'altra (Referee) col
@@ -1456,6 +1457,37 @@ model RadarProperty {
   /// di sfuggita, che e' il momento in cui la si registra davvero.
   latitude  Float?
   longitude Float?
+
+  /// --- Parametri economici per il simulatore ---
+  ///
+  /// Vivono qui e non su `AuctionAppraisal` perche' non sono fatti letti nella
+  /// perizia: sono ipotesi dell'agenzia su una specifica operazione, che due
+  /// agenti possono valutare diversamente sullo stesso lotto. La perizia dice
+  /// quanto costa sanare; quanto rivendere e a quanto affittare lo decide chi
+  /// conosce il mercato di quella via.
+
+  /// Imposte e spese di trasferimento stimate (registro, ipotecaria, catastale,
+  /// compenso del delegato). `null` = non ancora stimate.
+  transferCostsEur Int?
+  /// Costo di ristrutturazione e sanatoria. Precompilato dalla stima della
+  /// perizia, ma sovrascrivibile: il perito stima il minimo per sanare, non il
+  /// costo di rimettere a nuovo per rivendere.
+  renovationCostEur Int?
+  /// Valore di mercato atteso a lavori conclusi.
+  marketValueEur Int?
+  /// Canone mensile atteso, per il calcolo del rendimento da locazione.
+  monthlyRentEur Int?
+
+  /// --- Rilevamento ribassi ---
+  ///
+  /// Scritti quando il prezzo viene aggiornato al ribasso. Servono al badge in
+  /// scheda e all'avviso in dashboard, che si spegne quando l'agente lo ha
+  /// visto: un avviso che resta acceso per sempre smette di essere un avviso.
+  priceDropPct        Int?
+  priceDropAt         DateTime?
+  /// Quanti lead sono rientrati nel budget grazie al ribasso.
+  priceDropNewMatches Int?
+  priceDropSeenAt     DateTime?
   lotto            String?
   notes            String?
 
@@ -1556,4 +1588,40 @@ model AuctionLeadMatch {
 
   @@unique([radarPropertyId, leadId])
   @@index([organizationId, score])
+}
+
+/// Domanda degli acquirenti per zona, con coordinate.
+///
+/// # Perche' una tabella e non due colonne su `Lead`
+///
+/// La mappa di calore ha bisogno di coordinate, e `Lead.preferredZone` e' testo
+/// libero. Geocodificare a ogni apertura della mappa significherebbe decine di
+/// chiamate a un servizio gratuito per un dato che non cambia: le zone
+/// distinte di un'agenzia sono poche e stabili, i lead che le indicano cambiano
+/// di continuo.
+///
+/// Tenerla qui invece che su `Lead` mantiene il modulo isolato: il Radar legge
+/// i lead, non li modifica, e disattivarlo non lascerebbe colonne orfane su una
+/// tabella del nucleo.
+model RadarZoneDemand {
+  id String @id @default(cuid())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Zona normalizzata (minuscola, senza spazi ai lati): e' la chiave con cui
+  /// si raggruppano i `Lead.preferredZone` scritti in modo diverso.
+  zoneKey String
+  /// La forma leggibile, come l'ha scritta il primo lead che l'ha nominata.
+  label   String
+
+  /// `null` quando la geocodifica non ha trovato nulla: si registra comunque,
+  /// per non riprovare a ogni apertura della mappa una ricerca gia' fallita.
+  latitude  Float?
+  longitude Float?
+
+  resolvedAt DateTime @default(now())
+
+  @@unique([organizationId, zoneKey])
+  @@index([organizationId])
 }

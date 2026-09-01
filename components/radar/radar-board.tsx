@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { Gavel, Loader2, Map as MapIcon, Plus, Table2, TrendingDown } from "lucide-react";
+import { ArrowDown, Gavel, Loader2, Map as MapIcon, Plus, Table2, TrendingDown } from "lucide-react";
 import { PROPERTY_TYPE_LABELS } from "@/lib/listings/property-fields";
 import { RISK_CLASSES, RISK_LABELS, OCCUPANCY_LABELS } from "@/lib/radar/risk";
 import { AI_DISCLAIMER } from "@/lib/compliance";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import type { AppraisalStatus, OccupancyStatus, PropertyType, RiskLevel } from "@prisma/client";
 import { RadarPropertyForm } from "./radar-property-form";
 import { AppraisalPanel } from "./appraisal-panel";
+import { RoiCalculator } from "./roi-calculator";
 import { RadarMatchesCard } from "./radar-matches-card";
 
 /*
@@ -42,12 +43,20 @@ export interface RadarItem {
   notes: string | null;
   latitude: number | null;
   longitude: number | null;
+  transferCostsEur: number | null;
+  renovationCostEur: number | null;
+  marketValueEur: number | null;
+  monthlyRentEur: number | null;
+  priceDropPct: number | null;
+  priceDropNewMatches: number | null;
+  priceDropSeenAt: string | null;
   appraisal: {
     status: AppraisalStatus;
     risk: RiskLevel;
     riskReasons: string[];
     occupancy: OccupancyStatus;
     failureReason: string | null;
+    remediationCostMaxEur: number | null;
   } | null;
   _count: { matches: number };
 }
@@ -363,6 +372,12 @@ export function RadarBoard() {
                         Perizia in analisi
                       </span>
                     )}
+                    {item.priceDropPct !== null && item.priceDropPct > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-status-qualified/10 px-2 py-0.5 text-xs font-semibold text-status-qualified">
+                        <ArrowDown className="h-3 w-3" />
+                        Ribassato del {item.priceDropPct}%
+                      </span>
+                    )}
                     {item.appraisal?.status === "FALLITA" && (
                       <span className="rounded-full bg-status-blocked/10 px-2 py-0.5 text-xs font-medium text-status-blocked">
                         Analisi non riuscita
@@ -402,10 +417,23 @@ export function RadarBoard() {
                 <div className="space-y-5 border-t border-border p-4">
                   <AppraisalPanel radarPropertyId={item.id} onChanged={load} />
 
-                  {/* Sotto la perizia: si decide a chi proporre il lotto dopo
-                      aver visto in che stato e'. */}
                   <div className="border-t border-border pt-4">
-                    <RadarMatchesCard radarPropertyId={item.id} />
+                    <RoiCalculator
+                      item={item}
+                      suggestedRenovationEur={item.appraisal?.remediationCostMaxEur ?? null}
+                      onSaved={load}
+                    />
+                  </div>
+
+                  {/* Sotto la perizia e i conti: si decide a chi proporre il
+                      lotto dopo aver visto in che stato e' e quanto rende. */}
+                  <div className="border-t border-border pt-4">
+                    <RadarMatchesCard
+                      radarPropertyId={item.id}
+                      roiDisponibile={
+                        item.marketValueEur !== null || item.monthlyRentEur !== null
+                      }
+                    />
                   </div>
                 </div>
               )}

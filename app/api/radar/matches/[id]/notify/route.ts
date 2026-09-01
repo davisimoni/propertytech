@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { appendMessage } from "@/lib/whatsapp/chat-history";
 import { hasSendableCredentials, sendWhatsAppMessageForProvider } from "@/lib/whatsapp/client";
 import { resolveWhatsAppCredentials } from "@/lib/whatsapp/credentials";
-import { buildRadarProposal } from "@/lib/radar/proposal-message";
+import { buildRadarProposal, buildRoiProspectus } from "@/lib/radar/proposal-message";
 
 /**
  * Proposta di un lotto del Radar a un lead, via WhatsApp.
@@ -34,6 +34,13 @@ import { buildRadarProposal } from "@/lib/radar/proposal-message";
 
 const schema = z.object({
   confirm: z.literal(true, { error: "Serve la conferma esplicita dell'agente." }),
+  /**
+   * `proposta` presenta l'immobile a chi cerca casa; `prospetto` presenta i
+   * numeri a chi cerca un rendimento. Sono due messaggi diversi perche' hanno
+   * due destinatari diversi, e mandare l'uno a chi si aspettava l'altro e' il
+   * modo piu' rapido di sembrare fuori fuoco.
+   */
+  variant: z.enum(["proposta", "prospetto"]).default("proposta"),
 });
 
 /** Dati comuni a anteprima e invio, verificati entrambi sull'agenzia. */
@@ -62,11 +69,33 @@ async function caricaMatch(id: string, organizationId: string) {
           squareMeters: true,
           auctionDate: true,
           lotto: true,
+          transferCostsEur: true,
+          renovationCostEur: true,
+          marketValueEur: true,
+          monthlyRentEur: true,
         },
       },
       organization: { select: { agencyName: true } },
     },
   });
+}
+
+type MatchCaricato = NonNullable<Awaited<ReturnType<typeof caricaMatch>>>;
+
+/**
+ * Il testo, in un posto solo.
+ *
+ * Chiamata sia dall'anteprima sia dall'invio: comporre due volte lo stesso
+ * messaggio significherebbe mostrarne uno e spedirne un altro il giorno in cui
+ * una delle due copie cambia.
+ */
+function componiTesto(variant: "proposta" | "prospetto", match: MatchCaricato): string {
+  const comune = {
+    clientName: match.lead.clientName,
+    agencyName: match.organization.agencyName,
+    ...match.radarProperty,
+  };
+  return variant === "prospetto" ? buildRoiProspectus(comune) : buildRadarProposal(comune);
 }
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
@@ -79,12 +108,12 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const match = await caricaMatch(id, session.user.organizationId);
   if (!match) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
+  const variant =
+    new URL(_request.url).searchParams.get("variant") === "prospetto" ? "prospetto" : "proposta";
+
   return NextResponse.json({
-    preview: buildRadarProposal({
-      clientName: match.lead.clientName,
-      agencyName: match.organization.agencyName,
-      ...match.radarProperty,
-    }),
+    variant,
+    preview: componiTesto(variant, match),
     optedOut: match.lead.qualificationStatus === "OPT_OUT",
     alreadyNotifiedAt: match.notifiedAt,
   });
@@ -131,11 +160,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     );
   }
 
-  const testo = buildRadarProposal({
-    clientName: match.lead.clientName,
-    agencyName: match.organization.agencyName,
-    ...match.radarProperty,
-  });
+  const testo = componiTesto(parsed.data.variant, match);
 
   try {
     await sendWhatsAppMessageForProvider(

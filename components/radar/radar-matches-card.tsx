@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, Loader2, RefreshCw, Send, Users } from "lucide-react";
+import { CheckCircle2, Loader2, Percent, RefreshCw, Send, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Match {
@@ -19,8 +19,11 @@ interface Match {
   };
 }
 
+type Variante = "proposta" | "prospetto";
+
 interface Preview {
   preview: string;
+  variant: Variante;
   optedOut: boolean;
   alreadyNotifiedAt: string | null;
 }
@@ -38,13 +41,20 @@ const euro = (v: number) => new Intl.NumberFormat("it-IT").format(v);
  * spedirne un'altra il giorno in cui una delle due cambia — e su un messaggio
  * che esce a nome dell'agenzia non è un dettaglio.
  */
-export function RadarMatchesCard({ radarPropertyId }: { radarPropertyId: string }) {
+export function RadarMatchesCard({
+  radarPropertyId,
+  roiDisponibile = false,
+}: {
+  radarPropertyId: string;
+  /** Vero quando il simulatore ha almeno margine o rendimento da comunicare. */
+  roiDisponibile?: boolean;
+}) {
   const [matches, setMatches] = useState<Match[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [preview, setPreview] = useState<{ match: Match; data: Preview } | null>(null);
+  const [preview, setPreview] = useState<{ match: Match; data: Preview; variant: Variante } | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
 
@@ -82,12 +92,12 @@ export function RadarMatchesCard({ radarPropertyId }: { radarPropertyId: string 
     }
   }
 
-  async function openPreview(match: Match) {
+  async function openPreview(match: Match, variant: Variante) {
     setSendError(null);
     try {
-      const response = await fetch(`/api/radar/matches/${match.id}/notify`);
+      const response = await fetch(`/api/radar/matches/${match.id}/notify?variant=${variant}`);
       if (!response.ok) throw new Error();
-      setPreview({ match, data: await response.json() });
+      setPreview({ match, data: await response.json(), variant });
     } catch {
       setError("Anteprima non disponibile.");
     }
@@ -104,7 +114,7 @@ export function RadarMatchesCard({ radarPropertyId }: { radarPropertyId: string 
         headers: { "Content-Type": "application/json" },
         // La conferma viaggia nel corpo: la rotta rifiuta un invio che non la
         // porta, così una chiamata partita per sbaglio non scrive a nessuno.
-        body: JSON.stringify({ confirm: true }),
+        body: JSON.stringify({ confirm: true, variant: preview.variant }),
       });
       const body = await response.json().catch(() => null);
 
@@ -205,14 +215,30 @@ export function RadarMatchesCard({ radarPropertyId }: { radarPropertyId: string 
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={() => openPreview(match)}
-              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
-            >
-              <Send className="h-3.5 w-3.5" />
-              {match.notifiedAt ? "Invia di nuovo" : "Invia proposta su WhatsApp"}
-            </button>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => openPreview(match, "proposta")}
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+              >
+                <Send className="h-3.5 w-3.5" />
+                {match.notifiedAt ? "Invia di nuovo" : "Invia proposta"}
+              </button>
+
+              {/* Il prospetto compare solo quando c'e' almeno un indice da
+                  mostrare: un messaggio di soli costi senza margine ne'
+                  rendimento non dice nulla a un investitore. */}
+              {roiDisponibile && (
+                <button
+                  type="button"
+                  onClick={() => openPreview(match, "prospetto")}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+                >
+                  <Percent className="h-3.5 w-3.5" />
+                  Prospetto ROI
+                </button>
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -227,7 +253,8 @@ export function RadarMatchesCard({ radarPropertyId }: { radarPropertyId: string 
         >
           <div className="w-full max-w-lg rounded-xl border border-border bg-card p-4 shadow-lg">
             <h4 className="text-sm font-semibold text-foreground">
-              Messaggio a {preview.match.lead.clientName}
+              {preview.variant === "prospetto" ? "Prospetto ROI" : "Messaggio"} a{" "}
+              {preview.match.lead.clientName}
             </h4>
             <p className="mt-1 text-xs text-muted-foreground">
               Questo è il testo esatto che verrà inviato. Nessun messaggio parte senza la tua

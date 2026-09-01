@@ -1,6 +1,7 @@
 import { AI_DISCLAIMER_SHORT } from "@/lib/compliance";
 import { formatPrice, PROPERTY_TYPE_LABELS } from "@/lib/listings/property-fields";
 import type { PropertyType, RadarKind } from "@prisma/client";
+import { computeRoi } from "./roi";
 
 /**
  * Testo della proposta inviata al cliente.
@@ -72,6 +73,92 @@ export function buildRadarProposal(input: ProposalInput): string {
   righe.push(
     "",
     "Se le interessa, possiamo vedere insieme la documentazione e valutare se fa al caso suo: mi faccia sapere quando le è comodo sentirci.",
+    "",
+    `${input.agencyName}`,
+    "",
+    "---",
+    AI_DISCLAIMER_SHORT
+  );
+
+  return righe.join("\n");
+}
+
+/**
+ * Prospetto economico per un investitore.
+ *
+ * # Perché è un messaggio diverso dalla proposta
+ *
+ * Ha un destinatario diverso. La proposta parla a chi cerca casa e racconta
+ * l'immobile; questo parla a chi cerca un rendimento e racconta i numeri.
+ * Mandare l'uno a chi si aspettava l'altro è il modo più rapido di sembrare
+ * fuori fuoco.
+ *
+ * # Perché dichiara cosa NON è nel conto
+ *
+ * Un rendimento lordo che ignora interessi, tempi di cantiere e sfitto è
+ * ottimista esattamente di quelli. Chi riceve questo messaggio può muovere
+ * capitale sulla base di un numero: se il numero è lordo deve leggerlo scritto,
+ * non dedurlo.
+ */
+export interface RoiProposalInput extends ProposalInput {
+  transferCostsEur: number | null;
+  renovationCostEur: number | null;
+  marketValueEur: number | null;
+  monthlyRentEur: number | null;
+}
+
+export function buildRoiProspectus(input: RoiProposalInput): string {
+  const roi = computeRoi({
+    priceEur: input.priceEur,
+    transferCostsEur: input.transferCostsEur,
+    renovationCostEur: input.renovationCostEur,
+    marketValueEur: input.marketValueEur,
+    monthlyRentEur: input.monthlyRentEur,
+  });
+
+  const soldi = (v: number) => `${new Intl.NumberFormat("it-IT").format(v)} €`;
+  const luogo = input.zona ? `${input.comune} (${input.zona})` : input.comune;
+
+  const righe = [
+    `Buongiorno ${input.clientName}, le sottopongo un'operazione che potrebbe interessarla:`,
+    "",
+    `${PROPERTY_TYPE_LABELS[input.type]} a ${luogo} — ${input.squareMeters} mq`,
+    `${input.kind === "ASTA" ? "Offerta minima" : "Prezzo"}: ${soldi(input.priceEur)}`,
+  ];
+
+  if (input.renovationCostEur !== null) {
+    righe.push(`Ristrutturazione e sanatoria stimate: ${soldi(input.renovationCostEur)}`);
+  }
+  if (input.transferCostsEur !== null) {
+    righe.push(`Imposte e spese di trasferimento: ${soldi(input.transferCostsEur)}`);
+  }
+
+  righe.push("", `Capitale complessivo stimato: ${soldi(roi.totalInvestedEur)}`);
+
+  if (roi.flipRoiPct !== null && input.marketValueEur !== null) {
+    righe.push(
+      `Valore di mercato a lavori conclusi: ${soldi(input.marketValueEur)}`,
+      `Margine potenziale: ${soldi(roi.flipMarginEur ?? 0)} (${roi.flipRoiPct}%)`
+    );
+  }
+  if (roi.grossYieldPct !== null && input.monthlyRentEur !== null) {
+    righe.push(
+      `Canone atteso: ${soldi(input.monthlyRentEur)} al mese — rendimento lordo ${roi.grossYieldPct}% annuo`
+    );
+  }
+
+  if (input.kind === "ASTA") {
+    righe.push(
+      "",
+      "Si tratta di una vendita giudiziaria: condizioni e termini sono stabiliti dal Tribunale."
+    );
+  }
+
+  righe.push(
+    "",
+    "Sono stime lorde: non comprendono interessi su eventuali finanziamenti, tempi di aggiudicazione e di cantiere, costi di gestione, sfitto né imposte sulla plusvalenza.",
+    "",
+    "Se l'operazione la interessa, vediamo insieme la documentazione e i conti nel dettaglio.",
     "",
     `${input.agencyName}`,
     "",

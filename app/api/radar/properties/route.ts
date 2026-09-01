@@ -77,6 +77,8 @@ export async function GET(request: Request) {
           riskReasons: true,
           occupancy: true,
           failureReason: true,
+          // Serve al simulatore per precompilare il costo di sanatoria.
+          remediationCostMaxEur: true,
         },
       },
       _count: { select: { matches: true } },

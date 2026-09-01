@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Map as LeafletMap, Marker } from "leaflet";
+import type { Circle, Map as LeafletMap, Marker } from "leaflet";
 import Supercluster from "supercluster";
 import "leaflet/dist/leaflet.css";
 import type { RadarItem } from "./radar-board";
@@ -66,7 +66,26 @@ export function RadarMap({
   const contenitore = useRef<HTMLDivElement>(null);
   const mappa = useRef<LeafletMap | null>(null);
   const marcatori = useRef<Marker[]>([]);
+  const cerchi = useRef<Circle[]>([]);
   const [pronta, setPronta] = useState(false);
+
+  /**
+   * Mappa di calore della domanda.
+   *
+   * # Perche' cerchi pesati e non `leaflet.heat`
+   *
+   * Quel plugin e' pensato per migliaia di rilevazioni sparse, e su di esse
+   * produce la sfumatura continua che ci si aspetta. Qui i punti sono le zone
+   * distinte cercate dai clienti di un'agenzia: dieci, forse venti. Su dieci
+   * punti la sfumatura diventa una macchia informe che non dice ne' dove ne'
+   * quanto, mentre un cerchio proporzionale al numero di lead dice entrambe le
+   * cose e si puo' interrogare. In piu' `leaflet.heat` non ha tipi ufficiali e
+   * andrebbe dichiarato a mano.
+   */
+  const [mostraDomanda, setMostraDomanda] = useState(false);
+  const [domanda, setDomanda] = useState<{ label: string; leads: number; latitude: number; longitude: number }[]>([]);
+  const [domandaInCorso, setDomandaInCorso] = useState(false);
+  const [domandaPendenti, setDomandaPendenti] = useState(0);
 
   const conCoordinate = useMemo(
     () => items.filter((i) => i.latitude !== null && i.longitude !== null),
@@ -161,6 +180,61 @@ export function RadarMap({
     }
   }, [indice, conCoordinate, onOpenItem]);
 
+  /** Cerchi proporzionali al numero di lead che cercano in quella zona. */
+  const disegnaDomanda = useCallback(async () => {
+    const L = (await import("leaflet")).default;
+    const map = mappa.current;
+    if (!map) return;
+
+    cerchi.current.forEach((c) => c.remove());
+    cerchi.current = [];
+    if (!mostraDomanda) return;
+
+    const massimo = Math.max(1, ...domanda.map((z) => z.leads));
+
+    for (const zona of domanda) {
+      const peso = zona.leads / massimo;
+      const cerchio = L.circle([zona.latitude, zona.longitude], {
+        // Raggio in metri: da 1,5 km per una zona con un solo lead fino a 6 km
+        // per la piu' cercata. La radice smorza la crescita, altrimenti una
+        // zona con venti lead coprirebbe mezza provincia.
+        radius: 1500 + Math.sqrt(peso) * 4500,
+        color: "#0066FF",
+        weight: 1,
+        opacity: 0.35,
+        fillColor: "#0066FF",
+        fillOpacity: 0.12 + peso * 0.25,
+        interactive: true,
+      }).addTo(map);
+
+      cerchio.bindTooltip(
+        `${zona.leads} ${zona.leads === 1 ? "lead cerca" : "lead cercano"} a ${zona.label}`,
+        { direction: "top" }
+      );
+      cerchi.current.push(cerchio);
+    }
+  }, [mostraDomanda, domanda]);
+
+  // Caricata alla prima accensione dell'overlay, non prima: chi non lo usa non
+  // paga una geocodifica di zone che non guardera'.
+  useEffect(() => {
+    if (!mostraDomanda || domanda.length > 0 || domandaInCorso) return;
+
+    setDomandaInCorso(true);
+    fetch("/api/radar/demand")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { zones?: typeof domanda; pending?: number } | null) => {
+        if (d?.zones) setDomanda(d.zones);
+        setDomandaPendenti(d?.pending ?? 0);
+      })
+      .catch(() => undefined)
+      .finally(() => setDomandaInCorso(false));
+  }, [mostraDomanda, domanda.length, domandaInCorso]);
+
+  useEffect(() => {
+    if (pronta) void disegnaDomanda();
+  }, [pronta, disegnaDomanda]);
+
   // --- Creazione della mappa, una volta sola -------------------------------
   useEffect(() => {
     let annullato = false;
@@ -226,6 +300,32 @@ export function RadarMap({
         // esplicita la mappa nasce alta zero e non mostra nulla.
         style={{ background: "var(--muted, #f1f5f9)" }}
       />
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => setMostraDomanda((v) => !v)}
+          aria-pressed={mostraDomanda}
+          className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-all duration-200 ${
+            mostraDomanda
+              ? "bg-primary/10 text-primary"
+              : "border border-border text-muted-foreground hover:border-primary/40 hover:bg-muted"
+          }`}
+        >
+          {domandaInCorso ? "Carico la domanda…" : "Mostra domanda dei lead"}
+        </button>
+
+        {mostraDomanda && domanda.length === 0 && !domandaInCorso && (
+          <span className="text-xs text-muted-foreground">
+            Nessuna zona di ricerca dichiarata dai lead, o non ancora localizzata.
+          </span>
+        )}
+        {mostraDomanda && domandaPendenti > 0 && (
+          <span className="text-xs text-muted-foreground">
+            {domandaPendenti} zone ancora da localizzare: compariranno alla prossima apertura.
+          </span>
+        )}
+      </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <Legenda colore={COLORI.VERDE} testo="Rischio basso" />
