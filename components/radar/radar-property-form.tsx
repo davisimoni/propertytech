@@ -60,6 +60,7 @@ export function RadarPropertyForm({
           kind,
           comune: value("comune"),
           zona: value("zona"),
+          address: value("address"),
           type: value("type"),
           priceEur: numero("priceEur"),
           squareMeters: numero("squareMeters"),
@@ -93,6 +94,7 @@ export function RadarPropertyForm({
   async function cerca(form: HTMLFormElement) {
     const comune = String(new FormData(form).get("comune") ?? "").trim();
     const zonaValue = String(new FormData(form).get("zona") ?? "").trim();
+    const addressValue = String(new FormData(form).get("address") ?? "").trim();
     if (comune.length < 2) {
       setGeoMessage("Scrivi prima il comune.");
       return;
@@ -102,7 +104,11 @@ export function RadarPropertyForm({
     setGeoMessage(null);
 
     try {
-      const params = new URLSearchParams({ comune, ...(zonaValue ? { zona: zonaValue } : {}) });
+      const params = new URLSearchParams({
+        comune,
+        ...(zonaValue ? { zona: zonaValue } : {}),
+        ...(addressValue ? { address: addressValue } : {}),
+      });
       const response = await fetch(`/api/radar/geocode?${params}`);
       const data = await response.json().catch(() => null);
 
@@ -150,6 +156,20 @@ export function RadarPropertyForm({
 
         <Campo id="zona" label="Zona o frazione" hint="facoltativo">
           <input id="zona" name="zona" maxLength={120} className="input-field w-full text-base sm:text-sm" />
+        </Campo>
+
+        <Campo
+          id="address"
+          label="Indirizzo e civico"
+          hint="facoltativo, ma porta il pin sul portone"
+        >
+          <input
+            id="address"
+            name="address"
+            placeholder="Es. Via Emilia 45"
+            maxLength={200}
+            className="input-field w-full text-base sm:text-sm"
+          />
         </Campo>
 
         <Campo id="type" label="Tipologia" required>

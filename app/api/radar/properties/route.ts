@@ -30,6 +30,8 @@ const createSchema = z.object({
   kind: z.enum(["ASTA", "RIBASSO"]),
   comune: z.string().trim().min(2, "Indica il comune").max(120),
   zona: z.string().trim().max(120).optional().or(z.literal("")),
+  /** Indirizzo e civico dell'immobile: sposta il pin dal centro del comune. */
+  address: z.string().trim().max(200).optional().or(z.literal("")),
   type: z.enum(PROPERTY_TYPES as [PropertyType, ...PropertyType[]]),
   priceEur: z.coerce.number().int().positive("Il prezzo deve essere maggiore di zero"),
   squareMeters: z.coerce.number().int().positive("Indica i metri quadri"),
@@ -111,6 +113,7 @@ export async function POST(request: Request) {
       source: "MANUALE",
       comune: d.comune,
       zona: d.zona || null,
+      address: d.address || null,
       type: d.type,
       priceEur: d.priceEur,
       squareMeters: d.squareMeters,

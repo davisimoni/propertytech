@@ -26,11 +26,26 @@ export interface Coordinate {
  * mappa: far fallire un salvataggio perché un servizio esterno non riconosce
  * un toponimo sarebbe far dipendere il prodotto da un dettaglio che non conta.
  */
-export async function geocodeZona(comune: string, zona?: string | null): Promise<Coordinate | null> {
+export async function geocodeZona(
+  comune: string,
+  zona?: string | null,
+  address?: string | null
+): Promise<Coordinate | null> {
   if (comune.trim().length < 2) return null;
 
+  /*
+   * Indirizzo prima di tutto, poi zona, poi comune.
+   *
+   * E' l'ordine che Nominatim si aspetta e che porta il pin sul portone
+   * invece che sul municipio. Senza indirizzo tutti i lotti dello stesso
+   * comune finiscono sullo stesso punto, e la mappa smette di servire proprio
+   * dove ci sono piu' occasioni: sovrapposti, non si distinguono.
+   */
   const url = new URL(NOMINATIM);
-  url.searchParams.set("q", [zona?.trim(), comune.trim()].filter(Boolean).join(", "));
+  url.searchParams.set(
+    "q",
+    [address?.trim(), zona?.trim(), comune.trim()].filter(Boolean).join(", ")
+  );
   // Il modulo riguarda il mercato italiano: senza vincolo, "Vignola" può
   // risolvere dall'altra parte del mondo.
   url.searchParams.set("countrycodes", "it");

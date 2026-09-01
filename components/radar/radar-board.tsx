@@ -33,6 +33,7 @@ export interface RadarItem {
   kind: "ASTA" | "RIBASSO";
   comune: string;
   zona: string | null;
+  address: string | null;
   type: PropertyType;
   priceEur: number;
   squareMeters: number;

@@ -36,6 +36,7 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const comune = (params.get("comune") ?? "").trim();
   const zona = (params.get("zona") ?? "").trim();
+  const address = (params.get("address") ?? "").trim();
 
   if (comune.length < 2) {
     return NextResponse.json(
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const posizione = await geocodeZona(comune, zona);
+  const posizione = await geocodeZona(comune, zona, address);
 
   if (!posizione) {
     // Non e' un errore dell'agente: il lotto si salva comunque, senza pin.

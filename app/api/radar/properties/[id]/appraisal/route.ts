@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { checkUsageLimit, incrementUsage } from "@/lib/usage";
 import { summariseAuctionAppraisal, AuctionAppraisalError, APPRAISAL_MODEL } from "@/lib/ai/auction-appraisal";
 import { evaluateRisk } from "@/lib/radar/risk";
+import { geocodeZona } from "@/lib/radar/geocode";
 
 /**
  * Analisi della perizia, asincrona.
@@ -60,7 +61,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
   const radar = await prisma.radarProperty.findFirst({
     where: { id, organizationId },
-    select: { id: true, basePriceEur: true },
+    select: { id: true, basePriceEur: true, address: true, comune: true, zona: true },
   });
   if (!radar) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
@@ -176,13 +177,40 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         },
       });
 
-      // Il valore di perizia torna utile sul lotto: è il termine di paragone
-      // dell'offerta minima, e finora l'agente doveva copiarlo a mano.
+      /*
+       * Due dati che la perizia porta e che l'agente non deve ricopiare: il
+       * valore di stima e l'indirizzo del bene.
+       *
+       * Scritti solo se mancano. Un valore inserito a mano e' una decisione
+       * dell'agenzia, e sovrascriverla con quella del perito cancellerebbe
+       * una correzione voluta.
+       */
+      const daPerizia: { basePriceEur?: number; address?: string } = {};
       if (fatti.appraisedValueEur && !radar.basePriceEur) {
-        await prisma.radarProperty.update({
-          where: { id },
-          data: { basePriceEur: fatti.appraisedValueEur },
-        });
+        daPerizia.basePriceEur = fatti.appraisedValueEur;
+      }
+      if (fatti.propertyAddress?.trim() && !radar.address) {
+        daPerizia.address = fatti.propertyAddress.trim();
+      }
+
+      if (Object.keys(daPerizia).length > 0) {
+        await prisma.radarProperty.update({ where: { id }, data: daPerizia });
+      }
+
+      /*
+       * Con un indirizzo nuovo il pin va rifatto: prima stava sul centro del
+       * comune, ora si puo' mettere sul portone. Se la ricerca fallisce il
+       * lotto resta dov'era — un'analisi riuscita non deve fallire per un
+       * servizio di mappe che non risponde.
+       */
+      if (daPerizia.address) {
+        const posizione = await geocodeZona(radar.comune, radar.zona, daPerizia.address);
+        if (posizione) {
+          await prisma.radarProperty.update({
+            where: { id },
+            data: { latitude: posizione.latitude, longitude: posizione.longitude },
+          });
+        }
       }
 
       console.info("[RADAR-APPRAISAL] Sintesi completata", {

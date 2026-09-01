@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Archive, ArchiveRestore, Loader2, Pencil, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, FileDown, Loader2, Pencil, Trash2 } from "lucide-react";
+import { downloadPdf, fetchPdfBranding } from "@/lib/pdf/client";
 import { PROPERTY_TYPE_LABELS } from "@/lib/listings/property-fields";
 import type { PropertyType } from "@prisma/client";
 import type { RadarItem } from "./radar-board";
@@ -46,6 +47,7 @@ export function RadarActions({
   const [inCorso, setInCorso] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [avviso, setAvviso] = useState<string | null>(null);
+  const [inStampa, setInStampa] = useState(false);
 
   async function patch(body: Record<string, unknown>, messaggio?: string) {
     setInCorso(true);
@@ -85,6 +87,59 @@ export function RadarActions({
     }
   }
 
+  /**
+   * Report PDF del lotto.
+   *
+   * Il documento si compone nel browser: `@react-pdf/renderer` pesa qualche
+   * centinaio di kilobyte e viene importato solo quando qualcuno preme il
+   * tasto, come per le altre stampe della piattaforma. La perizia viene
+   * riletta dalla sua rotta perche' l'elenco ne porta solo il riassunto:
+   * stampare un report senza difformita' ne' vincoli sarebbe peggio che non
+   * stamparlo.
+   */
+  async function scaricaReport() {
+    setInStampa(true);
+    setError(null);
+    try {
+      const [branding, perizia] = await Promise.all([
+        fetchPdfBranding(),
+        fetch(`/api/radar/properties/${item.id}/appraisal`)
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
+      ]);
+
+      const { RadarReportDocument } = await import("@/lib/pdf/radar-report-document");
+
+      await downloadPdf(
+        <RadarReportDocument
+          branding={branding}
+          data={{
+            kind: item.kind,
+            comune: item.comune,
+            zona: item.zona,
+            address: item.address,
+            type: item.type,
+            squareMeters: item.squareMeters,
+            priceEur: item.priceEur,
+            basePriceEur: item.basePriceEur,
+            auctionDate: item.auctionDate,
+            lotto: item.lotto,
+            transferCostsEur: item.transferCostsEur,
+            renovationCostEur: item.renovationCostEur,
+            marketValueEur: item.marketValueEur,
+            monthlyRentEur: item.monthlyRentEur,
+            appraisal: perizia?.appraisal ?? null,
+          }}
+        />,
+        `radar-${item.comune.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`
+      );
+    } catch {
+      setError("Non e' stato possibile generare il report.");
+    } finally {
+      setInStampa(false);
+    }
+  }
+
   async function elimina() {
     setInCorso(true);
     try {
@@ -114,6 +169,7 @@ export function RadarActions({
       {
         comune: v("comune"),
         zona: v("zona") || null,
+        address: v("address") || null,
         type: v("type"),
         squareMeters: numero(v("squareMeters")),
         priceEur: numero(v("priceEur")),
@@ -167,6 +223,20 @@ export function RadarActions({
 
         <button
           type="button"
+          onClick={scaricaReport}
+          disabled={inStampa}
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50"
+        >
+          {inStampa ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <FileDown className="h-3.5 w-3.5" />
+          )}
+          Scarica report PDF
+        </button>
+
+        <button
+          type="button"
           onClick={() => setConferma(true)}
           className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-status-blocked transition-all duration-200 hover:border-status-blocked/40 hover:bg-status-blocked/5"
         >
@@ -192,6 +262,9 @@ export function RadarActions({
             </Campo>
             <Campo id={`m-zona-${item.id}`} label="Zona">
               <input id={`m-zona-${item.id}`} name="zona" defaultValue={item.zona ?? ""} maxLength={120} className="input-field h-9 w-full text-base sm:text-sm" />
+            </Campo>
+            <Campo id={`m-address-${item.id}`} label="Indirizzo e civico" hint="sposta il pin">
+              <input id={`m-address-${item.id}`} name="address" defaultValue={item.address ?? ""} placeholder="Es. Via Emilia 45" maxLength={200} className="input-field h-9 w-full text-base sm:text-sm" />
             </Campo>
             <Campo id={`m-type-${item.id}`} label="Tipologia">
               <select id={`m-type-${item.id}`} name="type" defaultValue={item.type} className="input-field h-9 w-full text-base sm:text-sm">
@@ -232,7 +305,7 @@ export function RadarActions({
           </Campo>
 
           <p className="mt-2 text-xs text-muted-foreground">
-            Cambiando comune o zona le coordinate vengono ricalcolate, e gli abbinamenti con i lead
+            Cambiando indirizzo, comune o zona le coordinate vengono ricalcolate, e gli abbinamenti con i lead
             si aggiornano da soli.
           </p>
 

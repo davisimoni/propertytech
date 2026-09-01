@@ -23,6 +23,7 @@ La perizia contiene informazioni sul debitore esecutato e sui suoi familiari. Qu
 - NON riportare informazioni su condizioni di salute, situazione familiare, reddito o vicende personali.
 - Quando devi riferirti a una persona, usa il ruolo: "l'esecutato", "l'occupante", "un terzo".
 - L'unica eccezione sono i nomi di enti e uffici pubblici (Tribunale, Comune, Agenzia delle Entrate), che non sono dati personali.
+- L'UBICAZIONE DEL BENE (via e civico dell'immobile all'asta) va invece riportata nel campo propertyAddress: e' gia' pubblicata nell'avviso di vendita del Tribunale. Non confonderla con la residenza dell'esecutato, che spesso e' un indirizzo diverso e non va mai riportata.
 
 # Cosa devi riferire
 Ti si chiede di dire COSA C'È SCRITTO nella perizia, non di valutarla.

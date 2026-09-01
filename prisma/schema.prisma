@@ -1438,6 +1438,16 @@ model RadarProperty {
 
   /// I cinque campi che `scorePropertyForLead` sa già leggere: tenerli con
   /// questi nomi permette di riusare il motore di matching senza adattatori.
+  /// Indirizzo e civico dell'immobile, es. "Via Emilia 45".
+  ///
+  /// Facoltativo, ma e' cio' che sposta il pin dal centro del comune al
+  /// portone: senza, tutti i lotti di Vignola finiscono sullo stesso punto e
+  /// la mappa smette di essere utile proprio dove ci sono piu' occasioni.
+  ///
+  /// E' l'indirizzo dell'IMMOBILE, non la residenza dell'esecutato: il primo
+  /// e' pubblicato nell'avviso di vendita, il secondo e' un dato personale che
+  /// non entra in questo modulo.
+  address      String?
   comune       String
   zona         String?
   type         PropertyType

@@ -19,6 +19,11 @@ import { z } from "zod";
  * natura giudiziaria. All'agenzia servono le caratteristiche dell'immobile,
  * non l'identità di chi lo sta perdendo. Non c'è alcun campo per accoglierli:
  * il modo più solido di non trattare un dato è non avere dove metterlo.
+ *
+ * L'unica eccezione apparente è `propertyAddress`, che è l'ubicazione del
+ * bene: compare già nell'avviso di vendita pubblicato dal Tribunale, quindi
+ * non aggiunge nulla che non sia pubblico. La residenza dell'esecutato, che
+ * la perizia riporta e che pubblica non è, resta esclusa.
  */
 export const auctionAppraisalSchema = z.object({
   occupancy: z
@@ -50,6 +55,13 @@ export const auctionAppraisalSchema = z.object({
     .int()
     .nullable()
     .describe("Estremo massimo del costo di sanatoria stimato dal perito, in euro. null se non stimato."),
+
+  propertyAddress: z
+    .string()
+    .nullable()
+    .describe(
+      "Indirizzo e civico dell'IMMOBILE oggetto della vendita, come riportato nella perizia (es. 'Via Emilia 45'). Solo via e numero, senza CAP ne' comune. null se la perizia non lo riporta. ATTENZIONE: e' l'ubicazione del bene, NON la residenza dell'esecutato o di terzi, che non va mai riportata."
+    ),
 
   appraisedValueEur: z
     .number()

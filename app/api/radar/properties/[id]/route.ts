@@ -32,6 +32,7 @@ const patchSchema = z.object({
   // --- Dati del lotto ---
   comune: z.string().trim().min(2).max(120).optional(),
   zona: z.string().trim().max(120).optional().nullable(),
+  address: z.string().trim().max(200).optional().nullable(),
   type: z.enum(PROPERTY_TYPES as [PropertyType, ...PropertyType[]]).optional(),
   squareMeters: z.coerce.number().int().positive().optional(),
   basePriceEur: z.coerce.number().int().positive().optional().nullable(),
@@ -81,6 +82,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       priceEur: true,
       comune: true,
       zona: true,
+      address: true,
       type: true,
       squareMeters: true,
       latitude: true,
@@ -110,11 +112,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
    */
   const luogoCambiato =
     (d.comune !== undefined && d.comune !== attuale.comune) ||
-    (d.zona !== undefined && (d.zona || null) !== attuale.zona);
+    (d.zona !== undefined && (d.zona || null) !== attuale.zona) ||
+    (d.address !== undefined && (d.address || null) !== attuale.address);
 
   let coordinate: { latitude: number; longitude: number } | null = null;
   if (luogoCambiato || (d.comune !== undefined && attuale.latitude === null)) {
-    const trovate = await geocodeZona(d.comune ?? attuale.comune, d.zona ?? attuale.zona);
+    const trovate = await geocodeZona(
+      d.comune ?? attuale.comune,
+      d.zona ?? attuale.zona,
+      d.address ?? attuale.address
+    );
     coordinate = trovate ? { latitude: trovate.latitude, longitude: trovate.longitude } : null;
   }
 
@@ -123,6 +130,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     data: {
       ...(d.comune !== undefined ? { comune: d.comune } : {}),
       ...(d.zona !== undefined ? { zona: d.zona || null } : {}),
+      ...(d.address !== undefined ? { address: d.address || null } : {}),
       ...(d.type !== undefined ? { type: d.type } : {}),
       ...(d.squareMeters !== undefined ? { squareMeters: d.squareMeters } : {}),
       ...(d.basePriceEur !== undefined ? { basePriceEur: d.basePriceEur } : {}),
