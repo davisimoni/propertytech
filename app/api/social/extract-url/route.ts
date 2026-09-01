@@ -56,7 +56,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { rawText, finalUrl } = await extractListingTextFromUrl(parsed.data.url);
+    const { rawText, finalUrl, via } = await extractListingTextFromUrl(parsed.data.url);
     const { listing } = await importListing({ rawText });
 
     /*
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
      * riaprire il link e ricopiare tutto a mano. È anche l'unico modo di
      * capire, guardando, se dalla pagina è arrivato un annuncio o un menù.
      */
-    return NextResponse.json({ listing, rawText, finalUrl });
+    return NextResponse.json({ listing, rawText, finalUrl, via });
   } catch (error) {
     if (error instanceof UrlExtractError) {
       // 422: la richiesta era valida, è la pagina a non essere utilizzabile.

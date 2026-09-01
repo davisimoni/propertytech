@@ -91,6 +91,10 @@ const IMPRONTE_ANTIBOT = [
   "captcha-delivery.com",
   "unusual traffic from your computer",
   "verifica di sicurezza",
+  // Il lettore esterno non fallisce: riferisce. Quando il portale gli mostra
+  // un CAPTCHA risponde 200 con questo avviso e il contenuto vuoto, quindi
+  // l'impronta va cercata anche nella sua risposta.
+  "requiring captcha",
 ];
 
 const UA_BROWSER =
@@ -121,13 +125,8 @@ async function leggiCorpoLimitato(response: Response): Promise<string> {
 }
 
 /** Scarica la pagina, rivalidando l'indirizzo a ogni redirect. */
-async function scaricaHtml(rawUrl: string): Promise<{ html: string; finalUrl: string }> {
-  const primo = parsePublicHttpUrl(rawUrl);
-  if (!primo.ok) {
-    throw new UrlExtractError("Il link non sembra valido.", "invalid_url");
-  }
-
-  let corrente = primo.url;
+async function scaricaHtml(partenza: URL): Promise<{ html: string; finalUrl: string }> {
+  let corrente = partenza;
 
   for (let salto = 0; salto <= MAX_REDIRECTS; salto++) {
     let response: Response;
@@ -322,6 +321,8 @@ export interface UrlExtractResult {
   rawText: string;
   /** Indirizzo effettivamente letto, dopo gli eventuali rinvii. */
   finalUrl: string;
+  /** Da dove è arrivato il testo: utile nei log e per capire un esito strano. */
+  via: "diretto" | "lettore-esterno";
 }
 
 /**
@@ -379,8 +380,135 @@ export function buildListingTextFromHtml(html: string): string {
   return rawText;
 }
 
-/** Scarica la pagina e ne ricava il testo da dare al parser dell'annuncio. */
+/**
+ * Ripiego: lettore esterno (Jina Reader).
+ *
+ * # Cosa fa e cosa non fa
+ *
+ * `r.jina.ai/<url>` scarica la pagina per conto nostro e ne restituisce il
+ * testo in Markdown, già ripulito. Rende quindi anche le pagine costruite in
+ * JavaScript, che al fetch diretto arrivano come scheletro vuoto.
+ *
+ * Non è una chiave universale, e conviene saperlo prima: misurato oggi su
+ * pagine reali, **Casa.it passa** e restituisce prezzo, metratura e
+ * descrizione; **Immobiliare.it e Idealista no**. Su quei due il lettore
+ * riceve lo stesso CAPTCHA che riceviamo noi.
+ *
+ * # Perché non ci si può fidare del codice HTTP
+ *
+ * Quando il portale gli mostra un CAPTCHA, il lettore **risponde 200** con un
+ * avviso e il contenuto vuoto: duecento byte invece di dodicimila. Trattarlo
+ * come riuscito significherebbe consegnare al modello una pagina vuota e
+ * restituire all'agente una scheda inventata dal nulla. Si guarda il
+ * contenuto, non lo stato.
+ *
+ * # Terza parte
+ *
+ * L'indirizzo dell'annuncio esce verso un servizio esterno. È una pagina
+ * pubblica e non contiene dati dei clienti dell'agenzia, ma resta una
+ * dipendenza in più: se un giorno il servizio chiude, questo è un ripiego che
+ * smette di funzionare, non una funzione che si rompe — il percorso diretto e
+ * quello del testo incollato restano.
+ *
+ * `JINA_API_KEY` è facoltativa: senza, si usa il piano gratuito, che ha un
+ * limite di richieste al minuto più basso.
+ */
+const JINA_READER_BASE = "https://r.jina.ai/";
+
+/**
+ * Più lungo del diretto, perché il lettore apre davvero la pagina e la
+ * renderizza — ma non troppo: dopo di lui deve ancora girare il modello, e
+ * l'intera rotta ha sessanta secondi. Il diretto quasi sempre fallisce subito
+ * (un 403 arriva in un secondo), quindi il tetto vero da rispettare è questo.
+ */
+const JINA_TIMEOUT_MS = 20_000;
+
+/** Sotto questa soglia la risposta del lettore è un guscio, non un annuncio. */
+const MIN_JINA_CONTENT_CHARS = 200;
+
+async function leggiConLettoreEsterno(bersaglio: URL): Promise<string> {
+  const chiave = process.env.JINA_API_KEY;
+
+  let response: Response;
+  try {
+    response = await fetch(`${JINA_READER_BASE}${bersaglio.toString()}`, {
+      method: "GET",
+      signal: AbortSignal.timeout(JINA_TIMEOUT_MS),
+      headers: {
+        Accept: "text/plain",
+        ...(chiave ? { Authorization: `Bearer ${chiave}` } : {}),
+      },
+    });
+  } catch {
+    throw new UrlExtractError("Lettore esterno non raggiungibile.", "not_reachable");
+  }
+
+  if (!response.ok) {
+    throw new UrlExtractError(`Lettore esterno: ${response.status}.`, "not_reachable");
+  }
+
+  const testo = (await leggiCorpoLimitato(response)).slice(0, MAX_TEXT_CHARS);
+
+  if (IMPRONTE_ANTIBOT.some((impronta) => testo.toLowerCase().includes(impronta))) {
+    throw new UrlExtractError(PORTAL_BLOCKED_MESSAGE, "blocked_by_portal");
+  }
+
+  // Si misura solo quello che viene DOPO l'intestazione del lettore: `Title:`
+  // e `URL Source:` ci sono sempre, anche quando sotto non c'è niente, e
+  // basterebbero da sole a superare una soglia misurata sul totale.
+  const marcatore = "Markdown Content:";
+  const taglio = testo.indexOf(marcatore);
+  const contenuto = taglio >= 0 ? testo.slice(taglio + marcatore.length) : testo;
+
+  if (contenuto.replace(/\s+/g, " ").trim().length < MIN_JINA_CONTENT_CHARS) {
+    throw new UrlExtractError("Il lettore esterno non ha trovato contenuto.", "too_little_content");
+  }
+
+  return testo;
+}
+
+/**
+ * Scarica la pagina e ne ricava il testo da dare al parser dell'annuncio.
+ *
+ * Due tentativi in ordine: prima il fetch diretto, poi il lettore esterno. Se
+ * fallisce anche il secondo si rilancia **l'errore del primo**, perché è
+ * quello che descrive il problema all'agente e gli dice cosa fare; "lettore
+ * esterno non raggiungibile" non gli servirebbe a niente.
+ */
 export async function extractListingTextFromUrl(rawUrl: string): Promise<UrlExtractResult> {
-  const { html, finalUrl } = await scaricaHtml(rawUrl);
-  return { rawText: buildListingTextFromHtml(html), finalUrl };
+  const indirizzo = parsePublicHttpUrl(rawUrl);
+  if (!indirizzo.ok) {
+    throw new UrlExtractError("Il link non sembra valido.", "invalid_url");
+  }
+
+  let erroreDiretto: UrlExtractError;
+
+  try {
+    const { html, finalUrl } = await scaricaHtml(indirizzo.url);
+    return { rawText: buildListingTextFromHtml(html), finalUrl, via: "diretto" };
+  } catch (error) {
+    if (!(error instanceof UrlExtractError)) throw error;
+
+    /*
+     * `not_html` non passa dal ripiego.
+     *
+     * Il link porta a un file, non a una pagina: il lettore esterno non
+     * cambierebbe l'esito, e il messaggio che l'agente ha già davanti dice
+     * la cosa giusta. Una chiamata di rete in più per confermare un no.
+     */
+    if (error.code === "not_html") throw error;
+
+    erroreDiretto = error;
+  }
+
+  try {
+    const rawText = await leggiConLettoreEsterno(indirizzo.url);
+    console.info("[url-extract] Letto tramite lettore esterno", {
+      host: indirizzo.url.hostname,
+      motivoDelDiretto: erroreDiretto.code,
+    });
+    return { rawText, finalUrl: indirizzo.url.toString(), via: "lettore-esterno" };
+  } catch {
+    throw erroreDiretto;
+  }
 }
