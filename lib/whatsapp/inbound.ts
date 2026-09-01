@@ -172,6 +172,53 @@ async function applyAgentCommand(
  * un promemoria deve liberare l'agenda, non finire in pasto al modello che lo
  * leggerebbe come risposta di qualificazione.
  */
+/**
+ * Una riga per messaggio, con la decisione presa.
+ *
+ * # Perché serve, viste le righe che già ci sono
+ *
+ * Quelle raccontano ognuna un pezzo: l'arrivo, uno scarto, una risposta. Per
+ * capire perché un messaggio non ha avuto risposta bisognava trovarle tutte e
+ * rimetterle in fila, e quando la finestra dei log ne conserva solo un tratto
+ * il pezzo che serve è quasi sempre quello caduto fuori.
+ *
+ * Qui c'è tutto in una riga sola: chi ha scritto, cosa, cosa ne ha detto il
+ * filtro, in che stato era la scheda e cosa si è deciso. Si cerca
+ * `[WA-DECISION]` e si legge la storia.
+ *
+ * # Cosa NON entra
+ *
+ * Il numero per intero e il testo completo. Restano un troncamento e i primi
+ * ottanta caratteri: bastano a riconoscere il messaggio in un elenco, e i log
+ * non sono il posto dove conservare il recapito e le parole di una persona che
+ * ha chiesto informazioni su una casa (CLAUDE.md §5).
+ */
+function logDecision(campi: {
+  organizationId: string;
+  from: string;
+  text: string;
+  /** Verdetto del filtro, quando è stato interrogato. */
+  intent?: { pertinente: boolean; nuovaRichiesta?: boolean; motivo: string } | null;
+  /** Stato della scheda al momento della decisione, `null` se non esiste. */
+  leadStatus?: string | null;
+  aiEnabled?: boolean | null;
+  decision: string;
+}): void {
+  console.info("[WA-DECISION]", {
+    organizationId: campi.organizationId,
+    from: `${campi.from.slice(0, 6)}…`,
+    testo: campi.text.replace(/\s+/g, " ").slice(0, 80),
+    intent: campi.intent
+      ? `${campi.intent.pertinente ? "PERTINENTE" : "FUORI_TEMA"}${
+          campi.intent.nuovaRichiesta ? "/NUOVA_RICHIESTA" : ""
+        } (${campi.intent.motivo})`
+      : "non interrogato",
+    lead: campi.leadStatus ?? "nessuna scheda",
+    aiAttiva: campi.aiEnabled ?? "-",
+    decisione: campi.decision,
+  });
+}
+
 export async function handleInboundWhatsAppMessage(
   config: WhatsAppConfigWithOrganization,
   rawMessage: InboundWhatsAppMessage
@@ -217,10 +264,11 @@ export async function handleInboundWhatsAppMessage(
    * cadere in silenzio: se ricapita si vede.
    */
   if (!message.text.trim()) {
-    console.warn("[WEBHOOK IGNORATO]: messaggio vuoto dopo la ripulitura", {
+    logDecision({
       organizationId: config.organizationId,
-      charsGrezzi: rawMessage.text.length,
-      invisibili,
+      from: clientPhone,
+      text: rawMessage.text,
+      decision: `IGNORATO — vuoto dopo la ripulitura (${rawMessage.text.length} caratteri grezzi, ${invisibili} invisibili)`,
     });
     return;
   }
@@ -235,6 +283,12 @@ export async function handleInboundWhatsAppMessage(
    * un comando e nient'altro.
    */
   if (message.fromAgent) {
+    logDecision({
+      organizationId: config.organizationId,
+      from: clientPhone,
+      text: message.text,
+      decision: "COMANDO AGENTE — non e' un cliente da qualificare",
+    });
     await applyAgentCommand(config, message, clientPhone);
     return;
   }
@@ -251,8 +305,11 @@ export async function handleInboundWhatsAppMessage(
    * confronto fra stringhe.
    */
   if (config.phoneNumber && clientPhone === normalizePhone(config.phoneNumber)) {
-    console.warn("[WEBHOOK IGNORATO]: mittente uguale al numero dell'agenzia (guardia anti-loop)", {
+    logDecision({
       organizationId: config.organizationId,
+      from: clientPhone,
+      text: message.text,
+      decision: "IGNORATO — il mittente e' il numero dell'agenzia stessa (guardia anti-loop)",
     });
     return;
   }
@@ -266,9 +323,11 @@ export async function handleInboundWhatsAppMessage(
    * decisione e' gia' stata presa da una persona e non c'e' nulla da valutare.
    */
   if (await isMutedContact(config.organizationId, clientPhone)) {
-    console.info("[WEBHOOK IGNORATO]: contatto silenziato con !pausa", {
+    logDecision({
       organizationId: config.organizationId,
-      from: `${clientPhone.slice(0, 6)}…`,
+      from: clientPhone,
+      text: message.text,
+      decision: "IGNORATO — contatto silenziato con !pausa (si riattiva con !riprendi)",
     });
     return;
   }
@@ -310,12 +369,23 @@ export async function handleInboundWhatsAppMessage(
     const verdetto = await classifyIntent({ message: message.text });
 
     if (!verdetto.pertinente) {
-      console.info("[WEBHOOK IGNORATO]: primo contatto fuori tema", {
+      logDecision({
         organizationId: config.organizationId,
-        motivo: verdetto.motivo,
+        from: clientPhone,
+        text: message.text,
+        intent: verdetto,
+        decision: "IGNORATO — primo contatto giudicato fuori tema, nessuna scheda creata",
       });
       return;
     }
+
+    logDecision({
+      organizationId: config.organizationId,
+      from: clientPhone,
+      text: message.text,
+      intent: verdetto,
+      decision: "SCHEDA CREATA — primo contatto pertinente, parte la qualificazione",
+    });
 
     try {
       await createLeadFromFirstMessage({
@@ -344,7 +414,16 @@ export async function handleInboundWhatsAppMessage(
   }
 
   // Un contatto già in opt-out non riceve più nulla, nemmeno se riscrive.
-  if (lead.qualificationStatus === "OPT_OUT") return;
+  if (lead.qualificationStatus === "OPT_OUT") {
+    logDecision({
+      organizationId: config.organizationId,
+      from: clientPhone,
+      text: message.text,
+      leadStatus: lead.qualificationStatus,
+      decision: "IGNORATO — il contatto ha revocato il consenso",
+    });
+    return;
+  }
 
   try {
     const reminderReply = isAwaitingReminderReply(lead) ? parseReminderReply(message.text) : null;
@@ -362,9 +441,13 @@ export async function handleInboundWhatsAppMessage(
       //
       // Nessun credito consumato: non abbiamo generato né inviato nulla.
       await recordClientMessage(lead, message.text);
-      console.info("[WA-AI-PAUSED]", {
-        leadId: lead.id,
+      logDecision({
         organizationId: config.organizationId,
+        from: clientPhone,
+        text: message.text,
+        leadStatus: lead.qualificationStatus,
+        aiEnabled: false,
+        decision: "NESSUNA RISPOSTA — assistente in pausa, messaggio salvato in cronologia",
       });
     } else if (lead.qualificationStatus === "QUALIFIED" || lead.qualificationStatus === "UNQUALIFIED") {
       /**
@@ -420,6 +503,15 @@ export async function handleInboundWhatsAppMessage(
           motivo: verdettoChiuso.motivo,
         });
 
+        logDecision({
+          organizationId: config.organizationId,
+          from: clientPhone,
+          text: message.text,
+          intent: verdettoChiuso,
+          leadStatus: `${lead.qualificationStatus} → IN_PROGRESS`,
+          decision: "RIAPERTA — richiesta nuova su una pratica chiusa",
+        });
+
         await resetOffTopicStreak(riaperto);
         await handleIncomingMessage(
           riaperto,
@@ -429,6 +521,15 @@ export async function handleInboundWhatsAppMessage(
           config.organization
         );
       } else {
+        logDecision({
+          organizationId: config.organizationId,
+          from: clientPhone,
+          text: message.text,
+          intent: verdettoChiuso,
+          leadStatus: lead.qualificationStatus,
+          decision:
+            "NESSUNA RIAPERTURA — pratica gia' chiusa e il messaggio non e' una richiesta nuova",
+        });
         await handleClosedConversation(lead, config, message.text);
       }
     } else {
@@ -463,6 +564,17 @@ export async function handleInboundWhatsAppMessage(
         // cronologia e il contatore avanza; alla soglia l'assistente si
         // sospende da solo su questo contatto.
         const sospeso = await recordOffTopicMessage(lead, message.text, verdetto.motivo);
+        logDecision({
+          organizationId: config.organizationId,
+          from: clientPhone,
+          text: message.text,
+          intent: verdetto,
+          leadStatus: lead.qualificationStatus,
+          aiEnabled: lead.aiEnabled,
+          decision: sospeso
+            ? "NESSUNA RISPOSTA — fuori tema ripetuto, assistente sospeso su questa chat"
+            : "NESSUNA RISPOSTA — messaggio fuori tema",
+        });
         if (sospeso) {
           console.info("[WA-AI-AUTOPAUSED]", {
             leadId: lead.id,
@@ -475,6 +587,16 @@ export async function handleInboundWhatsAppMessage(
 
       // Pertinente: la serie si interrompe qui.
       await resetOffTopicStreak(lead);
+
+      logDecision({
+        organizationId: config.organizationId,
+        from: clientPhone,
+        text: message.text,
+        intent: verdetto,
+        leadStatus: lead.qualificationStatus,
+        aiEnabled: lead.aiEnabled,
+        decision: "RISPOSTA — il messaggio prosegue verso l'assistente",
+      });
 
       await handleIncomingMessage(
         lead,

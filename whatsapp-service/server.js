@@ -391,12 +391,34 @@ async function startSession(sessionId) {
    * messaggio storto.
    */
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
-    if (type !== "notify") return;
+    /*
+     * Solo i messaggi che arrivano ADESSO.
+     *
+     * Baileys riusa questo evento anche per la cronologia che WhatsApp
+     * riversa alla riconnessione, con `type: "append"`. Quei messaggi sono
+     * gia' passati: rispondere a una richiesta di tre giorni fa come se fosse
+     * appena arrivata e' peggio del silenzio.
+     *
+     * Ma un messaggio scritto mentre la sessione era giu' rientra da questa
+     * porta, e finora usciva senza lasciare niente: era la prima cosa da
+     * escludere quando un messaggio di prova "non arriva" e la riga non
+     * c'era. Ora si vede.
+     */
+    if (type !== "notify") {
+      console.log(
+        `[WEBHOOK IGNORATO]: ${messages.length} messaggio/i di tipo "${type}" su ${sessionId} ` +
+        `(cronologia o aggiornamento, non consegna in tempo reale)`
+      );
+      return;
+    }
 
     const gestisciMessaggio = async (msg) => {
       // I gruppi restano fuori: la qualificazione riguarda conversazioni
       // uno-a-uno con un cliente.
-      if (msg.key.remoteJid?.endsWith("@g.us")) return;
+      if (msg.key.remoteJid?.endsWith("@g.us")) {
+        console.log(`[WEBHOOK IGNORATO]: messaggio di gruppo su ${sessionId}`);
+        return;
+      }
 
       /*
        * Messaggio arrivato ma non decifrabile.
@@ -456,8 +478,26 @@ async function startSession(sessionId) {
         }
       }
 
-      // Senza testo e senza audio non c'e' nulla da qualificare.
-      if (!testo && !audio && !audioTooLarge) return;
+      /*
+       * Senza testo e senza audio non c'e' nulla da qualificare.
+       *
+       * Ci finisce piu' roba di quanto sembri: una foto con didascalia (la
+       * didascalia sta in `imageMessage.caption`, non in `conversation`), un
+       * PDF, una posizione, un contatto, un sondaggio, una reazione. Sono
+       * scarti legittimi — non sappiamo qualificarli — ma finora uscivano
+       * muti, e da fuori erano indistinguibili da un messaggio mai arrivato.
+       *
+       * Il tipo va scritto nel log: e' l'unico modo per accorgersi che un
+       * cliente sta mandando foto con la richiesta scritta sotto e non
+       * riceve mai risposta.
+       */
+      if (!testo && !audio && !audioTooLarge) {
+        const tipo = Object.keys(msg.message || {}).join(", ") || "sconosciuto";
+        console.log(
+          `[WEBHOOK IGNORATO]: messaggio senza testo ne' nota vocale su ${sessionId} (tipo: ${tipo})`
+        );
+        return;
+      }
 
       const text = testo;
 
