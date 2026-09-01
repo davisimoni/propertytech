@@ -4,6 +4,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { runRadarMatching } from "@/lib/radar/matching";
 import { dropPercent } from "@/lib/radar/roi";
+import { geocodeZona } from "@/lib/radar/geocode";
+import type { PropertyType } from "@prisma/client";
 
 /**
  * Aggiornamento di un lotto: parametri economici e prezzo.
@@ -21,7 +23,32 @@ import { dropPercent } from "@/lib/radar/roi";
 
 export const maxDuration = 60;
 
+const PROPERTY_TYPES: PropertyType[] = [
+  "APPARTAMENTO", "ATTICO", "VILLA", "VILLETTA", "LOFT", "RUSTICO",
+  "TERRENO", "NEGOZIO", "UFFICIO", "BOX", "ALTRO",
+];
+
 const patchSchema = z.object({
+  // --- Dati del lotto ---
+  comune: z.string().trim().min(2).max(120).optional(),
+  zona: z.string().trim().max(120).optional().nullable(),
+  type: z.enum(PROPERTY_TYPES as [PropertyType, ...PropertyType[]]).optional(),
+  squareMeters: z.coerce.number().int().positive().optional(),
+  basePriceEur: z.coerce.number().int().positive().optional().nullable(),
+  previousPriceEur: z.coerce.number().int().positive().optional().nullable(),
+  auctionDate: z.string().datetime().optional().nullable(),
+  lotto: z.string().trim().max(60).optional().nullable(),
+  sourceUrl: z.string().trim().url().max(500).optional().nullable(),
+  notes: z.string().trim().max(2000).optional().nullable(),
+
+  /**
+   * Archiviazione: un'asta aggiudicata o un ribasso concluso escono
+   * dall'elenco ma restano a database. Cancellarli porterebbe via gli
+   * abbinamenti gia' mostrati all'agente e la storia di cosa e' stato
+   * proposto a chi — che e' proprio cio' che serve rileggere fra sei mesi.
+   */
+  archived: z.boolean().optional(),
+
   priceEur: z.coerce.number().int().positive().optional(),
   transferCostsEur: z.coerce.number().int().min(0).optional().nullable(),
   renovationCostEur: z.coerce.number().int().min(0).optional().nullable(),
@@ -49,7 +76,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   const attuale = await prisma.radarProperty.findFirst({
     where: { id, organizationId },
-    select: { id: true, priceEur: true, comune: true },
+    select: {
+      id: true,
+      priceEur: true,
+      comune: true,
+      zona: true,
+      type: true,
+      squareMeters: true,
+      latitude: true,
+    },
   });
   if (!attuale) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
@@ -65,9 +100,44 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       ? await prisma.auctionLeadMatch.count({ where: { radarPropertyId: id, organizationId } })
       : 0;
 
+  /*
+   * Coordinate rifatte quando cambia il luogo.
+   *
+   * Un lotto spostato da un comune all'altro con il vecchio pin sulla mappa e'
+   * peggio di un lotto senza pin: dice una cosa falsa invece di tacere. Si
+   * ricerca solo se il luogo e' davvero cambiato — o se non c'erano
+   * coordinate — per non chiamare Nominatim a ogni ritocco di prezzo.
+   */
+  const luogoCambiato =
+    (d.comune !== undefined && d.comune !== attuale.comune) ||
+    (d.zona !== undefined && (d.zona || null) !== attuale.zona);
+
+  let coordinate: { latitude: number; longitude: number } | null = null;
+  if (luogoCambiato || (d.comune !== undefined && attuale.latitude === null)) {
+    const trovate = await geocodeZona(d.comune ?? attuale.comune, d.zona ?? attuale.zona);
+    coordinate = trovate ? { latitude: trovate.latitude, longitude: trovate.longitude } : null;
+  }
+
   const item = await prisma.radarProperty.update({
     where: { id },
     data: {
+      ...(d.comune !== undefined ? { comune: d.comune } : {}),
+      ...(d.zona !== undefined ? { zona: d.zona || null } : {}),
+      ...(d.type !== undefined ? { type: d.type } : {}),
+      ...(d.squareMeters !== undefined ? { squareMeters: d.squareMeters } : {}),
+      ...(d.basePriceEur !== undefined ? { basePriceEur: d.basePriceEur } : {}),
+      ...(d.previousPriceEur !== undefined ? { previousPriceEur: d.previousPriceEur } : {}),
+      ...(d.auctionDate !== undefined
+        ? { auctionDate: d.auctionDate ? new Date(d.auctionDate) : null }
+        : {}),
+      ...(d.lotto !== undefined ? { lotto: d.lotto || null } : {}),
+      ...(d.sourceUrl !== undefined ? { sourceUrl: d.sourceUrl || null } : {}),
+      ...(d.notes !== undefined ? { notes: d.notes || null } : {}),
+      ...(d.archived !== undefined ? { archivedAt: d.archived ? new Date() : null } : {}),
+      // Le coordinate si azzerano se la nuova ricerca non trova nulla: meglio
+      // nessun pin che un pin nel posto sbagliato.
+      ...(luogoCambiato ? { latitude: coordinate?.latitude ?? null, longitude: coordinate?.longitude ?? null } : {}),
+      ...(!luogoCambiato && coordinate ? coordinate : {}),
       ...(d.priceEur !== undefined ? { priceEur: d.priceEur } : {}),
       ...(d.transferCostsEur !== undefined ? { transferCostsEur: d.transferCostsEur } : {}),
       ...(d.renovationCostEur !== undefined ? { renovationCostEur: d.renovationCostEur } : {}),
@@ -90,6 +160,20 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   let nuoviAbbinamenti = 0;
 
+  /*
+   * Il punteggio dipende da comune, zona, tipologia, prezzo e metratura:
+   * cambiarne uno senza ricalcolare lascerebbe in scheda abbinamenti che i
+   * dati attuali non giustificano piu'.
+   */
+  const criteriCambiati =
+    luogoCambiato ||
+    (d.type !== undefined && d.type !== attuale.type) ||
+    (d.squareMeters !== undefined && d.squareMeters !== attuale.squareMeters);
+
+  if (criteriCambiati && ribasso === null) {
+    await runRadarMatching(organizationId, id);
+  }
+
   if (ribasso !== null) {
     const esito = await runRadarMatching(organizationId, id);
     nuoviAbbinamenti = Math.max(0, esito.matched - abbinatiPrima);
@@ -107,7 +191,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     });
   }
 
-  return NextResponse.json({ item, priceDropPct: ribasso, nuoviAbbinamenti });
+  return NextResponse.json({
+    item,
+    priceDropPct: ribasso,
+    nuoviAbbinamenti,
+    coordinateAggiornate: luogoCambiato,
+  });
 }
 
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {

@@ -10,6 +10,7 @@ import {
   SolutionSection,
   AcquisitionSection,
 } from "@/components/landing/sections";
+import { RadarSection } from "@/components/landing/radar-section";
 import { LandingFooter } from "@/components/landing/site-footer";
 import { PricingSection } from "@/components/landing/pricing-section";
 import { StatsSection } from "@/components/landing/stats-section";
@@ -56,6 +57,10 @@ export default async function LandingPage() {
             domanda diversa da quella dei moduli — non "cosa fa per i miei
             acquirenti" ma "cosa mi porta in acquisizione". */}
         <AcquisitionSection />
+        {/* Dopo i moduli e le acquisizioni: il Radar apre un mercato nuovo, e
+            si legge meglio quando si e' gia' capito cosa fa la piattaforma
+            sul lavoro di tutti i giorni. */}
+        <RadarSection />
         {/* Dopo i moduli e prima dei prezzi: chi ha capito cosa fa la
             piattaforma vuole sapere quanto lavoro gli costa, prima di
             guardare quanto costa in euro. */}

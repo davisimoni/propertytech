@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { geocodeZona } from "@/lib/radar/geocode";
 
 /**
  * Coordinate a partire da comune e zona.
@@ -26,9 +27,6 @@ import { auth } from "@/auth";
  * sarebbe far dipendere il prodotto da un dettaglio che non conta.
  */
 
-const NOMINATIM = "https://nominatim.openstreetmap.org/search";
-const TIMEOUT_MS = 8_000;
-
 export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.organizationId) {
@@ -46,49 +44,12 @@ export async function GET(request: Request) {
     );
   }
 
-  // `countrycodes=it`: il modulo riguarda il mercato italiano, e senza
-  // vincolo "Vignola" può risolvere in un'altra parte del mondo.
-  const url = new URL(NOMINATIM);
-  url.searchParams.set("q", [zona, comune].filter(Boolean).join(", "));
-  url.searchParams.set("countrycodes", "it");
-  url.searchParams.set("format", "jsonv2");
-  url.searchParams.set("limit", "1");
+  const posizione = await geocodeZona(comune, zona);
 
-  try {
-    const response = await fetch(url, {
-      headers: {
-        // Richiesto dalla politica d'uso di Nominatim: un contatto a cui
-        // scrivere se l'applicazione si comporta male.
-        "User-Agent": "PropertyTech/1.0 (supporto@propertytechsolutions.net)",
-        "Accept-Language": "it",
-      },
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-
-    if (!response.ok) {
-      console.warn("[RADAR-GEOCODE] Servizio non disponibile", { status: response.status });
-      return NextResponse.json({ found: false });
-    }
-
-    const risultati = (await response.json()) as { lat?: string; lon?: string; display_name?: string }[];
-    const primo = risultati[0];
-
-    if (!primo?.lat || !primo?.lon) {
-      return NextResponse.json({ found: false });
-    }
-
-    return NextResponse.json({
-      found: true,
-      latitude: Number(primo.lat),
-      longitude: Number(primo.lon),
-      label: primo.display_name ?? null,
-    });
-  } catch (error) {
-    // Non è un errore dell'agente e non deve bloccarlo: il lotto si salva
-    // comunque, semplicemente senza pin.
-    console.warn("[RADAR-GEOCODE] Ricerca non riuscita", {
-      reason: error instanceof Error ? error.message : "unknown",
-    });
+  if (!posizione) {
+    // Non e' un errore dell'agente: il lotto si salva comunque, senza pin.
     return NextResponse.json({ found: false });
   }
+
+  return NextResponse.json({ found: true, ...posizione });
 }

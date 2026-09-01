@@ -11,6 +11,7 @@ import type { AppraisalStatus, OccupancyStatus, PropertyType, RiskLevel } from "
 import { RadarPropertyForm } from "./radar-property-form";
 import { AppraisalPanel } from "./appraisal-panel";
 import { RoiCalculator } from "./roi-calculator";
+import { RadarActions } from "./radar-actions";
 import { RadarMatchesCard } from "./radar-matches-card";
 
 /*
@@ -50,6 +51,7 @@ export interface RadarItem {
   priceDropPct: number | null;
   priceDropNewMatches: number | null;
   priceDropSeenAt: string | null;
+  archivedAt: string | null;
   appraisal: {
     status: AppraisalStatus;
     risk: RiskLevel;
@@ -84,10 +86,14 @@ export function RadarBoard() {
   const [filtroRischio, setFiltroRischio] = useState<"TUTTI" | RiskLevel | "IGNOTO">("TUTTI");
   const [budgetMax, setBudgetMax] = useState("");
   const [zona, setZona] = useState("");
+  /** Gli archiviati restano fuori salvo richiesta: sono pratiche chiuse. */
+  const [mostraArchiviati, setMostraArchiviati] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const response = await fetch("/api/radar/properties");
+      const response = await fetch(
+        `/api/radar/properties${mostraArchiviati ? "?archived=true" : ""}`
+      );
       if (!response.ok) throw new Error();
       const data: { items: RadarItem[] } = await response.json();
       setItems(data.items);
@@ -97,7 +103,7 @@ export function RadarBoard() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [mostraArchiviati]);
 
   useEffect(() => {
     void load();
@@ -245,6 +251,17 @@ export function RadarBoard() {
               placeholder="Es. 250.000"
               className="input-field h-9 w-36 text-base sm:text-sm"
             />
+          </Filtro>
+
+          <Filtro label="Archiviate">
+            <select
+              value={mostraArchiviati ? "SI" : "NO"}
+              onChange={(e) => setMostraArchiviati(e.target.value === "SI")}
+              className="input-field h-9 text-base sm:text-sm"
+            >
+              <option value="NO">Nascondi</option>
+              <option value="SI">Mostra anche</option>
+            </select>
           </Filtro>
 
           <Filtro label="Comune o zona">
@@ -433,6 +450,19 @@ export function RadarBoard() {
                       roiDisponibile={
                         item.marketValueEur !== null || item.monthlyRentEur !== null
                       }
+                    />
+                  </div>
+
+                  {/* In fondo, non in cima: i comandi che cambiano o cancellano
+                      stanno dopo tutto cio' che serve a decidere se farlo. */}
+                  <div className="border-t border-border pt-4">
+                    <RadarActions
+                      item={item}
+                      onChanged={load}
+                      onDeleted={() => {
+                        setOpenId(null);
+                        setItems((current) => current.filter((i) => i.id !== item.id));
+                      }}
                     />
                   </div>
                 </div>

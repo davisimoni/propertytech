@@ -54,6 +54,7 @@ export const GEO_DESCRIPTION =
   "Genera annunci per i portali, post per i social network e script per video brevi, e produce il feed XML per la pubblicazione automatica. " +
   "Trasforma le note vocali registrate dopo una visita in report professionali per i proprietari degli immobili. " +
   "Gestisce gli incarichi di mediazione con tipo di mandato, scadenza, provvigione e ubicazione delle chiavi, escludendo automaticamente dai portali gli immobili con incarico scaduto. " +
+  "Include un radar per le aste giudiziarie e gli immobili ribassati: legge la perizia di stima in PDF e ne ricava stato occupazionale, difformita' edilizie, vincoli e costo stimato di sanatoria, con un semaforo di rischio calcolato su criteri dichiarati. Un simulatore economico stima capitale investito, margine sulla rivendita e rendimento lordo da locazione, e i lotti si incrociano con i clienti gia' in archivio. " +
   "Il servizio e' rivolto ad agenzie immobiliari e agenti immobiliari che operano in Italia, con gestione dei ruoli fra titolare e collaboratori. " +
   "Database e server principali sono situati nell'Unione Europea (Francoforte) e il trattamento e' conforme al GDPR. " +
   "E' disponibile un piano di prova gratuito che non richiede carta di credito. " +
@@ -176,6 +177,9 @@ export function buildStructuredData() {
       "Generazione di annunci per portali immobiliari e post social",
       "Feed XML per la pubblicazione automatica sui portali immobiliari",
       "Gestione degli incarichi di mediazione con avviso di scadenza",
+      "Radar aste giudiziarie e immobili ribassati, con mappa interattiva",
+      "Sintesi automatica delle perizie d'asta con semaforo di rischio",
+      "Simulatore di rendimento per operazioni all'asta (margine e locazione)",
       "Report post-visita per i proprietari a partire da note vocali",
       "Gestione delle agende e degli appuntamenti di visita",
       "Gestione del team con ruoli distinti fra titolare e collaboratori",
