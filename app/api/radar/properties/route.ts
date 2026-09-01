@@ -40,6 +40,9 @@ const createSchema = z.object({
   lotto: z.string().trim().max(60).optional().or(z.literal("")),
   sourceUrl: z.string().trim().url("Indirizzo non valido").max(500).optional().or(z.literal("")),
   notes: z.string().trim().max(2000).optional().or(z.literal("")),
+  /** Coordinate per la mappa. Facoltative: senza, il lotto resta solo in elenco. */
+  latitude: z.coerce.number().min(-90).max(90).optional().nullable(),
+  longitude: z.coerce.number().min(-180).max(180).optional().nullable(),
 });
 
 export async function GET(request: Request) {
@@ -115,6 +118,10 @@ export async function POST(request: Request) {
       lotto: d.lotto || null,
       sourceUrl: d.sourceUrl || null,
       notes: d.notes || null,
+      // Entrambe o nessuna: una sola coordinata non colloca niente sulla
+      // mappa e produrrebbe un pin all'equatore o sul meridiano zero.
+      latitude: d.latitude != null && d.longitude != null ? d.latitude : null,
+      longitude: d.latitude != null && d.longitude != null ? d.longitude : null,
     },
   });
 

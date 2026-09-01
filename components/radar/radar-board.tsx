@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Gavel, Loader2, Plus, TrendingDown } from "lucide-react";
+import dynamic from "next/dynamic";
+import { Gavel, Loader2, Map as MapIcon, Plus, Table2, TrendingDown } from "lucide-react";
 import { PROPERTY_TYPE_LABELS } from "@/lib/listings/property-fields";
 import { RISK_CLASSES, RISK_LABELS, OCCUPANCY_LABELS } from "@/lib/radar/risk";
 import { AI_DISCLAIMER } from "@/lib/compliance";
@@ -10,6 +11,20 @@ import type { AppraisalStatus, OccupancyStatus, PropertyType, RiskLevel } from "
 import { RadarPropertyForm } from "./radar-property-form";
 import { AppraisalPanel } from "./appraisal-panel";
 import { RadarMatchesCard } from "./radar-matches-card";
+
+/*
+ * Leaflet tocca `window` al caricamento: importato normalmente romperebbe il
+ * rendering sul server. Caricato solo nel browser e solo quando si passa alla
+ * vista mappa, cosi' chi resta in tabella non ne scarica il codice.
+ */
+const RadarMap = dynamic(() => import("./radar-map").then((m) => m.RadarMap), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-[28rem] items-center justify-center rounded-xl border border-border bg-muted/30">
+      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+    </div>
+  ),
+});
 
 export interface RadarItem {
   id: string;
@@ -25,6 +40,8 @@ export interface RadarItem {
   lotto: string | null;
   sourceUrl: string | null;
   notes: string | null;
+  latitude: number | null;
+  longitude: number | null;
   appraisal: {
     status: AppraisalStatus;
     risk: RiskLevel;
@@ -52,6 +69,12 @@ export function RadarBoard() {
   const [showForm, setShowForm] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [view, setView] = useState<"table" | "map">("table");
+  const [filtroTipo, setFiltroTipo] = useState<"TUTTI" | "ASTA" | "RIBASSO">("TUTTI");
+  const [filtroRischio, setFiltroRischio] = useState<"TUTTI" | RiskLevel | "IGNOTO">("TUTTI");
+  const [budgetMax, setBudgetMax] = useState("");
+  const [zona, setZona] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -81,6 +104,40 @@ export function RadarBoard() {
    */
   const inAnalisi = items.some((item) => item.appraisal?.status === "IN_ANALISI");
 
+  /*
+   * I filtri lavorano sull'elenco gia' scaricato.
+   *
+   * Sono quattro criteri su un insieme che la rotta limita a 200 righe: un
+   * giro di rete a ogni spunta darebbe una risposta piu' lenta di un
+   * `filter` in memoria, e renderebbe la mappa scattosa mentre si stringe il
+   * budget con il cursore.
+   */
+  const visibili = items.filter((item) => {
+    if (filtroTipo !== "TUTTI" && item.kind !== filtroTipo) return false;
+
+    if (filtroRischio !== "TUTTI") {
+      const pronta = item.appraisal?.status === "PRONTA";
+      if (filtroRischio === "IGNOTO") {
+        if (pronta) return false;
+      } else if (!pronta || item.appraisal?.risk !== filtroRischio) {
+        return false;
+      }
+    }
+
+    if (budgetMax.trim()) {
+      const tetto = Number(budgetMax.replace(/[.\s]/g, ""));
+      if (Number.isFinite(tetto) && tetto > 0 && item.priceEur > tetto) return false;
+    }
+
+    if (zona.trim()) {
+      const cercato = zona.trim().toLowerCase();
+      const dove = `${item.comune} ${item.zona ?? ""}`.toLowerCase();
+      if (!dove.includes(cercato)) return false;
+    }
+
+    return true;
+  });
+
   useEffect(() => {
     if (!inAnalisi) return;
     const timer = setInterval(() => void load(), POLL_MS);
@@ -93,7 +150,9 @@ export function RadarBoard() {
         <p className="text-xs text-muted-foreground">
           {items.length === 0
             ? "Nessuna opportunità in elenco."
-            : `${items.length} opportunità · ${items.filter((i) => i.kind === "ASTA").length} aste`}
+            : visibili.length === items.length
+              ? `${items.length} opportunità · ${items.filter((i) => i.kind === "ASTA").length} aste`
+              : `${visibili.length} di ${items.length} opportunità`}
           {inAnalisi && (
             <span className="ml-2 inline-flex items-center gap-1 text-primary">
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -101,6 +160,32 @@ export function RadarBoard() {
             </span>
           )}
         </p>
+
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-lg border border-border p-0.5">
+            {(
+              [
+                ["table", "Tabella", Table2],
+                ["map", "Mappa", MapIcon],
+              ] as const
+            ).map(([id, label, Icon]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setView(id)}
+                aria-pressed={view === id}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors duration-200",
+                  view === id
+                    ? "bg-brand-gradient text-white shadow-sm"
+                    : "text-muted-foreground hover:bg-muted"
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </button>
+            ))}
+          </div>
 
         <button
           type="button"
@@ -110,7 +195,74 @@ export function RadarBoard() {
           <Plus className="h-3.5 w-3.5" />
           Aggiungi opportunità
         </button>
+        </div>
       </div>
+
+      {/* Filtri: valgono per entrambe le viste, così passando da tabella a
+          mappa si continua a guardare lo stesso insieme. */}
+      {items.length > 0 && (
+        <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-muted/30 p-3">
+          <Filtro label="Tipo">
+            <select
+              value={filtroTipo}
+              onChange={(e) => setFiltroTipo(e.target.value as typeof filtroTipo)}
+              className="input-field h-9 text-base sm:text-sm"
+            >
+              <option value="TUTTI">Tutte</option>
+              <option value="ASTA">Aste</option>
+              <option value="RIBASSO">Ribassi</option>
+            </select>
+          </Filtro>
+
+          <Filtro label="Rischio">
+            <select
+              value={filtroRischio}
+              onChange={(e) => setFiltroRischio(e.target.value as typeof filtroRischio)}
+              className="input-field h-9 text-base sm:text-sm"
+            >
+              <option value="TUTTI">Tutti</option>
+              <option value="VERDE">Rischio basso</option>
+              <option value="GIALLO">Da verificare</option>
+              <option value="ROSSO">Rischio alto</option>
+              <option value="IGNOTO">Perizia non caricata</option>
+            </select>
+          </Filtro>
+
+          <Filtro label="Budget massimo (€)">
+            <input
+              value={budgetMax}
+              onChange={(e) => setBudgetMax(e.target.value)}
+              inputMode="numeric"
+              placeholder="Es. 250.000"
+              className="input-field h-9 w-36 text-base sm:text-sm"
+            />
+          </Filtro>
+
+          <Filtro label="Comune o zona">
+            <input
+              value={zona}
+              onChange={(e) => setZona(e.target.value)}
+              placeholder="Es. Vignola"
+              className="input-field h-9 w-44 text-base sm:text-sm"
+            />
+          </Filtro>
+
+          {(filtroTipo !== "TUTTI" || filtroRischio !== "TUTTI" || budgetMax || zona) && (
+            <button
+              type="button"
+              onClick={() => {
+                setFiltroTipo("TUTTI");
+                setFiltroRischio("TUTTI");
+                setBudgetMax("");
+                setZona("");
+              }}
+              className="h-9 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-colors duration-200 hover:bg-muted"
+            >
+              Azzera filtri
+            </button>
+          )}
+        </div>
+      )}
 
       {showForm && (
         <RadarPropertyForm
@@ -142,8 +294,26 @@ export function RadarBoard() {
         </div>
       )}
 
-      <div className="space-y-3">
-        {items.map((item) => {
+      {view === "map" && items.length > 0 && (
+        <RadarMap
+          items={visibili}
+          onOpenItem={(id) => {
+            // Dal pin alla scheda: si torna in tabella e si apre quella
+            // riga, perché perizia e abbinamenti vivono lì.
+            setView("table");
+            setOpenId(id);
+          }}
+        />
+      )}
+
+      {view === "table" && !isLoading && items.length > 0 && visibili.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          Nessuna opportunità corrisponde ai filtri impostati.
+        </p>
+      )}
+
+      <div className={cn("space-y-3", view === "map" && "hidden")}>
+        {visibili.map((item) => {
           const sconto = scontoPercentuale(item);
           const aperto = openId === item.id;
 
@@ -248,5 +418,14 @@ export function RadarBoard() {
         <p className="text-xs leading-relaxed text-muted-foreground">{AI_DISCLAIMER}</p>
       )}
     </div>
+  );
+}
+
+function Filtro({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-xs font-medium text-foreground">{label}</span>
+      {children}
+    </label>
   );
 }

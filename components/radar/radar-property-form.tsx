@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, MapPin } from "lucide-react";
 import { PROPERTY_TYPE_LABELS } from "@/lib/listings/property-fields";
 import type { PropertyType } from "@prisma/client";
 import type { RadarItem } from "./radar-board";
@@ -23,6 +23,17 @@ export function RadarPropertyForm({
   onCancel: () => void;
 }) {
   const [kind, setKind] = useState<"ASTA" | "RIBASSO">("ASTA");
+  /**
+   * Coordinate per la mappa.
+   *
+   * Facoltative: un lotto senza coordinate si salva e resta in elenco, solo
+   * non compare fra i pin. Obbligarle bloccherebbe l'inserimento rapido di
+   * un'opportunita' vista di sfuggita, che e' il momento in cui la si
+   * registra davvero.
+   */
+  const [coord, setCoord] = useState<{ lat: number; lng: number; label: string } | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [geoMessage, setGeoMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,6 +71,8 @@ export function RadarPropertyForm({
           lotto: value("lotto"),
           sourceUrl: value("sourceUrl"),
           notes: value("notes"),
+          latitude: coord?.lat ?? null,
+          longitude: coord?.lng ?? null,
         }),
       });
 
@@ -74,6 +87,36 @@ export function RadarPropertyForm({
       setError("Errore di rete. L'opportunità non è stata salvata.");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function cerca(form: HTMLFormElement) {
+    const comune = String(new FormData(form).get("comune") ?? "").trim();
+    const zonaValue = String(new FormData(form).get("zona") ?? "").trim();
+    if (comune.length < 2) {
+      setGeoMessage("Scrivi prima il comune.");
+      return;
+    }
+
+    setIsLocating(true);
+    setGeoMessage(null);
+
+    try {
+      const params = new URLSearchParams({ comune, ...(zonaValue ? { zona: zonaValue } : {}) });
+      const response = await fetch(`/api/radar/geocode?${params}`);
+      const data = await response.json().catch(() => null);
+
+      if (!data?.found) {
+        // Non e' un errore bloccante: il lotto si salva comunque, senza pin.
+        setGeoMessage("Posizione non trovata. Puoi salvare lo stesso: il lotto resterà in elenco senza comparire sulla mappa.");
+        return;
+      }
+
+      setCoord({ lat: data.latitude, lng: data.longitude, label: data.label ?? comune });
+    } catch {
+      setGeoMessage("Ricerca non riuscita. Puoi salvare lo stesso.");
+    } finally {
+      setIsLocating(false);
     }
   }
 
@@ -155,6 +198,41 @@ export function RadarPropertyForm({
         <Campo id="sourceUrl" label="Link all'annuncio" hint="facoltativo">
           <input id="sourceUrl" name="sourceUrl" type="url" maxLength={500} className="input-field w-full text-base sm:text-sm" />
         </Campo>
+      </div>
+
+      <div className="rounded-lg border border-border bg-muted/30 p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={isLocating}
+            onClick={(event) => {
+              const form = event.currentTarget.closest("form");
+              if (form) void cerca(form);
+            }}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50"
+          >
+            {isLocating ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <MapPin className="h-3.5 w-3.5" />
+            )}
+            Trova sulla mappa
+          </button>
+
+          {coord && (
+            <span className="text-xs text-status-qualified">
+              Posizione trovata: {coord.label.split(",").slice(0, 3).join(", ")}
+            </span>
+          )}
+        </div>
+
+        {geoMessage && <p className="mt-2 text-xs text-muted-foreground">{geoMessage}</p>}
+        {!coord && !geoMessage && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Facoltativo. Serve solo a mostrare il lotto sulla mappa: senza coordinate resta
+            comunque in elenco.
+          </p>
+        )}
       </div>
 
       <Campo id="notes" label="Note" hint="facoltativo">

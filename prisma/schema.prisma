@@ -1449,6 +1449,13 @@ model RadarProperty {
   /// Prezzo precedente, da cui si calcola l'entità del ribasso.
   previousPriceEur Int?
   auctionDate      DateTime?
+
+  /// Coordinate per la vista mappa. Facoltative: un lotto senza
+  /// coordinate resta in elenco e semplicemente non compare fra i pin.
+  /// Obbligarle bloccherebbe l'inserimento rapido di un'opportunita' vista
+  /// di sfuggita, che e' il momento in cui la si registra davvero.
+  latitude  Float?
+  longitude Float?
   lotto            String?
   notes            String?
 
