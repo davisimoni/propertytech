@@ -71,7 +71,7 @@ export function UpgradeLimitModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="upgrade-modal-title"
-        className="w-full max-w-sm rounded-xl border border-border bg-card p-6 text-center shadow-lg"
+        className="max-h-[85vh] w-full max-w-sm overflow-y-auto rounded-xl border border-border bg-card p-6 text-center shadow-lg"
       >
         <div
           className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full ${

@@ -172,7 +172,7 @@ export function RadarMatchesCard({
           type="button"
           onClick={scan}
           disabled={isScanning}
-          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50"
+          className="inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50"
         >
           {isScanning ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -259,7 +259,7 @@ export function RadarMatchesCard({
               <button
                 type="button"
                 onClick={() => openPreview(match, "proposta")}
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+                className="inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
               >
                 <Send className="h-3.5 w-3.5" />
                 {match.notifiedAt ? "Invia di nuovo" : "Invia proposta"}
@@ -272,7 +272,7 @@ export function RadarMatchesCard({
                 <button
                   type="button"
                   onClick={() => openPreview(match, "prospetto")}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+                  className="inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
                 >
                   <Percent className="h-3.5 w-3.5" />
                   Prospetto ROI
@@ -291,7 +291,7 @@ export function RadarMatchesCard({
           aria-label="Anteprima del messaggio"
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
         >
-          <div className="w-full max-w-lg rounded-xl border border-border bg-card p-4 shadow-lg">
+          <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-card p-4 shadow-lg">
             <h4 className="text-sm font-semibold text-foreground">
               {preview.variant === "prospetto" ? "Prospetto ROI" : "Messaggio"} a{" "}
               {preview.match.lead.clientName}

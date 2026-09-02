@@ -56,7 +56,7 @@ export function ConfirmDialog({
         aria-modal="true"
         aria-labelledby="conferma-titolo"
         aria-describedby="conferma-descrizione"
-        className="relative w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-xl"
+        className="relative max-h-[85vh] w-full max-w-sm overflow-y-auto rounded-xl border border-border bg-card p-5 shadow-xl"
       >
         <div className="flex items-start gap-3">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-status-blocked/10 text-status-blocked">

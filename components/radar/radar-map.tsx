@@ -238,6 +238,8 @@ export function RadarMap({
   // --- Creazione della mappa, una volta sola -------------------------------
   useEffect(() => {
     let annullato = false;
+    /** Ascoltatori del tocco, da togliere in pulizia: il div sopravvive alla mappa. */
+    let staccaTocco: (() => void) | null = null;
 
     (async () => {
       const L = (await import("leaflet")).default;
@@ -246,14 +248,61 @@ export function RadarMap({
       const map = L.map(contenitore.current, {
         center: CENTRO_ITALIA,
         zoom: 6,
-        scrollWheelZoom: true,
+        /*
+         * La rotellina non zooma finché non si clicca sulla mappa.
+         *
+         * Con lo zoom sempre attivo, scorrere la pagina con il puntatore sopra
+         * la mappa la ingrandisce invece di scorrere: si perde il segno e si
+         * torna indietro a mano. Un clic dice "adesso sto usando la mappa", ed
+         * è il momento in cui lo zoom serve davvero.
+         */
+        scrollWheelZoom: false,
       });
+
+      map.on("click", () => map.scrollWheelZoom.enable());
+      map.on("mouseout", () => map.scrollWheelZoom.disable());
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
         // L'attribuzione è una condizione della licenza ODbL, non un vezzo.
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map);
+
+      /*
+       * Su telefono la mappa si sposta con DUE dita.
+       *
+       * Con il trascinamento a un dito, un pollice che parte da sopra la mappa
+       * — che qui occupa mezzo schermo — sposta la mappa invece di scorrere la
+       * pagina: si resta incastrati a metà pagina senza capire perché, e
+       * l'unico modo di uscirne è indovinare un punto libero ai lati.
+       *
+       * Due dita restano il gesto naturale per spostare una mappa (è lo stesso
+       * dello zoom, che già ne richiede due), e un dito torna a fare quello che
+       * fa ovunque nella pagina: scorrere.
+       */
+      const touchGrossolano =
+        typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+
+      if (touchGrossolano && contenitore.current) {
+        const div = contenitore.current;
+        map.dragging.disable();
+
+        const alTocco = (evento: TouchEvent) => {
+          if (evento.touches.length >= 2) map.dragging.enable();
+          else map.dragging.disable();
+        };
+        const aFineTocco = () => map.dragging.disable();
+
+        div.addEventListener("touchstart", alTocco, { passive: true });
+        div.addEventListener("touchend", aFineTocco, { passive: true });
+        div.addEventListener("touchcancel", aFineTocco, { passive: true });
+
+        staccaTocco = () => {
+          div.removeEventListener("touchstart", alTocco);
+          div.removeEventListener("touchend", aFineTocco);
+          div.removeEventListener("touchcancel", aFineTocco);
+        };
+      }
 
       mappa.current = map;
       map.on("moveend zoomend", () => void disegna());
@@ -262,6 +311,7 @@ export function RadarMap({
 
     return () => {
       annullato = true;
+      staccaTocco?.();
       mappa.current?.remove();
       mappa.current = null;
     };
@@ -298,18 +348,24 @@ export function RadarMap({
         // Altezza fissa ma per fascia: su telefono 28rem mangerebbe tutto lo
         // schermo e i filtri sopra sparirebbero, su desktop 22rem sprecherebbe
         // lo spazio che serve a distinguere i pin vicini.
-        className="h-[22rem] w-full overflow-hidden rounded-xl border border-border sm:h-[28rem] lg:h-[34rem]"
+        className="h-[19rem] w-full overflow-hidden rounded-xl border border-border sm:h-[28rem] lg:h-[34rem]"
         // Leaflet misura il contenitore alla creazione: senza un'altezza
         // esplicita la mappa nasce alta zero e non mostra nulla.
         style={{ background: "var(--muted, #f1f5f9)" }}
       />
+
+      {/* Detto solo dove serve: su desktop il trascinamento a un dito non
+          esiste, e la riga sarebbe rumore. */}
+      <p className="text-xs text-muted-foreground sm:hidden">
+        Sposta la mappa con due dita. Con un dito scorri la pagina.
+      </p>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <button
           type="button"
           onClick={() => setMostraDomanda((v) => !v)}
           aria-pressed={mostraDomanda}
-          className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-all duration-200 ${
+          className={`inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-all duration-200 ${
             mostraDomanda
               ? "bg-primary/10 text-primary"
               : "border border-border text-muted-foreground hover:border-primary/40 hover:bg-muted"

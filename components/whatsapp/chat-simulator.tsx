@@ -198,7 +198,7 @@ export function ChatSimulator({ agencyName = "la tua agenzia" }: { agencyName?: 
           <button
             type="button"
             onClick={() => setDraft(ESEMPIO_FORMALE)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+            className="inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
           >
             <MessageSquarePlus className="h-3.5 w-3.5" />
             Esempio formale
@@ -207,7 +207,7 @@ export function ChatSimulator({ agencyName = "la tua agenzia" }: { agencyName?: 
           <button
             type="button"
             onClick={() => reset()}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+            className="inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             Ricomincia

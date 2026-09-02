@@ -145,7 +145,7 @@ export function ChatSlideOver({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className="fixed inset-0 z-50 flex h-[100dvh] justify-end">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
 
       <div

@@ -210,7 +210,7 @@ function CampoEuro({
         onChange={(e) => onChange(e.target.value)}
         inputMode="numeric"
         placeholder="—"
-        className="input-field h-9 text-base sm:text-sm"
+        className="input-field h-11 sm:h-9 text-base sm:text-sm"
       />
     </label>
   );

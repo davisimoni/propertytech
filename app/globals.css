@@ -112,6 +112,25 @@ body {
   .dropzone-active {
     @apply border-primary bg-primary/10;
   }
+
+  /* Bersagli comodi da toccare, ma SOLO dove si tocca.
+
+     Con `px-4 py-2` e testo da 14px un pulsante è alto 36px: col mouse è una
+     misura giusta, col pollice no — sotto i 44px gli errori di tocco
+     diventano frequenti, ed è la soglia che sia Apple sia Google indicano.
+     Alzarli ovunque però allargherebbe anche le barre di azioni sul desktop,
+     dove il problema non esiste e la densità è un pregio.
+
+     `pointer: coarse` distingue le due cose meglio della larghezza dello
+     schermo: risponde a com'è fatto il dispositivo di puntamento, non a
+     quanto è largo — un tablet grande con le dita resta un caso da 44px, una
+     finestra stretta sul portatile no. */
+  @media (pointer: coarse) {
+    .btn-brand,
+    .btn-outline {
+      min-height: 2.75rem;
+    }
+  }
 }
 
 @layer utilities {

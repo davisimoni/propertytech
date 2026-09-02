@@ -239,7 +239,7 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
             <select
               value={filtroTipo}
               onChange={(e) => setFiltroTipo(e.target.value as typeof filtroTipo)}
-              className="input-field h-9 text-base sm:text-sm"
+              className="input-field h-11 sm:h-9 text-base sm:text-sm"
             >
               <option value="TUTTI">Tutte</option>
               <option value="ASTA">Aste</option>
@@ -251,7 +251,7 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
             <select
               value={filtroRischio}
               onChange={(e) => setFiltroRischio(e.target.value as typeof filtroRischio)}
-              className="input-field h-9 text-base sm:text-sm"
+              className="input-field h-11 sm:h-9 text-base sm:text-sm"
             >
               <option value="TUTTI">Tutti</option>
               <option value="VERDE">Rischio basso</option>
@@ -267,7 +267,7 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
               onChange={(e) => setBudgetMax(e.target.value)}
               inputMode="numeric"
               placeholder="Es. 250.000"
-              className="input-field h-9 w-36 text-base sm:text-sm"
+              className="input-field h-11 sm:h-9 w-36 text-base sm:text-sm"
             />
           </Filtro>
 
@@ -275,7 +275,7 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
             <select
               value={filtroTag}
               onChange={(e) => setFiltroTag(e.target.value)}
-              className="input-field h-9 text-base sm:text-sm"
+              className="input-field h-11 sm:h-9 text-base sm:text-sm"
             >
               <option value="TUTTI">Tutte</option>
               {RADAR_TAGS.map((t) => (
@@ -290,7 +290,7 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
             <select
               value={filtroFase}
               onChange={(e) => setFiltroFase(e.target.value)}
-              className="input-field h-9 text-base sm:text-sm"
+              className="input-field h-11 sm:h-9 text-base sm:text-sm"
             >
               <option value="TUTTE">Tutte</option>
               {(Object.keys(AUCTION_STATUS_LABELS) as AuctionStatus[]).map((v) => (
@@ -305,7 +305,7 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
             <select
               value={mostraArchiviati ? "SI" : "NO"}
               onChange={(e) => setMostraArchiviati(e.target.value === "SI")}
-              className="input-field h-9 text-base sm:text-sm"
+              className="input-field h-11 sm:h-9 text-base sm:text-sm"
             >
               <option value="NO">Nascondi</option>
               <option value="SI">Mostra anche</option>
@@ -317,7 +317,7 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
               value={zona}
               onChange={(e) => setZona(e.target.value)}
               placeholder="Es. Vignola"
-              className="input-field h-9 w-44 text-base sm:text-sm"
+              className="input-field h-11 sm:h-9 w-44 text-base sm:text-sm"
             />
           </Filtro>
 

@@ -209,9 +209,14 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       "Da quattro righe sull'immobile — o dal link di un annuncio già online — ottieni il testo per i portali, il post per Instagram e Facebook e lo script del Reel scena per scena.",
     steps: [
       {
-        action: "Compila i dati o incolla il link",
+        action: "Da link — per il tuo sito, i portali locali e il gestionale",
         detail:
-          "Dall'URL l'AI estrae zona, superficie, locali e prezzo, e precompila i campi al posto tuo.",
+          "Incolla l'indirizzo e premi «Estrai da Link». È la via più rapida quando l'annuncio è già online: sito della tua agenzia, portali locali, schede pubblicate dal gestionale, siti dei costruttori. Legge anche le pagine che si compongono da sole dopo l'apertura.",
+      },
+      {
+        action: "Da testo — la strada certa per Immobiliare.it e Idealista",
+        detail:
+          "Quei due portali respingono le letture automatiche: non perdere il tentativo col link. Seleziona il testo dell'annuncio, incollalo nel riquadro e premi «Compila i campi». Funziona sempre, ed è anche l'unico modo di partire da un'email, un PDF o una scheda del gestionale.",
       },
       {
         action: "Riempi i dati per i portali e salva in portafoglio",
@@ -223,6 +228,10 @@ export const GUIDE_SECTIONS: GuideSection[] = [
         detail:
           "Un solo immobile o l'intero portafoglio. Fai validare il tracciato dal referente del portale prima del primo caricamento massivo: ogni portale ha il suo.",
       },
+    ],
+    notes: [
+      "Quando un portale rifiuta la lettura del link te lo diciamo e ti portiamo il cursore nel riquadro del testo. Non è un guasto della piattaforma: è quel sito che non si lascia leggere da un programma.",
+      "L'AI usa soltanto ciò che trova nella fonte. Se un dato non c'è il campo resta vuoto invece di essere inventato: rileggi sempre prezzo e metratura prima di pubblicare.",
     ],
   },
   {
@@ -284,8 +293,46 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     ],
   },
   {
+    id: "radar",
+    title: "11. Radar Immobili & Aste",
+    intro:
+      "Le occasioni che stai seguendo — aste giudiziarie e ribassi di mercato — con la perizia letta dall'AI, i conti già fatti e i clienti in pipeline che potrebbero comprarle.",
+    steps: [
+      {
+        action: "Registra il lotto e carica la perizia",
+        detail:
+          "Comune, tipologia, prezzo e metratura bastano per cominciare; indirizzo e civico spostano il segnaposto sulla mappa dal centro del paese al portone. La perizia in PDF viene letta in secondo piano: puoi chiudere la scheda e tornare dopo.",
+      },
+      {
+        action: "Leggi il semaforo dei rischi",
+        detail:
+          "Verde, giallo o rosso su stato occupazionale, difformità edilizie, vincoli e costi di sanatoria. Nel dubbio il colore resta giallo: è un punto da verificare di persona, non un via libera.",
+      },
+      {
+        action: "Fai due conti nel simulatore",
+        detail:
+          "Prezzo, oneri di trasferimento, ristrutturazione e valore di mercato danno margine potenziale e rendimento da locazione. Sono stime lorde: non comprendono imposte, tempi di rilascio né spese legali.",
+      },
+      {
+        action: "Guarda chi potrebbe comprarlo",
+        detail:
+          "Aprendo la scheda «Lead compatibili» l'incrocio con i contatti in pipeline parte da solo. Ogni abbinamento riporta punteggio e motivazioni: budget, zona, tipologia.",
+      },
+      {
+        action: "Proponi al cliente, dopo averlo letto",
+        detail:
+          "Il messaggio WhatsApp si apre in anteprima e parte solo se lo confermi tu. Due versioni: una per il compratore finale e una per l'investitore, che include i numeri del business plan.",
+      },
+    ],
+    notes: [
+      "Il messaggio che vedi in anteprima è esattamente quello che parte: è composto dal server, non ricostruito dal browser.",
+      "Il copy per i social non contiene mai margine, semaforo dei rischi o difformità: sono informazioni tue, non del pubblico.",
+      "Il semaforo e i conti sono uno strumento di lavoro, non una perizia. La verifica in cancelleria e il sopralluogo restano necessari prima di qualunque offerta.",
+    ],
+  },
+  {
     id: "report-vocali",
-    title: "11. Report al proprietario (piano Enterprise)",
+    title: "12. Report al proprietario (piano Enterprise)",
     intro:
       "Finita la visita parli trenta secondi al telefono, come faresti con un collega. Ricevi un report professionale per il proprietario, pronto da inviare.",
     steps: [
@@ -305,7 +352,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: "gestionale",
-    title: "12. Integrazione con il gestionale",
+    title: "13. Integrazione con il gestionale",
     intro:
       "I contatti qualificati possono arrivare da soli nel gestionale che usi già, senza doppio inserimento.",
     steps: [
@@ -326,7 +373,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: "crediti",
-    title: "13. Crediti e piani",
+    title: "14. Crediti e piani",
     intro:
       "Ogni piano include un numero di conversazioni WhatsApp al mese e un numero di documenti analizzati. Il conteggio è visibile in alto in ogni schermata.",
     notes: [

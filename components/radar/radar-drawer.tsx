@@ -185,7 +185,7 @@ export function RadarDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className="fixed inset-0 z-50 flex h-[100dvh] justify-end">
       <button
         type="button"
         aria-label="Chiudi il pannello"
@@ -266,15 +266,15 @@ export function RadarDrawer({
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <Campo id="d-comune" label="Comune" required error={fieldErrors.comune}>
-                  <input id="d-comune" aria-invalid={Boolean(fieldErrors.comune)} name="comune" defaultValue={item?.comune ?? ""} required maxLength={120} className="input-field h-9 w-full text-base sm:text-sm" />
+                  <input id="d-comune" aria-invalid={Boolean(fieldErrors.comune)} name="comune" defaultValue={item?.comune ?? ""} required maxLength={120} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                 </Campo>
                 <Campo id="d-zona" label="Zona o frazione" error={fieldErrors.zona}>
-                  <input id="d-zona" name="zona" defaultValue={item?.zona ?? ""} maxLength={120} className="input-field h-9 w-full text-base sm:text-sm" />
+                  <input id="d-zona" name="zona" defaultValue={item?.zona ?? ""} maxLength={120} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                 </Campo>
               </div>
 
               <Campo id="d-address" label="Indirizzo e civico" hint="porta il pin sul portone" error={fieldErrors.address}>
-                <input id="d-address" name="address" defaultValue={item?.address ?? ""} placeholder="Es. Via Emilia 45" maxLength={200} className="input-field h-9 w-full text-base sm:text-sm" />
+                <input id="d-address" name="address" defaultValue={item?.address ?? ""} placeholder="Es. Via Emilia 45" maxLength={200} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
               </Campo>
 
               <div className="rounded-lg border border-border bg-muted/30 p-3">
@@ -286,7 +286,7 @@ export function RadarDrawer({
                       const form = e.currentTarget.closest("form");
                       if (form) void cerca(form);
                     }}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 disabled:opacity-50"
+                    className="inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 disabled:opacity-50"
                   >
                     {isLocating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MapPin className="h-3.5 w-3.5" />}
                     Trova sulla mappa
@@ -305,7 +305,7 @@ export function RadarDrawer({
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <Campo id="d-type" label="Tipologia" required error={fieldErrors.type}>
-                  <select id="d-type" name="type" required defaultValue={item?.type ?? "APPARTAMENTO"} className="input-field h-9 w-full text-base sm:text-sm">
+                  <select id="d-type" name="type" required defaultValue={item?.type ?? "APPARTAMENTO"} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm">
                     {(Object.keys(PROPERTY_TYPE_LABELS) as PropertyType[]).map((t) => (
                       <option key={t} value={t}>
                         {PROPERTY_TYPE_LABELS[t]}
@@ -314,36 +314,36 @@ export function RadarDrawer({
                   </select>
                 </Campo>
                 <Campo id="d-mq" label="Metri quadri" required error={fieldErrors.squareMeters}>
-                  <input id="d-mq" aria-invalid={Boolean(fieldErrors.squareMeters)} name="squareMeters" defaultValue={item?.squareMeters ?? ""} required inputMode="numeric" className="input-field h-9 w-full text-base sm:text-sm" />
+                  <input id="d-mq" aria-invalid={Boolean(fieldErrors.squareMeters)} name="squareMeters" defaultValue={item?.squareMeters ?? ""} required inputMode="numeric" className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                 </Campo>
 
                 <Campo id="d-prezzo" label={kind === "ASTA" ? "Offerta minima (€)" : "Prezzo attuale (€)"} required hint={modifica ? "abbassandolo si registra il ribasso" : undefined} error={fieldErrors.priceEur}>
-                  <input id="d-prezzo" aria-invalid={Boolean(fieldErrors.priceEur)} name="priceEur" defaultValue={item?.priceEur ?? ""} required inputMode="numeric" className="input-field h-9 w-full text-base sm:text-sm" />
+                  <input id="d-prezzo" aria-invalid={Boolean(fieldErrors.priceEur)} name="priceEur" defaultValue={item?.priceEur ?? ""} required inputMode="numeric" className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                 </Campo>
 
                 {kind === "ASTA" ? (
                   <Campo id="d-base" label="Valore di perizia (€)" hint="lo ricava anche dalla perizia" error={fieldErrors.basePriceEur}>
-                    <input id="d-base" name="basePriceEur" defaultValue={item?.basePriceEur ?? ""} inputMode="numeric" className="input-field h-9 w-full text-base sm:text-sm" />
+                    <input id="d-base" name="basePriceEur" defaultValue={item?.basePriceEur ?? ""} inputMode="numeric" className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                   </Campo>
                 ) : (
                   <Campo id="d-prec" label="Prezzo precedente (€)" hint="per calcolare il ribasso" error={fieldErrors.previousPriceEur}>
-                    <input id="d-prec" name="previousPriceEur" defaultValue={item?.previousPriceEur ?? ""} inputMode="numeric" className="input-field h-9 w-full text-base sm:text-sm" />
+                    <input id="d-prec" name="previousPriceEur" defaultValue={item?.previousPriceEur ?? ""} inputMode="numeric" className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                   </Campo>
                 )}
 
                 {kind === "ASTA" && (
                   <>
                     <Campo id="d-data" label="Data dell'asta" error={fieldErrors.auctionDate}>
-                      <input id="d-data" name="auctionDate" type="date" defaultValue={item?.auctionDate ? item.auctionDate.slice(0, 10) : ""} className="input-field h-9 w-full text-base sm:text-sm" />
+                      <input id="d-data" name="auctionDate" type="date" defaultValue={item?.auctionDate ? item.auctionDate.slice(0, 10) : ""} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                     </Campo>
                     <Campo id="d-lotto" label="Lotto" error={fieldErrors.lotto}>
-                      <input id="d-lotto" name="lotto" defaultValue={item?.lotto ?? ""} maxLength={60} className="input-field h-9 w-full text-base sm:text-sm" />
+                      <input id="d-lotto" name="lotto" defaultValue={item?.lotto ?? ""} maxLength={60} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                     </Campo>
                   </>
                 )}
 
                 <Campo id="d-url" label="Link all'annuncio" error={fieldErrors.sourceUrl}>
-                  <input id="d-url" name="sourceUrl" type="url" defaultValue={item?.sourceUrl ?? ""} maxLength={500} className="input-field h-9 w-full text-base sm:text-sm" />
+                  <input id="d-url" name="sourceUrl" type="url" defaultValue={item?.sourceUrl ?? ""} maxLength={500} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                 </Campo>
               </div>
 
@@ -353,7 +353,7 @@ export function RadarDrawer({
                     id="d-stato"
                     value={auctionStatus}
                     onChange={(e) => setAuctionStatus(e.target.value as AuctionStatus | "")}
-                    className="input-field h-9 w-full text-base sm:text-sm"
+                    className="input-field h-11 sm:h-9 w-full text-base sm:text-sm"
                   >
                     <option value="">Non indicata</option>
                     {(Object.keys(AUCTION_STATUS_LABELS) as AuctionStatus[]).map((v) => (

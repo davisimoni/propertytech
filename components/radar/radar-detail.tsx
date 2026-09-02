@@ -340,7 +340,7 @@ export function RadarDetail({
         <button
           type="button"
           onClick={onEdit}
-          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+          className="inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
         >
           <Pencil className="h-3.5 w-3.5" />
           Modifica dati
@@ -357,7 +357,7 @@ export function RadarDetail({
                 : "Ripristinata in elenco."
             )
           }
-          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50"
+          className="inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50"
         >
           {item.archivedAt === null ? (
             <>
@@ -382,7 +382,7 @@ export function RadarDetail({
             key={variant}
             type="button"
             onClick={() => copiaCopy(variant)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+            className="inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
           >
             {copiato === variant ? (
               <ClipboardCheck className="h-3.5 w-3.5 text-status-qualified" />
@@ -396,7 +396,7 @@ export function RadarDetail({
         <button
           type="button"
           onClick={() => setConferma(true)}
-          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-status-blocked transition-all duration-200 hover:border-status-blocked/40 hover:bg-status-blocked/5"
+          className="inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-status-blocked transition-all duration-200 hover:border-status-blocked/40 hover:bg-status-blocked/5"
         >
           <Trash2 className="h-3.5 w-3.5" />
           Elimina

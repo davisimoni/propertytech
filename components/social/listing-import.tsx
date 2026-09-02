@@ -177,8 +177,10 @@ export function ListingImport({
           </button>
         </div>
         <p id="listing-url-help" className="mt-1.5 text-xs text-muted-foreground">
-          Funziona con il sito della tua agenzia e con la maggior parte dei portali. I portali
-          maggiori bloccano spesso le letture automatiche: in quel caso incolla il testo qui sotto.
+          Ideale per il sito della tua agenzia, i portali locali, il gestionale e le pagine che si
+          caricano da sole. <span className="font-medium text-foreground">Immobiliare.it e
+          Idealista</span> respingono le letture automatiche: per quei due usa direttamente il
+          riquadro qui sotto.
         </p>
       </div>
 
@@ -206,8 +208,9 @@ export function ListingImport({
           aria-describedby="listing-text-help"
         />
         <p id="listing-text-help" className="mt-1.5 text-xs text-muted-foreground">
-          Bastano i dati essenziali dell&apos;immobile: tipologia, metratura, zona, prezzo e
-          caratteristiche. L&apos;AI userà solo ciò che è scritto, senza inventare nulla.
+          Il metodo più rapido e sempre valido, anche per i portali protetti. Bastano i dati
+          essenziali: tipologia, metratura, zona, prezzo e caratteristiche. L&apos;AI userà solo
+          ciò che è scritto, senza inventare nulla.
         </p>
       </div>
 
