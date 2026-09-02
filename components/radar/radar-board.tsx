@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { ArrowDown, Gavel, Loader2, Map as MapIcon, Plus, Table2, TrendingDown } from "lucide-react";
+import { ArrowDown, Gavel, Loader2, Map as MapIcon, Plus, Table2, TrendingDown, Users } from "lucide-react";
 import { PROPERTY_TYPE_LABELS } from "@/lib/listings/property-fields";
 import { RISK_CLASSES, RISK_LABELS, OCCUPANCY_LABELS } from "@/lib/radar/risk";
 import { RadarDrawer } from "./radar-drawer";
@@ -449,6 +449,18 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
                         Ribassato del {item.priceDropPct}%
                       </span>
                     )}
+                    {/* Quanti contatti ha sbloccato quel ribasso, finché
+                        l'agente non l'ha visto. Sta anche qui e non solo in
+                        scheda: è la ragione per cui vale la pena aprirla, e
+                        dentro la scheda la scoprirebbe solo chi c'è già
+                        entrato. Sparisce insieme all'avviso, non prima. */}
+                    {item.priceDropSeenAt === null &&
+                      (item.priceDropNewMatches ?? 0) > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                          <Users className="h-3 w-3" />
+                          {item.priceDropNewMatches} nuovi lead
+                        </span>
+                      )}
                     {item.appraisal?.status === "FALLITA" && (
                       <span className="rounded-full bg-status-blocked/10 px-2 py-0.5 text-xs font-medium text-status-blocked">
                         Analisi non riuscita

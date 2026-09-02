@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   Archive,
   ArchiveRestore,
+  ArrowDown,
   Calculator,
   FileDown,
   Loader2,
@@ -12,6 +13,7 @@ import {
   Send,
   Trash2,
   Users,
+  X,
   ClipboardCheck,
   Copy,
 } from "lucide-react";
@@ -73,6 +75,25 @@ export function RadarDetail({
   const pronta = item.appraisal?.status === "PRONTA";
   const roiDisponibile = item.marketValueEur !== null || item.monthlyRentEur !== null;
   const luogo = [item.address, item.zona].filter(Boolean).join(", ");
+
+  /**
+   * Il ribasso: un'etichetta permanente e un avviso che si spegne.
+   *
+   * Sono due cose diverse e vanno tenute separate. **L'etichetta** dice un
+   * fatto che resta vero finché il prezzo non cambia di nuovo — questo lotto
+   * costa il 15% meno di prima — e quindi resta.
+   *
+   * **L'avviso** dice che è successo qualcosa che l'agente non ha ancora
+   * visto, ed è utile solo finché è nuovo: quattro lead rientrati in budget
+   * sono quattro telefonate da fare adesso, non un'insegna accesa per sempre.
+   * Un avviso che non si spegne mai smette di essere letto, e con lui si
+   * smette di leggere anche quelli che contano.
+   *
+   * Per questo l'avviso guarda `priceDropSeenAt` e l'etichetta no.
+   */
+  const ribassato = item.priceDropPct !== null && item.priceDropPct > 0;
+  const nuoviLead = item.priceDropNewMatches ?? 0;
+  const avvisoRibassoDaLeggere = ribassato && item.priceDropSeenAt === null;
 
   async function patch(body: Record<string, unknown>, messaggio: string) {
     setInCorso(true);
@@ -246,6 +267,16 @@ export function RadarDetail({
                 {AUCTION_STATUS_LABELS[item.auctionStatus]}
               </span>
             )}
+
+            {/* Il ribasso sta accanto al prezzo, non fra i tag più in basso:
+                è l'informazione che cambia il senso della cifra che ha appena
+                letto, e a due righe di distanza non le si collega più. */}
+            {ribassato && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-status-qualified/10 px-2.5 py-1 text-xs font-semibold text-status-qualified">
+                <ArrowDown className="h-3 w-3" />
+                Ribassato del {item.priceDropPct}%
+              </span>
+            )}
           </div>
 
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -284,6 +315,55 @@ export function RadarDetail({
           </button>
         </div>
       </div>
+
+      {/* --- Avviso del ribasso, finché l'agente non l'ha visto --- */}
+      {avvisoRibassoDaLeggere && (
+        <div
+          role="status"
+          className="flex flex-wrap items-start gap-x-3 gap-y-2 rounded-xl border border-status-qualified/30 bg-status-qualified/5 p-3"
+        >
+          <ArrowDown className="mt-0.5 h-4 w-4 shrink-0 text-status-qualified" />
+
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground">
+              Prezzo ribassato del {item.priceDropPct}%
+              {nuoviLead > 0
+                ? `: trovati ${nuoviLead} nuovi lead compatibili`
+                : ""}
+            </p>
+            {/* Zero non si nasconde: se il ricalcolo non ha trovato nessuno,
+                dirlo evita che l'agente apra la scheda dei lead sperando di
+                trovarci qualcosa che non c'e'. */}
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {nuoviLead > 0
+                ? "Sono contatti che prima restavano fuori budget e ora rientrano nei parametri di questo lotto."
+                : "Nessun contatto in pipeline rientra ancora nei parametri di questo lotto."}
+            </p>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            {nuoviLead > 0 && (
+              <button
+                type="button"
+                onClick={() => setScheda("lead")}
+                className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-status-qualified/40 px-2.5 text-xs font-medium text-status-qualified transition-all duration-200 hover:bg-status-qualified/10 sm:h-8"
+              >
+                <Users className="h-3.5 w-3.5" />
+                Vedi i lead
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => patch({ dismissPriceDrop: true }, "Avviso archiviato.")}
+              disabled={inCorso}
+              aria-label="Ho visto il ribasso, nascondi l'avviso"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground disabled:opacity-50 sm:h-8 sm:w-8"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {avviso && <p className="text-xs text-status-qualified">{avviso}</p>}
       {error && (
