@@ -5,6 +5,12 @@ import { incrementUsage } from "@/lib/usage";
 import { formatSlotForChat } from "@/lib/calendar";
 import { resolveCalendarProvider } from "@/lib/calendar/provider";
 import {
+  findSlotAt,
+  getBookableSlots,
+  nearestSlots,
+  parseProposedDateTime,
+} from "@/lib/calendar/booking";
+import {
   hasSendableCredentials,
   sendTypingIndicatorForProvider,
   sendWhatsAppMessageForProvider,
@@ -64,6 +70,7 @@ async function mirrorAppointmentToExternalCalendar(lead: Lead, slotId: string): 
 
     await createCalendarEvent(slot.assignedToId, {
       leadName: lead.clientName,
+      leadPhone: lead.clientPhone,
       startTime: slot.startTime,
       endTime: slot.endTime,
       propertyRef: lead.propertyRef,
@@ -199,9 +206,20 @@ export async function handleIncomingMessage(
   // interna direttamente: oggi risolve sempre su `internal`, ma è il seam su
   // cui si innesteranno Google Calendar e Outlook.
   const calendarProvider = await resolveCalendarProvider(lead.organizationId);
+
+  /*
+   * Orari proponibili: fasce aperte dall'agenzia MENO gli impegni reali.
+   *
+   * `getBookableSlots` incrocia le due fonti. Prima si leggeva la sola agenda
+   * interna, quindi l'assistente poteva proporre un orario in cui l'agente
+   * era gia' a un rogito: la sovrapposizione la scopriva lui, aprendo il
+   * telefono, con l'appuntamento gia' confermato al cliente.
+   *
+   * Un lead che ha gia' un appuntamento non riceve nuove proposte.
+   */
   const availableSlots = lead.calendarSlotId
     ? []
-    : await calendarProvider.getAvailableSlots(lead.organizationId);
+    : await getBookableSlots(lead.organizationId);
 
   try {
     const agentReply = await generateAgentReply({
@@ -286,12 +304,54 @@ export async function handleIncomingMessage(
       };
     }
 
-    // Nessun appuntamento da un messaggio fuori contesto: uno slot occupato
-    // per una pubblicita' e' tempo dell'agente tolto a un cliente vero.
-    const chosen =
-      !agentReply.offTopic && agentReply.selectedSlotIndex !== null
+    /*
+     * Quale orario sta prenotando il cliente.
+     *
+     * Due strade, e la seconda è quella che mancava. La **scelta dall'elenco**
+     * (`selectedSlotIndex`) copre chi risponde "il primo"; l'**orario proposto
+     * da lui** (`proposedDateTime`) copre chi scrive "domani alle 11:40", che
+     * è come parlano quasi tutti. Prima quel messaggio non prenotava niente
+     * anche quando l'orario era libero, e la conversazione ripartiva
+     * dall'elenco — con una persona che aveva appena detto quando poteva.
+     *
+     * Nessuna prenotazione da un messaggio fuori contesto: uno slot occupato
+     * per una pubblicità è tempo dell'agente tolto a un cliente vero.
+     */
+    const oraProposta = parseProposedDateTime(agentReply.proposedDateTime);
+
+    const chosen = agentReply.offTopic
+      ? undefined
+      : agentReply.selectedSlotIndex !== null
         ? availableSlots[agentReply.selectedSlotIndex - 1]
-        : undefined;
+        : oraProposta
+          ? (findSlotAt(availableSlots, oraProposta) ?? undefined)
+          : undefined;
+
+    /*
+     * Ha chiesto un orario che non c'è.
+     *
+     * Il modello dovrebbe accorgersene da solo — l'elenco degli orari liberi
+     * ce l'ha nel prompt — ma se sbaglia, questo è l'ultimo punto in cui la
+     * cosa si può ancora fermare. Il messaggio viene riscritto qui, con gli
+     * orari veri: confermare un appuntamento inesistente manda una persona
+     * davanti a una porta chiusa, ed è un danno che nessun recupero ripara.
+     */
+    if (oraProposta && !chosen && agentReply.selectedSlotIndex === null && !agentReply.offTopic) {
+      const vicini = nearestSlots(availableSlots, oraProposta, 3);
+
+      replyText =
+        vicini.length > 0
+          ? `Mi dispiace, a quell'ora non abbiamo disponibilità. Le propongo questi orari: ${vicini
+              .map(formatSlotForChat)
+              .join("; ")}. Quale preferisce?`
+          : "Mi dispiace, a quell'ora non abbiamo disponibilità. Un nostro agente la contatterà a breve per concordare un orario.";
+
+      console.info("[WA-APPOINTMENT-UNAVAILABLE]", {
+        leadId: lead.id,
+        richiesto: oraProposta.toISOString(),
+        alternativeProposte: vicini.length,
+      });
+    }
 
     if (chosen) {
       const appointment = await calendarProvider.createAppointment({
@@ -305,6 +365,51 @@ export async function handleIncomingMessage(
         replyText =
           "Mi dispiace, quell'orario è appena stato prenotato. Un nostro agente la contatterà a breve per concordare una nuova disponibilità.";
       } else {
+        /*
+         * Il messaggio non puo' contraddire il calendario.
+         *
+         * Il modello scrive la risposta PRIMA che la prenotazione avvenga, e
+         * su un orario proposto dal cliente puo' sbagliare valutazione: in
+         * prova ha risposto "alle 11:40 non abbiamo disponibilita'" mentre
+         * quell'orario cadeva dentro una fascia libera, che il sistema poi
+         * prenotava. Il cliente avrebbe ricevuto un no con l'appuntamento
+         * fissato: peggio di entrambi gli esiti presi da soli.
+         *
+         * Qui la verita' e' una sola ed e' il calendario. Si interviene pero'
+         * SOLO quando il testo nega, per non sostituire con una frase
+         * costruita una risposta gia' corretta e piu' naturale della nostra.
+         */
+        if (/non\s+(abbiamo|c'e|ci sono|risulta)|purtroppo|non disponibil/i.test(replyText)) {
+          replyText = `Perfetto, le confermo l'appuntamento per ${formatSlotForChat(chosen)}. A presto.`;
+
+          console.warn("[WA-APPOINTMENT-REPLY-OVERRIDE]", {
+            leadId: lead.id,
+            motivo: "il messaggio negava un orario che risultava libero",
+          });
+        }
+
+        /*
+         * Appuntamento fissato: lo stato della scheda lo dice.
+         *
+         * `appointmentSlot` porta la data dove la dashboard e la scheda la
+         * leggono, e `dealStage` passa a VISIT_SCHEDULED. Senza, una visita
+         * fissata dall'assistente restava visibile solo scorrendo la chat, e
+         * l'agente la scopriva il giorno stesso — o non la scopriva.
+         */
+        leadUpdate = {
+          ...leadUpdate,
+          appointmentSlot: chosen.startTime,
+          appointmentConfirmed: true,
+          dealStage: "VISIT_SCHEDULED",
+        };
+
+        console.info("[WA-APPOINTMENT-BOOKED]", {
+          leadId: lead.id,
+          organizationId: lead.organizationId,
+          quando: chosen.startTime.toISOString(),
+          via: agentReply.selectedSlotIndex !== null ? "scelta-da-elenco" : "orario-proposto",
+        });
+
         await mirrorAppointmentToExternalCalendar(lead, chosen.id);
       }
     }

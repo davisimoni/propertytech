@@ -195,6 +195,25 @@ export const agentReplySchema = z.object({
     .describe(
       "Indice (a partire da 1) dello slot appena scelto dal cliente fra quelli proposti; null se non ha ancora scelto o se non erano stati proposti slot."
     ),
+  /**
+   * Orario che il cliente ha chiesto lui, invece di sceglierlo dall'elenco.
+   *
+   * # Perché serve accanto a `selectedSlotIndex`
+   *
+   * Perché le persone non scelgono dal menù. Scrivono "domani alle 11:40",
+   * "giovedì mattina va bene?", e su quelle frasi l'indice non esiste: prima
+   * restavano senza una prenotazione anche quando l'orario chiesto era
+   * perfettamente libero, e la conversazione ripartiva da capo con l'elenco.
+   *
+   * Stringa vuota e non `null`: lo schema è a un passo dal tetto di sedici
+   * parametri con union imposto dall'API (vedi la nota sul ramo venditore), e
+   * per un testo il vuoto dice la stessa cosa senza costarne una.
+   */
+  proposedDateTime: z
+    .string()
+    .describe(
+      "Data e ora che il CLIENTE ha proposto, in formato ISO 8601 con fuso italiano (es. '2026-09-03T11:40:00+02:00'). Solo quando indica un orario suo invece di scegliere dall'elenco. Stringa VUOTA se non ne ha proposto uno o se ha scelto dall'elenco."
+    ),
 });
 
 export type AgentReply = z.infer<typeof agentReplySchema>;
@@ -271,11 +290,25 @@ Non ci sono slot liberi in agenda. Se il cliente risulta QUALIFIED, digli che un
 
   const list = availableSlots.map((slot, index) => `${index + 1}. ${slot}`).join("\n");
 
-  return `# Agenda — slot liberi per la visita
+  return `# Agenda — orari realmente liberi
 ${list}
 
-Se il cliente risulta QUALIFIED, proponi ESATTAMENTE questi slot con questa numerazione e chiedigli quale preferisce. Non inventare né modificare date, orari o nomi degli agenti: usa solo ciò che è elencato qui.
-Quando il cliente indica quale slot preferisce (es. "il primo", "giovedì", "va bene il 2"), imposta selectedSlotIndex al numero corrispondente e conferma l'appuntamento nel messaggio. Se la sua scelta è ambigua, lascia selectedSlotIndex a null e chiedi conferma.`;
+Ogni riga e' una FASCIA con inizio e fine ("11:30-12:00"): un orario chiesto dal cliente che cade DENTRO una fascia e' disponibile. Le 11:40 rientrano nella fascia 11:30-12:00, quindi si confermano.
+
+Questo elenco tiene già conto sia delle fasce che l'agenzia ha aperto sia degli impegni reali sui calendari degli agenti: ciò che è qui è prenotabile, ciò che non è qui non lo è. Non inventare né modificare date, orari o nomi: usa solo quanto elencato.
+
+## Il cliente sceglie dall'elenco
+Quando indica quale preferisce ("il primo", "giovedì", "va bene il 2"), imposta selectedSlotIndex al numero corrispondente e conferma l'appuntamento nel messaggio. Se la scelta è ambigua, lascia selectedSlotIndex a null e chiedi conferma.
+
+## Il cliente propone un orario suo
+Succede più spesso che scelga dal menù: "domani alle 11:40", "giovedì mattina va bene?", "potrei venerdì verso le 15".
+- Traduci quell'orario in ISO 8601 con fuso italiano e mettilo in proposedDateTime. Usa la data di oggi indicata sopra per risolvere "domani", "dopodomani", "giovedì".
+- **Guarda l'elenco prima di rispondere.** Se quell'orario cade in una delle fasce elencate, confermalo nel messaggio: "Perfetto, le confermo l'appuntamento per domani alle 11:40 con il nostro agente." Lascia selectedSlotIndex a null: alla prenotazione ci pensa il sistema partendo da proposedDateTime.
+- Se NON rientra in nessuna fascia — è occupato, è fuori orario, è di domenica — dillo in una riga e **proponi i due o tre orari dell'elenco più vicini a quello che aveva chiesto**, non i primi tre in assoluto: chi ha chiesto giovedì mattina vuole sapere cosa c'è attorno a giovedì mattina. Metti comunque l'orario richiesto in proposedDateTime.
+- Non promettere mai un orario che non è nell'elenco. Un appuntamento confermato e poi disdetto costa più di un orario negato subito.
+
+## Il cliente chiede genericamente una visita
+"Quando potrei vedere casa?", "possiamo fissare un sopralluogo?": proponi i primi due o tre orari dell'elenco e chiedi quale preferisce.`;
 }
 
 function buildSystemPrompt(
@@ -285,7 +318,28 @@ function buildSystemPrompt(
   availableSlots: string[],
   profile: AgencyProfile | undefined
 ): string {
+  /*
+   * Che giorno e' oggi.
+   *
+   * Senza questa riga "domani alle 11:40" non e' traducibile in una data, e il
+   * modello o rinuncia o inventa: entrambe finiscono in un appuntamento
+   * sbagliato. Il fuso e' quello italiano e non quello del server, che su
+   * Vercel puo' essere altrove — un'ora di scarto sposta una visita.
+   */
+  const oggi = new Intl.DateTimeFormat("it-IT", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Rome",
+  }).format(new Date());
+
   return `Sei l'assistente virtuale dell'agenzia immobiliare italiana "${agencyName}". Stai qualificando via WhatsApp il potenziale acquirente ${clientName}, che ha richiesto informazioni sull'immobile "${propertyRef}" tramite un portale immobiliare.
+
+# Adesso
+In Italia sono le ${oggi}. Usa questo riferimento per interpretare "domani", "dopodomani", "giovedi'" o "la prossima settimana".
 
 # Tono
 Professionale, empatico, sintetico. Italiano impeccabile, forma di cortesia ("lei"). Massimo 2-3 frasi brevi per messaggio: stai scrivendo su WhatsApp, non via email. Niente elenchi puntati, niente emoji, niente formattazione markdown.

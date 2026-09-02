@@ -5,6 +5,7 @@ import { MetricCard } from "@/components/dashboard/metric-card";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { SmartMatches } from "@/components/dashboard/smart-matches";
 import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
+import { UpcomingAppointments } from "@/components/dashboard/upcoming-appointments";
 import { AgencyNamePrompt } from "@/components/dashboard/agency-name-prompt";
 import { formatTimeSaved, getRoiMetrics, MINUTES_SAVED } from "@/lib/metrics";
 
@@ -46,6 +47,10 @@ export default async function DashboardPage() {
       )}
 
       <OnboardingChecklist />
+
+      {/* Sopra le metriche: un appuntamento fra due ore vale piu' di un
+          conteggio del mese. Sparisce da sola se non ce ne sono. */}
+      {organizationId && <UpcomingAppointments organizationId={organizationId} />}
 
       <div>
         <div className="grid gap-4 sm:grid-cols-3">

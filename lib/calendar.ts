@@ -11,7 +11,11 @@ export const PROPOSED_SLOTS_COUNT = 2;
  * la usano anche gli adapter esterni in `lib/calendar/provider.ts`, dove non
  * esiste un nome agente associato allo slot.
  */
-export function formatSlotForChat(slot: { startTime: Date; agentName: string }): string {
+export function formatSlotForChat(slot: {
+  startTime: Date;
+  endTime?: Date;
+  agentName: string;
+}): string {
   const formatted = new Intl.DateTimeFormat("it-IT", {
     weekday: "long",
     day: "numeric",
@@ -21,7 +25,26 @@ export function formatSlotForChat(slot: { startTime: Date; agentName: string }):
     timeZone: "Europe/Rome",
   }).format(slot.startTime);
 
-  return slot.agentName ? `${formatted} con ${slot.agentName}` : formatted;
+  /*
+   * Anche l'ora di fine, quando c'e'.
+   *
+   * Serve al modello prima che al cliente. Con il solo orario d'inizio,
+   * davanti a un elenco che dice "alle 11:30" e a un cliente che chiede "alle
+   * 11:40", il modello concludeva che le 11:40 non fossero disponibili — pur
+   * cadendo dentro quella fascia. Vedere "11:30-12:00" gli permette di
+   * ragionare su un intervallo invece che su un istante.
+   */
+  const fine = slot.endTime
+    ? new Intl.DateTimeFormat("it-IT", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Europe/Rome",
+      }).format(slot.endTime)
+    : null;
+
+  const fascia = fine ? `${formatted}-${fine}` : formatted;
+
+  return slot.agentName ? `${fascia} con ${slot.agentName}` : fascia;
 }
 
 /**

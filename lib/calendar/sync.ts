@@ -27,7 +27,7 @@ const WORKDAY_END_HOUR = 18;
 /** Durata di una visita, quando la si deve dedurre invece di leggerla da uno slot. */
 export const DEFAULT_VISIT_MINUTES = 30;
 
-interface BusyInterval {
+export interface BusyInterval {
   start: Date;
   end: Date;
 }
@@ -102,6 +102,38 @@ async function fetchBusyIntervals(
   }
 }
 
+/**
+ * Impegni reali di piu' agenti, in una sola passata.
+ *
+ * Le richieste partono insieme e non in fila: sono chiamate a servizi esterni
+ * dentro un webhook che ha sessanta secondi in tutto, e su un'agenzia con
+ * cinque agenti collegati la differenza fra parallelo e sequenziale e' fra due
+ * secondi e dieci.
+ *
+ * Un agente il cui calendario non risponde semplicemente non compare nella
+ * mappa, e chi legge tratta l'assenza come "nessun impegno noto": e' la stessa
+ * scelta prudente di `getAgentFreeSlots`, dove un servizio muto non deve poter
+ * cancellare l'agenda dell'agenzia.
+ */
+export async function fetchBusyIntervalsForAgents(
+  agentIds: string[],
+  from: Date,
+  to: Date
+): Promise<Map<string, BusyInterval[]>> {
+  const mappa = new Map<string, BusyInterval[]>();
+  if (agentIds.length === 0) return mappa;
+
+  const esiti = await Promise.all(
+    agentIds.map(async (id) => ({ id, busy: await fetchBusyIntervals(id, from, to) }))
+  );
+
+  for (const { id, busy } of esiti) {
+    if (busy) mappa.set(id, busy);
+  }
+
+  return mappa;
+}
+
 function overlaps(slotStart: Date, slotEnd: Date, busy: BusyInterval[]): boolean {
   return busy.some((interval) => slotStart < interval.end && slotEnd > interval.start);
 }
@@ -165,6 +197,15 @@ export function isWithinWorkingHours(date: Date): boolean {
 export interface CalendarEventData {
   /** Nome del lead: finisce nel titolo dell'evento. */
   leadName: string;
+  /**
+   * Telefono del lead, nel titolo accanto al nome.
+   *
+   * Sta nel TITOLO e non solo nella descrizione perche' l'agente guarda
+   * l'agenda dal telefono, dove della descrizione si vede la prima riga se va
+   * bene. Il numero da chiamare per dire "arrivo con dieci minuti di ritardo"
+   * deve essere leggibile senza aprire l'evento.
+   */
+  leadPhone?: string | null;
   startTime: Date;
   endTime?: Date;
   /** Riferimento dell'immobile ("Rif. A102 — Trilocale Via Roma 12"). */
@@ -194,7 +235,14 @@ export async function createCalendarEvent(
   const endTime =
     eventData.endTime ?? new Date(startTime.getTime() + DEFAULT_VISIT_MINUTES * 60 * 1000);
 
-  const title = `Visita Immobiliare - ${eventData.leadName}`;
+  // "Sopralluogo / Visita": l'assistente fissa entrambe le cose, e chi legge
+  // l'agenda deve capire di cosa si tratta senza aprire l'evento.
+  const title = [
+    `Sopralluogo / Visita - ${eventData.leadName}`,
+    eventData.leadPhone,
+  ]
+    .filter(Boolean)
+    .join(" - ");
   const description = [
     eventData.propertyRef ? `Immobile: ${eventData.propertyRef}` : null,
     eventData.notes,
