@@ -87,10 +87,55 @@ export function SocialGenerator() {
 
       setContent(body.content as SocialContent);
       setActiveTab("portal");
+
+      // Generare senza aver premuto "Compila i campi" lasciava la scheda di
+      // portafoglio vuota, e l'agente la ribatteva a mano avendo davanti un
+      // annuncio appena scritto dagli stessi dati. Si recuperano ora, in
+      // sottofondo.
+      void riempiSchedaPortafoglio();
     } catch {
       setError("Errore di rete durante la generazione.");
     } finally {
       setIsGenerating(false);
+    }
+  }
+
+  /**
+   * Estrazione dei campi strutturati dopo una generazione.
+   *
+   * # Perché in sottofondo e non in attesa
+   *
+   * Perché non serve a ciò che l'agente sta guardando: ha appena premuto
+   * "Genera" per leggere l'annuncio, e i contenuti sono già a schermo. Farlo
+   * aspettare una seconda chiamata prima di mostrarli allungherebbe l'attesa
+   * per riempire un modulo che sta in fondo alla pagina.
+   *
+   * # Perché in silenzio quando fallisce
+   *
+   * Perché il risultato che contava — l'annuncio — c'è già. Un riquadro rosso
+   * su una compilazione accessoria farebbe credere che sia andata storta la
+   * generazione. Se non riesce, la scheda resta da compilare a mano: esattamente
+   * com'era prima che questa scorciatoia esistesse.
+   */
+  async function riempiSchedaPortafoglio() {
+    // Già estratti: quelli valgono di più, perché l'agente può averli corretti.
+    if (imported) return;
+
+    const testo = rawText.trim();
+    if (testo.length < 30) return;
+
+    try {
+      const response = await fetch("/api/social/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rawText: testo }),
+      });
+      if (!response.ok) return;
+
+      const body = await response.json();
+      if (body.listing) setImported(body.listing as ImportedListingView);
+    } catch {
+      // Silenzio voluto: vedi sopra.
     }
   }
 

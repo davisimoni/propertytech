@@ -2,6 +2,11 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
+import {
+  CONTRACT_TYPES,
+  ENERGY_CLASSES,
+  PROPERTY_TYPES,
+} from "@/lib/listings/property-fields";
 
 /**
  * Estrazione dei dati di un immobile dal testo di un annuncio.
@@ -36,6 +41,49 @@ export const importedListingSchema = z.object({
   squareMeters: z.string().nullable().describe("Superficie, es. '80 mq'."),
   price: z.string().nullable().describe("Prezzo richiesto, es. '250.000 €'."),
   rooms: z.string().nullable().describe("Numero di locali o vani, es. '3 locali'."),
+
+  /*
+   * Campi strutturati per la scheda di portafoglio.
+   *
+   * Sono separati da quelli sopra, che restano testo libero per il copy. Qui
+   * servono valori che entrino direttamente nei campi del modulo "Dati per i
+   * portali": l'agente deve trovarli gia' compilati e limitarsi a
+   * verificarli, non ribattere a mano quello che l'annuncio diceva gia'.
+   *
+   * Tutti ammettono `null`, e null e' la risposta giusta ogni volta che il
+   * dato non compare: un comune sbagliato in scheda e' peggio di un comune
+   * vuoto, perche' nessuno lo ricontrolla.
+   */
+  comune: z
+    .string()
+    .nullable()
+    .describe("Comune dell'immobile, solo il nome del comune. Es. 'Vignola'. null se non compare."),
+  provincia: z
+    .string()
+    .nullable()
+    .describe("Sigla della provincia, due lettere maiuscole. Es. 'MO'. null se non deducibile con certezza dal testo."),
+  bathrooms: z.string().nullable().describe("Numero di bagni, es. '2 bagni'. null se non compare."),
+  floor: z
+    .string()
+    .nullable()
+    .describe("Piano, come scritto nella fonte: '2', 'terra', 'ultimo', 'mansarda'. null se non compare."),
+  propertyType: z
+    .enum(PROPERTY_TYPES as [string, ...string[]])
+    .nullable()
+    .describe(
+      "Tipologia dell'immobile. Un 'trilocale' o 'bilocale' è APPARTAMENTO; una 'villetta a schiera' è VILLETTA. null se la fonte non permette di stabilirlo."
+    ),
+  contract: z
+    .enum(CONTRACT_TYPES as [string, ...string[]])
+    .nullable()
+    .describe(
+      "VENDITA se l'annuncio propone un acquisto (prezzo pieno), AFFITTO se il canone è periodico (es. '800 €/mese'). null nel dubbio."
+    ),
+  energyClass: z
+    .enum(ENERGY_CLASSES as [string, ...string[]])
+    .nullable()
+    .describe("Classe energetica dichiarata nella fonte, es. 'C'. null se assente: non va mai stimata."),
+
   strengths: z
     .array(z.string())
     .describe("Punti di forza rilevati nella fonte, es. 'balcone abitabile', 'ascensore'."),
@@ -65,7 +113,15 @@ Regole:
 - Se un dato non compare, imponi null (o lascialo fuori da keyPoints): è meglio un campo vuoto di un dato inventato.
 - Il testo può contenere elementi di navigazione, cookie banner e annunci di altri immobili: ignora tutto ciò che non riguarda l'immobile principale.
 - In "missingInfo" elenca i dati che servirebbero per un buon annuncio ma non ci sono, così l'agente sa cosa integrare a mano.
-- "keyPoints" deve essere un elenco discorsivo separato da virgole, pronto da rileggere e correggere.`;
+- "keyPoints" deve essere un elenco discorsivo separato da virgole, pronto da rileggere e correggere.
+
+# Campi strutturati per la scheda (comune, provincia, bathrooms, floor, propertyType, contract, energyClass)
+Finiscono direttamente nei campi del modulo che l'agente salva in portafoglio, quindi valgono regole più severe del resto:
+- Riporta un valore SOLO se la fonte lo dice. Nel dubbio, null. Un campo vuoto l'agente lo compila in cinque secondi; un campo sbagliato non lo ricontrolla nessuno, e finisce sui portali.
+- "comune" è solo il nome del comune, senza provincia né CAP: da "Vignola (MO), Via Roma 12" ricava "Vignola".
+- "provincia" solo se la fonte la scrive o la sigla è esplicita. NON dedurla dalla tua conoscenza geografica del comune: se l'annuncio non la nomina, è null.
+- "energyClass" non si stima mai. Un immobile "di recente costruzione" o "ben coibentato" NON è classe A: se la classe non è scritta, è null.
+- "propertyType" e "contract" sono una classificazione di ciò che c'è scritto, non un'ipotesi: "trilocale" è APPARTAMENTO, "800 €/mese" è AFFITTO. Se il testo non basta a decidere, null.`;
 
 /** Estrae i dati dell'immobile dal testo incollato dall'agente. */
 export async function importListing(source: {

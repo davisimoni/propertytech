@@ -11,6 +11,14 @@ export interface ImportedListingView {
   squareMeters: string | null;
   price: string | null;
   rooms: string | null;
+  /** Campi strutturati che precompilano la scheda di portafoglio. */
+  comune: string | null;
+  provincia: string | null;
+  bathrooms: string | null;
+  floor: string | null;
+  propertyType: string | null;
+  contract: string | null;
+  energyClass: string | null;
   strengths: string[];
   missingInfo: string[];
 }

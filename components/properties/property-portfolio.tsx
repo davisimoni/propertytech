@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type {
   UserRole,
@@ -10,7 +10,7 @@ import type {
   PropertyStatus,
   PropertyType,
 } from "@prisma/client";
-import { Building2, ChevronDown, FileCode2, FolderOpen, History, Loader2, Pencil, Phone, Sparkles, UserRound } from "lucide-react";
+import { Building2, ChevronDown, FileCode2, FolderOpen, History, Loader2, Pencil, Phone, Plus, Sparkles, UserRound } from "lucide-react";
 import { DocumentVault } from "@/components/documents/document-vault";
 import {
   CONTRACT_LABELS,
@@ -76,6 +76,7 @@ export function PropertyPortfolio({ currentRole }: { currentRole: UserRole }) {
   const [openVaultId, setOpenVaultId] = useState<string | null>(null);
   const [openHistoryId, setOpenHistoryId] = useState<string | null>(null);
   const [editing, setEditing] = useState<PropertyView | null>(null);
+  const [creando, setCreando] = useState(false);
 
   /**
    * Aggiorna un solo immobile in elenco.
@@ -91,16 +92,31 @@ export function PropertyPortfolio({ currentRole }: { currentRole: UserRole }) {
     );
   }
 
-  useEffect(() => {
-    fetch("/api/properties")
+  /**
+   * Ricarica il portafoglio dal server.
+   *
+   * Estratta dall'effetto perche' serve anche dopo aver aggiunto un immobile:
+   * la creazione risponde con l'id e l'esito del matching, non con la scheda
+   * completa, e ricostruirla nel browser significherebbe tenerne due versioni
+   * che al primo campo aggiunto non coincidono piu'.
+   */
+  const caricaPortafoglio = useCallback(() => {
+    return fetch("/api/properties")
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error())))
-      .then((data: { properties: PropertyView[] }) => setProperties(data.properties))
+      .then((data: { properties: PropertyView[] }) => {
+        setProperties(data.properties);
+        setLoadError(false);
+      })
       // Errore dichiarato, non stato vuoto: mostrare "aggiungi il primo
       // immobile" a un'agenzia che ne ha cinquanta, perche' una richiesta e'
       // fallita, la convince di aver perso il portafoglio.
       .catch(() => setLoadError(true))
       .finally(() => setIsLoading(false));
   }, []);
+
+  useEffect(() => {
+    void caricaPortafoglio();
+  }, [caricaPortafoglio]);
 
   if (isLoading) {
     return (
@@ -140,10 +156,27 @@ export function PropertyPortfolio({ currentRole }: { currentRole: UserRole }) {
           scheda, prepara il feed per i portali e cerca fra i tuoi lead qualificati chi potrebbe
           comprarlo.
         </p>
-        <Link href="/social" className="btn-brand mx-auto mt-5">
-          <Sparkles className="h-4 w-4" />
-          Aggiungi il primo immobile
-        </Link>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+          <Link href="/social" className="btn-brand">
+            <Sparkles className="h-4 w-4" />
+            Parti da un annuncio
+          </Link>
+          {/* Chi ha gia' i dati sottomano non deve passare da una generazione
+              che non gli serve per mettere un immobile in archivio. */}
+          <button type="button" onClick={() => setCreando(true)} className="btn-outline">
+            <Plus className="h-4 w-4" />
+            Inserisci a mano
+          </button>
+        </div>
+
+        {creando && (
+          <PropertyEditDialog
+            property={null}
+            onClose={() => setCreando(false)}
+            onSaved={() => {}}
+            onCreated={() => void caricaPortafoglio()}
+          />
+        )}
       </section>
     );
   }
@@ -165,10 +198,22 @@ export function PropertyPortfolio({ currentRole }: { currentRole: UserRole }) {
         <p className="text-sm text-muted-foreground">
           {properties.length} immobil{properties.length === 1 ? "e" : "i"} in portafoglio
         </p>
-        <a href="/api/properties/xml" download className="btn-outline text-xs">
-          <FileCode2 className="h-3.5 w-3.5" />
-          Scarica feed XML completo
-        </a>
+        <div className="flex flex-wrap items-center gap-2">
+          <a href="/api/properties/xml" download className="btn-outline text-xs">
+            <FileCode2 className="h-3.5 w-3.5" />
+            Scarica feed XML completo
+          </a>
+          {/* Azione primaria a destra, accanto all'export.
+
+              Sta qui e non solo nello stato vuoto perche' un immobile si
+              aggiunge anche quando il portafoglio e' pieno — anzi, soprattutto
+              allora — e finora l'unica strada era passare da Social & Annunci
+              e generare un annuncio che magari non serviva. */}
+          <button type="button" onClick={() => setCreando(true)} className="btn-brand text-xs">
+            <Plus className="h-3.5 w-3.5" />
+            Aggiungi immobile
+          </button>
+        </div>
       </div>
 
       {properties.map((property) => (
@@ -376,6 +421,17 @@ export function PropertyPortfolio({ currentRole }: { currentRole: UserRole }) {
           }
         />
       ) : null}
+
+      {creando && (
+        <PropertyEditDialog
+          property={null}
+          onClose={() => setCreando(false)}
+          // In creazione non c'è una riga da aggiornare in elenco: si ricarica.
+          onSaved={() => {}}
+          onCreated={() => void caricaPortafoglio()}
+          riferimentiEsistenti={properties.map((property) => property.reference)}
+        />
+      )}
     </div>
   );
 }

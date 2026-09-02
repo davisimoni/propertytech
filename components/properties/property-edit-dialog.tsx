@@ -72,49 +72,82 @@ const MESSAGGI: Record<string, string> = {
 };
 
 /**
- * Modifica della scheda immobile.
+ * Scheda immobile: la stessa per crearne uno e per modificarlo.
  *
- * Il prezzo è il campo che si corregge più spesso — un ribasso concordato al
- * telefono va online lo stesso giorno — ed è il motivo per cui questa finestra
- * esiste: finora l'unico modo di cambiarlo era rigenerare l'annuncio dal
- * Modulo 3, cioè rifare un lavoro per correggere un numero.
+ * # Perché un componente solo
+ *
+ * Perché i campi sono gli stessi, e due moduli separati divergono al primo
+ * campo aggiunto a uno dei due — di solito quello della creazione, che si
+ * tocca meno. Cambia solo dove va a finire il salvataggio: `POST` su
+ * `/api/properties` per un immobile nuovo, `PUT` sulla sua rotta per uno che
+ * esiste già.
+ *
+ * `property` a `null` significa "nuovo": il modulo parte vuoto, col contratto
+ * e la tipologia sui valori più comuni, che sono quelli che l'agente conferma
+ * nella maggior parte dei casi.
  */
 export function PropertyEditDialog({
   property,
   onClose,
   onSaved,
+  onCreated,
+  riferimentiEsistenti = [],
 }: {
-  property: EditableProperty;
+  /** `null` per creare un immobile nuovo. */
+  property: EditableProperty | null;
   onClose: () => void;
   onSaved: (updated: EditableProperty) => void;
+  /** Chiamata dopo una creazione riuscita: il portafoglio si ricarica. */
+  onCreated?: () => void;
+  /**
+   * Riferimenti già in portafoglio, per fermare un doppione in creazione.
+   *
+   * Serve perché la rotta di salvataggio fa `upsert` sul riferimento: è voluto
+   * per il flusso da Social & Annunci, dove risalvare lo stesso immobile dopo
+   * una correzione deve aggiornarlo invece di rifiutarlo. Ma partendo da
+   * "Aggiungi immobile" la stessa regola è pericolosa: chi digita "A102" senza
+   * sapere che esiste già ne sovrascriverebbe un altro senza un avviso, e se ne
+   * accorgerebbe quando l'immobile giusto non si trova più.
+   */
+  riferimentiEsistenti?: string[];
 }) {
+  const inCreazione = property === null;
+
   const [form, setForm] = useState({
-    reference: property.reference,
-    title: property.title,
-    contract: property.contract,
-    type: property.type,
-    comune: property.comune,
-    provincia: property.provincia ?? "",
-    zona: property.zona ?? "",
-    indirizzo: property.indirizzo ?? "",
-    priceEur: String(property.priceEur),
-    squareMeters: String(property.squareMeters),
-    rooms: property.rooms === null ? "" : String(property.rooms),
-    bathrooms: property.bathrooms === null ? "" : String(property.bathrooms),
-    floor: property.floor ?? "",
-    energyClass: property.energyClass ?? "",
-    description: property.description ?? "",
-    listingType: property.listingType ?? "",
+    reference: property?.reference ?? "",
+    title: property?.title ?? "",
+    contract: property?.contract ?? ("VENDITA" as ContractType),
+    type: property?.type ?? ("APPARTAMENTO" as PropertyType),
+    comune: property?.comune ?? "",
+    provincia: property?.provincia ?? "",
+    zona: property?.zona ?? "",
+    indirizzo: property?.indirizzo ?? "",
+    priceEur: property ? String(property.priceEur) : "",
+    squareMeters: property ? String(property.squareMeters) : "",
+    rooms: property?.rooms == null ? "" : String(property.rooms),
+    bathrooms: property?.bathrooms == null ? "" : String(property.bathrooms),
+    floor: property?.floor ?? "",
+    energyClass: property?.energyClass ?? "",
+    description: property?.description ?? "",
+    listingType: property?.listingType ?? "",
     // `<input type="date">` accetta solo `YYYY-MM-DD`: passargli un ISO
     // completo lo lascia vuoto senza dire perche'.
-    mandateExpiration: property.mandateExpiration?.slice(0, 10) ?? "",
-    commissionRate: property.commissionRate === null ? "" : String(property.commissionRate),
-    keysLocation: property.keysLocation ?? "",
+    mandateExpiration: property?.mandateExpiration?.slice(0, 10) ?? "",
+    commissionRate: property?.commissionRate == null ? "" : String(property.commissionRate),
+    keysLocation: property?.keysLocation ?? "",
   });
-  const [keysInOffice, setKeysInOffice] = useState(property.keysInOffice);
+  const [keysInOffice, setKeysInOffice] = useState(property?.keysInOffice ?? false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  /** Doppione: confronto senza distinzione fra maiuscole, come lo scriverebbe. */
+  const riferimentoOccupato =
+    inCreazione &&
+    form.reference.trim().length > 0 &&
+    riferimentiEsistenti.some(
+      (esistente) => esistente.trim().toLowerCase() === form.reference.trim().toLowerCase()
+    );
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -133,8 +166,10 @@ export function PropertyEditDialog({
     setError(null);
 
     try {
-      const response = await fetch(`/api/properties/${property.id}`, {
-        method: "PUT",
+      const response = await fetch(
+        inCreazione ? "/api/properties" : `/api/properties/${property.id}`,
+        {
+        method: inCreazione ? "POST" : "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reference: form.reference.trim(),
@@ -163,7 +198,8 @@ export function PropertyEditDialog({
           // l'ubicazione di qualcosa che non abbiamo.
           keysLocation: keysInOffice ? toText(form.keysLocation) ?? null : null,
         }),
-      });
+        }
+      );
 
       const data = (await response.json().catch(() => null)) as
         | { property?: EditableProperty; error?: string; issues?: string[] }
@@ -178,6 +214,25 @@ export function PropertyEditDialog({
             MESSAGGI[data?.error ?? ""] ??
             "Salvataggio non riuscito. Controlla i campi e riprova."
         );
+        return;
+      }
+
+      if (inCreazione) {
+        /*
+         * La creazione risponde con l'id e l'esito dello Smart Matching, non
+         * con la scheda intera: il portafoglio si ricarica invece di essere
+         * aggiornato a mano. È un immobile in più su una lista già a schermo,
+         * non vale il rischio di tenerne due copie divergenti.
+         */
+        const abbinati = (data as { matching?: { matched?: number } } | null)?.matching?.matched ?? 0;
+        showToast(
+          abbinati > 0
+            ? `Immobile aggiunto. ${abbinati} ${abbinati === 1 ? "lead compatibile" : "lead compatibili"} in portafoglio.`
+            : "Immobile aggiunto al portafoglio.",
+          "success"
+        );
+        onCreated?.();
+        onClose();
         return;
       }
 
@@ -204,10 +259,12 @@ export function PropertyEditDialog({
         <header className="flex items-start justify-between gap-3 border-b border-border p-4">
           <div className="min-w-0">
             <h2 id="modifica-immobile" className="text-sm font-semibold text-foreground">
-              Modifica scheda immobile
+              {inCreazione ? "Nuovo immobile in portafoglio" : "Modifica scheda immobile"}
             </h2>
             <p className="mt-0.5 truncate text-xs text-muted-foreground">
-              Rif. {property.reference}
+              {property
+                  ? `Rif. ${property.reference}`
+                  : "Riferimento, comune, prezzo e superficie sono i campi che i portali pretendono."}
             </p>
           </div>
           <button
@@ -244,7 +301,15 @@ export function PropertyEditDialog({
                 className="input-field mt-1"
                 value={form.reference}
                 onChange={(e) => set("reference", e.target.value)}
+                aria-invalid={riferimentoOccupato}
+                aria-describedby={riferimentoOccupato ? "ed-ref-errore" : undefined}
               />
+              {riferimentoOccupato && (
+                <p id="ed-ref-errore" className="mt-1 text-xs text-status-blocked">
+                  Esiste già un immobile con questo riferimento. Cambialo, oppure modifica
+                  quello esistente dal portafoglio.
+                </p>
+              )}
             </div>
 
             <div>
@@ -553,9 +618,18 @@ export function PropertyEditDialog({
           <button type="button" onClick={onClose} disabled={isSaving} className="btn-outline text-xs disabled:opacity-50">
             Annulla
           </button>
-          <button type="button" onClick={save} disabled={isSaving} className="btn-brand text-xs disabled:opacity-50">
+          <button
+            type="button"
+            onClick={save}
+            disabled={isSaving || riferimentoOccupato}
+            className="btn-brand text-xs disabled:opacity-50"
+          >
             {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-            {isSaving ? "Salvataggio in corso…" : "Salva modifiche"}
+            {isSaving
+              ? "Salvataggio in corso…"
+              : inCreazione
+                ? "Salva in portafoglio"
+                : "Salva modifiche"}
           </button>
         </footer>
       </div>

@@ -9,6 +9,8 @@ import {
   ENERGY_CLASSES,
   PROPERTY_TYPE_LABELS,
   PROPERTY_TYPES,
+  isContractType,
+  isPropertyType,
   parseNumericHint,
 } from "@/lib/listings/property-fields";
 import type { ImportedListingView } from "./listing-import";
@@ -61,8 +63,23 @@ export function PropertyExportPanel({
   const [saved, setSaved] = useState<SaveOutcome | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Precompilazione da un annuncio importato: si riempiono solo i campi ancora
-  // vuoti, per non sovrascrivere ciò che l'agente ha già corretto a mano.
+  /*
+   * Precompilazione da un annuncio importato.
+   *
+   * Si riempiono solo i campi ancora vuoti: quello che l'agente ha gia'
+   * corretto a mano vince sempre sul dato estratto, anche se il dato estratto
+   * arriva dopo. E' la ragione per cui ogni set passa dalla forma
+   * `(current) => current || ...` invece di assegnare il valore secco.
+   *
+   * Tipologia e contratto sono l'eccezione, e vale la pena dire perche': non
+   * partono vuoti ma dal valore piu' comune (APPARTAMENTO / VENDITA), quindi
+   * "ancora vuoto" non si puo' verificare. Si sovrascrive il valore
+   * predefinito solo quando l'AI ha trovato qualcosa nella fonte, e solo
+   * finche' l'agente non ha aperto il menu: da quel momento comanda lui.
+   */
+  const [tipoTocco, setTipoTocco] = useState(false);
+  const [contrattoTocco, setContrattoTocco] = useState(false);
+
   useEffect(() => {
     if (!imported) return;
 
@@ -70,7 +87,21 @@ export function PropertyExportPanel({
     setPriceEur((current) => current || String(parseNumericHint(imported.price) ?? ""));
     setSquareMeters((current) => current || String(parseNumericHint(imported.squareMeters) ?? ""));
     setRooms((current) => current || String(parseNumericHint(imported.rooms) ?? ""));
-  }, [imported]);
+
+    setComune((current) => current || imported.comune || "");
+    // Sigla in maiuscolo: il campo ne accetta due, e "mo" non sarebbe valido.
+    setProvincia((current) => current || (imported.provincia ?? "").toUpperCase().slice(0, 2));
+    setBathrooms((current) => current || String(parseNumericHint(imported.bathrooms) ?? ""));
+    setFloor((current) => current || imported.floor || "");
+    setEnergyClass((current) => current || ((imported.energyClass ?? "") as EnergyClass | ""));
+
+    if (!tipoTocco && imported.propertyType && isPropertyType(imported.propertyType)) {
+      setType(imported.propertyType);
+    }
+    if (!contrattoTocco && imported.contract && isContractType(imported.contract)) {
+      setContract(imported.contract);
+    }
+  }, [imported, tipoTocco, contrattoTocco]);
 
   function numberOrUndefined(value: string): number | undefined {
     const parsed = Number.parseInt(value, 10);
@@ -164,7 +195,10 @@ export function PropertyExportPanel({
           <select
             id="prop-contract"
             value={contract}
-            onChange={(event) => setContract(event.target.value as ContractType)}
+            onChange={(event) => {
+              setContrattoTocco(true);
+              setContract(event.target.value as ContractType);
+            }}
             className="input-field mt-1"
           >
             {CONTRACT_TYPES.map((option) => (
@@ -182,7 +216,10 @@ export function PropertyExportPanel({
           <select
             id="prop-type"
             value={type}
-            onChange={(event) => setType(event.target.value as PropertyType)}
+            onChange={(event) => {
+              setTipoTocco(true);
+              setType(event.target.value as PropertyType);
+            }}
             className="input-field mt-1"
           >
             {PROPERTY_TYPES.map((option) => (
