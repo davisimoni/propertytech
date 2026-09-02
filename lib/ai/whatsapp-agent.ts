@@ -209,6 +209,23 @@ export const agentReplySchema = z.object({
    * parametri con union imposto dall'API (vedi la nota sul ramo venditore), e
    * per un testo il vuoto dice la stessa cosa senza costarne una.
    */
+  /**
+   * Email del contatto, se la scrive lui.
+   *
+   * Raccolta, non chiesta: aggiungere "mi lascia la sua email?" allunga il
+   * percorso di una domanda che nessuno si aspetta su WhatsApp, dove il
+   * recapito e' gia' il numero. Ma quando qualcuno la scrive da solo — capita
+   * nelle schede inoltrate dai portali e in chi si presenta per esteso — e'
+   * l'unico modo per mandargli la conferma scritta dell'appuntamento.
+   *
+   * Stringa vuota e non `null`: lo schema e' a un passo dal tetto di sedici
+   * parametri con union imposto dall'API.
+   */
+  clientEmail: z
+    .string()
+    .describe(
+      "Indirizzo email del cliente, SOLO se lo scrive spontaneamente. Non chiederlo mai. Stringa VUOTA se non compare."
+    ),
   proposedDateTime: z
     .string()
     .describe(

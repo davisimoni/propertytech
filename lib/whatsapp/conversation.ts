@@ -25,6 +25,7 @@ import {
 } from "@/lib/ai/whatsapp-agent";
 import { deliverLeadToCrm } from "@/lib/integrations/crm-webhook";
 import { notifyHotLead } from "@/lib/notifications/hot-lead";
+import { notifyAppointmentConfirmed } from "@/lib/notifications/appointment";
 import { linkLeadToProperty } from "@/lib/leads/resolve-property";
 import { runMatchingForLead } from "@/lib/matching/run-matching";
 import { notifyMatchesForLead } from "@/lib/notifications/match-found";
@@ -286,6 +287,13 @@ export async function handleIncomingMessage(
          * delle domande cambierebbe a metà conversazione.
          */
         intent: agentReply.leadIntent ?? lead.intent,
+        // Email: si accetta solo qualcosa che assomigli a un indirizzo. Il
+        // modello puo' restituire un frammento di frase, e un "mi scriva pure"
+        // finito in questo campo diventa una conferma spedita nel vuoto.
+        clientEmail:
+          (/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(agentReply.clientEmail.trim())
+            ? agentReply.clientEmail.trim().toLowerCase()
+            : null) ?? lead.clientEmail,
         sellerPropertyComune: vuotoComeNull(agentReply.sellerPropertyComune) ?? lead.sellerPropertyComune,
         sellerPropertyZona: vuotoComeNull(agentReply.sellerPropertyZona) ?? lead.sellerPropertyZona,
         sellerPropertyType: agentReply.sellerPropertyType ?? lead.sellerPropertyType,
@@ -507,6 +515,35 @@ export async function handleIncomingMessage(
 
   if (Object.keys(leadUpdate).length > 0) {
     const updated = await prisma.lead.update({ where: { id: lead.id }, data: leadUpdate });
+
+    /*
+     * Appuntamento appena fissato: partono le due conferme via email.
+     *
+     * # Perche' il confronto con lo stato precedente
+     *
+     * Perche' senza, ogni messaggio successivo di una conversazione che ha
+     * gia' un appuntamento rispedirebbe le stesse due email. Chi le riceve
+     * smette di leggerle, e il cliente si ritrova cinque conferme dello stesso
+     * incontro. Si guarda la TRANSIZIONE, come per la consegna al gestionale.
+     *
+     * # Perche' qui e non dentro il ramo che prenota
+     *
+     * Perche' li' il messaggio WhatsApp non e' ancora partito. Il cliente
+     * aspetta la conferma in chat: fargliela attendere per due invii di posta
+     * significherebbe allungare l'unica risposta che sta guardando davvero.
+     * Qui il messaggio e' gia' andato.
+     *
+     * Non blocca e non lancia: l'appuntamento e' gia' fissato e gia' scritto
+     * sul calendario dell'agente, e una casella di posta che non risponde non
+     * deve poter trasformare una visita concordata in un errore.
+     */
+    if (
+      updated.dealStage === "VISIT_SCHEDULED" &&
+      lead.dealStage !== "VISIT_SCHEDULED" &&
+      updated.appointmentSlot !== null
+    ) {
+      await notifyAppointmentConfirmed(updated);
+    }
 
     // Il lead ha appena raggiunto QUALIFIED: si inoltra al gestionale
     // dell'agenzia. Il confronto con lo stato precedente evita di rispedirlo a
