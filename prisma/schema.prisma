@@ -386,6 +386,8 @@ model Organization {
   /// a ogni caricamento di pagina.
   extraSeats Int @default(0)
 
+  socialConnection SocialConnection?
+
   crmWebhookUrl    String?
   /// Segreto con cui si firma il payload (HMAC-SHA256, header
   /// `X-PropertyTech-Signature`). Generato dal sistema, non scelto dall'utente:
@@ -1381,6 +1383,54 @@ model VoiceReport {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, createdAt])
+}
+
+/// Collegamento alla Pagina Facebook e al profilo Instagram dell'agenzia.
+///
+/// # Perche' una tabella e non campi su Organization
+///
+/// Perche' porta un token, e un token vuole una riga sua: si revoca, scade e
+/// si riemette, e tenerlo accanto ai dati anagrafici dell'agenzia significa
+/// toccare quella riga a ogni rinnovo. Una tabella separata si cancella
+/// quando l'agenzia scollega, senza lasciare campi vuoti in giro.
+///
+/// Una sola per agenzia: la Pagina Facebook e il profilo Instagram collegato
+/// arrivano insieme dallo stesso consenso Meta, e gestire piu' pagine per la
+/// stessa agenzia e' un problema che nessuna agenzia ha finche' non ha almeno
+/// due sedi con due pagine distinte.
+model SocialConnection {
+  id String @id @default(cuid())
+
+  /// Pagina Facebook: id e nome, per poter dire A COSA si e' connessi.
+  /// Mostrare "Connesso" senza dire a quale pagina non permette di accorgersi
+  /// che si e' collegata quella sbagliata.
+  facebookPageId   String
+  facebookPageName String
+
+  /// Profilo Instagram Business agganciato alla Pagina. Facoltativo: una
+  /// Pagina puo' esistere senza un profilo Instagram collegato, e in quel caso
+  /// si pubblica solo su Facebook invece di rifiutare tutto.
+  instagramUserId   String?
+  instagramUsername String?
+
+  /// Token di pagina, cifrato AES-256-GCM (CLAUDE.md §5).
+  ///
+  /// Pubblica a nome dell'agenzia sulla sua pagina: in chiaro sarebbe
+  /// leggibile da qualunque copia del database e permetterebbe a chiunque di
+  /// scrivere sui suoi social. Un valore non cifrato viene rifiutato, non
+  /// usato come ripiego.
+  accessToken String
+
+  /// Quando scade il token, se Meta lo dichiara. `null` per i token di pagina
+  /// a lunga durata, che non hanno una scadenza fissa ma possono comunque
+  /// essere revocati dall'utente.
+  expiresAt DateTime?
+
+  connectedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
 /// Numeri su cui l'assistente non deve intervenire, per questa agenzia.

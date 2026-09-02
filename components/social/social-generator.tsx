@@ -6,6 +6,7 @@ import { UpgradeLimitModal } from "@/components/billing/upgrade-limit-modal";
 import { ShareActions } from "@/components/shared/share-actions";
 import { ListingImport, type ImportedListingView } from "@/components/social/listing-import";
 import { PropertyExportPanel } from "@/components/social/property-export-panel";
+import { PublishButton } from "@/components/social/publish-button";
 import { AiDisclaimer } from "@/components/shared/ai-disclaimer";
 import { AI_DISCLAIMER_SHORT } from "@/lib/compliance";
 import { TONE_LABELS, TONE_OPTIONS, type SocialContent, type ToneOfVoice } from "@/lib/ai/social-schema";
@@ -85,8 +86,20 @@ export function SocialGenerator() {
         return;
       }
 
-      setContent(body.content as SocialContent);
+      const generato = body.content as SocialContent;
+      setContent(generato);
       setActiveTab("portal");
+
+      /*
+       * Il titolo per il portafoglio, se non ce l'abbiamo gia'.
+       *
+       * Serviva il campo "Titolo Immobile" che stava nel riquadro rimosso:
+       * senza, il salvataggio in portafoglio resterebbe bloccato e l'agente
+       * non avrebbe piu' un posto dove scrivere quel titolo. Lo si prende
+       * dall'annuncio appena generato, che e' gia' un titolo scritto sui suoi
+       * dati — e resta modificabile nel riquadro "Dati per i portali".
+       */
+      setPropertyTitle((corrente) => corrente || generato.portalListing.title);
 
       // Generare senza aver premuto "Compila i campi" lasciava la scheda di
       // portafoglio vuota, e l'agente la ribatteva a mano avendo davanti un
@@ -139,9 +152,18 @@ export function SocialGenerator() {
     }
   }
 
-  // Basta UNA delle due sorgenti: i campi compilati a mano oppure il testo
-  // incollato. Le stesse soglie del server (lib/ai/social-schema.ts), così il
-  // pulsante non si accende su un payload che verrebbe poi rifiutato.
+  /*
+   * Cosa accende il pulsante.
+   *
+   * Il testo incollato basta da solo. I campi contano ancora perche' un
+   * "Estrai da Link" riuscito li riempie senza che nella casella di testo
+   * finisca nulla: in quel caso il pulsante deve accendersi lo stesso, o
+   * un'estrazione andata a buon fine lascerebbe l'agente davanti a un pulsante
+   * spento senza capire cosa manca.
+   *
+   * Le stesse soglie del server (lib/ai/social-schema.ts), cosi' non si accende
+   * su un payload che verrebbe poi rifiutato.
+   */
   const hasFields = propertyTitle.trim().length >= 3 && keyPoints.trim().length >= 10;
   const hasRawText = rawText.trim().length >= 30;
   const canGenerate = hasFields || hasRawText;
@@ -160,46 +182,15 @@ export function SocialGenerator() {
         onLocked={() => setLockedPlan("Enterprise")}
       />
 
+      {/* Tono e generazione, subito sotto l'input.
+
+          Il riquadro "Dati dell'immobile" che stava qui — titolo, punti
+          chiave, testo libero — chiedeva una seconda volta cio' che l'agente
+          aveva gia' incollato sopra. Due caselle che vogliono la stessa cosa
+          non sono una scelta: sono un dubbio su quale delle due conti, e chi
+          non lo scioglie compila entrambe. */}
       <section className="rounded-xl border border-border bg-card p-4 md:p-5">
-        <h2 className="text-sm font-semibold text-foreground">Dati dell&apos;immobile</h2>
-        {/* Chiarisce che questa sezione è una delle due strade, non un
-            passaggio obbligato dopo la casella di testo qui sopra. */}
-        <p className="mt-1 text-sm text-muted-foreground">
-          Compilali a mano, oppure lasciali vuoti e genera direttamente dal testo incollato sopra.
-        </p>
-
-        <div className="mt-4 space-y-4">
-          <div>
-            <label htmlFor="property-title" className="text-xs font-medium text-muted-foreground">
-              Titolo Immobile
-            </label>
-            <input
-              id="property-title"
-              type="text"
-              value={propertyTitle}
-              onChange={(event) => setPropertyTitle(event.target.value)}
-              placeholder="Trilocale ristrutturato in Via Roma"
-              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-base text-foreground sm:text-sm outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="key-points" className="text-xs font-medium text-muted-foreground">
-              Punti chiave
-            </label>
-            <textarea
-              id="key-points"
-              value={keyPoints}
-              onChange={(event) => setKeyPoints(event.target.value)}
-              rows={4}
-              placeholder="Trilocale, 80mq, ristrutturato 2023, zona centrale, 250.000€, balcone abitabile, terzo piano con ascensore, classe energetica C"
-              className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-base text-foreground sm:text-sm outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
-            />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Scrivi liberamente: l&apos;AI userà solo i dati che inserisci, senza inventarne altri.
-            </p>
-          </div>
-
+        <div className="space-y-4">
           <div>
             <span className="text-xs font-medium text-muted-foreground">Tono di voce</span>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -305,7 +296,15 @@ export function SocialGenerator() {
 
             {activeTab === "social" && (
               <div className="space-y-3">
-                <div className="flex justify-end">
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {/* Pubblicare e copiare stanno insieme: sono le due cose che si
+                      fanno con un post pronto, e chi non ha collegato i social deve
+                      comunque poterlo copiare. */}
+                  <PublishButton
+                    testo={`${content.socialPost.caption}\n\n${content.socialPost.hashtags
+                      .map((tag) => `#${tag}`)
+                      .join(" ")}`}
+                  />
                   <ShareActions
                     text={withDisclaimer(
                       `${content.socialPost.caption}\n\n${content.socialPost.hashtags

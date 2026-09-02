@@ -4,6 +4,7 @@ import { CalendarDays, ChevronRight, ShieldCheck } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { PlanGrid } from "@/components/billing/plan-grid";
+import { SocialConnectPanel } from "@/components/settings/social-connect-panel";
 import { CheckoutOutcomeBanner } from "@/components/billing/checkout-outcome-banner";
 import { UsageWidget } from "@/components/billing/usage-widget";
 import { BrandingPanel } from "@/components/settings/branding-panel";
@@ -109,7 +110,12 @@ export default async function SettingsPage() {
             </>
           }
           referral={<ReferralPanel />}
-          integrations={<IntegrationPanel />}
+          integrations={
+            <div className="space-y-4">
+              <SocialConnectPanel currentRole={session?.user?.role ?? "AGENT"} />
+              <IntegrationPanel />
+            </div>
+          }
           privacy={
             <section className="rounded-xl border border-border bg-card p-4">
               <div className="flex items-start gap-3">
