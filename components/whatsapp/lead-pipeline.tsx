@@ -20,7 +20,13 @@ import {
   FlaskConical,
 } from "lucide-react";
 import { LeadKanban } from "./lead-kanban";
+import type { LeadIntent } from "@prisma/client";
 import { PORTAL_SOURCE_LABELS, QUALIFICATION_STATUS_LABELS } from "@/lib/whatsapp/types";
+import {
+  LEAD_INTENT_CLASSES,
+  LEAD_INTENT_LABELS,
+  isSellerIntent,
+} from "./seller-lead-card";
 import { STATUS_BADGE_CLASSES, type LeadView } from "@/lib/whatsapp/view-types";
 import {
   deriveSellerCategory,
@@ -49,6 +55,33 @@ const REFRESH_INTERVAL_MS = 15_000;
  * Serve a riconoscere un multi-proprietario scorrendo la lista, senza aprire
  * la scheda: è l'informazione che decide chi chiamare per primo.
  */
+/**
+ * Segnala in elenco un contatto che vuole vendere.
+ *
+ * Compatto — "Incarico", non l'etichetta per esteso — perche' sta accanto al
+ * nome in una riga stretta: e' un segnale da riconoscere scorrendo, non da
+ * leggere. L'etichetta completa e' nel cassetto, dove c'e' spazio.
+ *
+ * Niente badge per gli acquirenti: su questo numero sono la quasi totalita', e
+ * un'etichetta su ogni riga non distinguerebbe nulla.
+ */
+function IntentBadge({ intent }: { intent: LeadIntent | null }) {
+  if (!isSellerIntent(intent) || !intent) return null;
+
+  return (
+    <span
+      title={LEAD_INTENT_LABELS[intent]}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-semibold",
+        LEAD_INTENT_CLASSES[intent]
+      )}
+    >
+      <Home className="h-3 w-3" />
+      {intent === "ENTRAMBI" ? "Vende e compra" : "Incarico"}
+    </span>
+  );
+}
+
 function PortfolioBadge({ count }: { count: number | null }) {
   const label = portfolioBadgeLabel(count);
   if (!label) return null;
@@ -417,6 +450,7 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
                     <span className="flex items-center gap-1.5">
                       <span className="truncate">{lead.clientName}</span>
                       <PortfolioBadge count={lead.ownedPropertiesCount} />
+                      <IntentBadge intent={lead.intent} />
                       {lead.pendingMatches.length > 0 && (
                         <span
                           title="Corrispondenza da visura da verificare"
@@ -481,6 +515,7 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
                       {lead.clientName}
                     </span>
                     <PortfolioBadge count={lead.ownedPropertiesCount} />
+                    <IntentBadge intent={lead.intent} />
                   </div>
                   <span
                     className={cn(

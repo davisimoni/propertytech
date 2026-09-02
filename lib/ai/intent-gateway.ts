@@ -51,6 +51,27 @@ const intentSchema = z.object({
     .describe(
       "true SOLO se il messaggio avvia una richiesta immobiliare nuova, distinta da quella eventualmente gia' trattata nella conversazione. false per ringraziamenti, conferme, saluti di commiato e domande di seguito su ciò di cui si è già parlato."
     ),
+  /**
+   * Comprare o vendere.
+   *
+   * # Perché la decisione sta qui e non solo nell'agente di qualificazione
+   *
+   * Perché serve **prima** che la conversazione cominci. Questo filtro gira
+   * sul primo messaggio, un attimo prima che la scheda venga creata, ed è
+   * l'unico punto in cui si può ancora scegliere come aprire: a chi scrive
+   * "vorrei vendere casa mia" non si può rispondere "che tipo di immobile
+   * cerca e in quale zona?". Sarebbe la prima frase, e direbbe a quella
+   * persona che dall'altra parte non ha letto nessuno.
+   *
+   * L'agente di qualificazione lo rivaluta poi a ogni turno, con tutta la
+   * conversazione davanti: qui si decide l'apertura, lì si corregge il tiro.
+   */
+  intenzione: z
+    .enum(["ACQUISTO", "VENDITA", "ENTRAMBI"])
+    .nullable()
+    .describe(
+      "VENDITA se il messaggio parla di vendere, far valutare o mettere sul mercato un immobile che il contatto ha. ACQUISTO se cerca casa. ENTRAMBI se dice esplicitamente di voler vendere per comprare. null se dal messaggio non si capisce."
+    ),
   motivo: z
     .string()
     .describe("Categoria in due o tre parole, per i log. Es. 'saluto iniziale', 'pubblicità'."),
@@ -88,6 +109,14 @@ Serve a decidere se **riaprire** una pratica gia' chiusa, quindi la soglia e' al
 Se pertinente e' false, nuovaRichiesta e' false.
 Nel dubbio, false: riaprire una pratica chiusa fa ripartire l'assistente sopra un agente che l'aveva gia' presa in carico, ed e' un danno peggiore di una riapertura mancata, che l'agente vede comunque in cronologia.
 
+# Comprare o vendere (intenzione)
+Un'agenzia immobiliare vive di due mestieri, e le domande da fare sono diverse.
+- VENDITA: "vorrei vendere casa", "quanto vale il mio appartamento?", "fate valutazioni gratuite?", "ho un immobile da mettere in vendita", "ho ereditato una casa e vorrei liberarmene", "mi fareste una stima?".
+- ACQUISTO: cerca, vuole visitare, chiede il prezzo di un immobile in annuncio, parla di mutuo per comprare.
+- ENTRAMBI: dice tutte e due le cose — tipicamente "devo vendere la mia per comprarne una piu' grande". Usalo solo quando entrambe sono esplicite.
+- null quando il messaggio non basta: un "buongiorno" secco, una domanda di servizio, una frase ambigua. Non tirare a indovinare — dall'intenzione dipende quali domande verranno fatte a questa persona, e sbagliare ramo significa farne quattro che non la riguardano.
+Se pertinente e' false, intenzione e' null.
+
 # La regola che vince su tutte
 Nel dubbio, pertinente: true.
 Sbagliare qui significa lasciare senza risposta una persona che voleva comprare casa, e nessuno se ne accorgerà. Scarta solo ciò di cui sei certo.`;
@@ -122,7 +151,7 @@ export async function classifyIntent(params: {
     });
 
     if (response.stop_reason === "refusal" || !response.parsed_output) {
-      return { pertinente: true, nuovaRichiesta: false, motivo: "classificazione non disponibile" };
+      return { pertinente: true, nuovaRichiesta: false, intenzione: null, motivo: "classificazione non disponibile" };
     }
 
     return response.parsed_output;
@@ -133,6 +162,6 @@ export async function classifyIntent(params: {
     // Il ripiego non riapre mai una pratica chiusa: in caso di guasto si
     // lascia passare il messaggio, ma la riapertura resta una decisione
     // che qualcuno deve avere effettivamente preso.
-    return { pertinente: true, nuovaRichiesta: false, motivo: "errore del filtro" };
+    return { pertinente: true, nuovaRichiesta: false, intenzione: null, motivo: "errore del filtro" };
   }
 }

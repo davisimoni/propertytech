@@ -79,6 +79,8 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       "Zona, tipologia, budget e metratura finiscono da soli nelle «Preferenze di ricerca» della scheda, mentre la conversazione va avanti: non devi ribatterli a mano. Se correggi un campo, la tua correzione vince e non viene sovrascritta.",
       "Appena quei criteri cambiano, gli immobili compatibili in portafoglio si ricalcolano subito. L'email di segnalazione parte però solo a qualificazione conclusa: durante la conversazione i criteri si assestano turno dopo turno, e un avviso a ogni assestamento diventerebbe rumore.",
       "Se il cliente risponde in modo vago l'assistente propone due o tre fasce fra cui scegliere. Dopo la seconda risposta vaga sullo stesso punto lascia perdere e prosegue: insistere una terza volta fa chiudere la conversazione.",
+      "Chi scrive per VENDERE viene riconosciuto dal primo messaggio e segue un percorso suo: dove si trova l'immobile, com'e' fatto, entro quando vuole vendere e la disponibilita' per un sopralluogo. A un venditore non viene mai chiesto un budget d'acquisto. In elenco lo riconosci dal badge «Incarico».",
+      "L'assistente non da' mai una valutazione, nemmeno indicativa, nemmeno se il proprietario insiste: rimanda al sopralluogo gratuito. Una cifra detta per messaggio diventa l'aspettativa su cui poi ti tocca trattare al ribasso.",
       "Chi risponde STOP viene escluso in modo permanente da ogni invio automatico, come impone il GDPR. Nemmeno una nuova richiesta dai portali riattiva i messaggi verso quel numero.",
       "I crediti WhatsApp si consumano all'avvio della conversazione, non a ogni messaggio scambiato.",
     ],

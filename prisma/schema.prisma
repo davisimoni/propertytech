@@ -90,6 +90,29 @@ enum PortalSource {
 /// È sempre derivata da `Lead.ownedPropertiesCount` tramite
 /// `deriveSellerCategory()` in lib/whatsapp/portfolio.ts: non va mai impostata
 /// a mano, altrimenti conteggio e categoria possono divergere.
+/// Cosa vuole fare il contatto: comprare, vendere, o entrambe le cose.
+///
+/// # Perche' non basta `SellerCategory`
+///
+/// Sono due assi diversi e vanno tenuti separati. `SellerCategory` dice
+/// **quanti immobili possiede** — informazione commerciale, ricavata dal
+/// conteggio del portafoglio. `LeadIntent` dice **cosa e' venuto a chiedere**:
+/// un proprietario di tre case puo' scrivere per comprarne una quarta, e un
+/// nullatenente puo' scrivere per vendere la casa che ha ereditato.
+///
+/// Serve a decidere le domande. A chi vuole vendere non si chiede il budget
+/// d'acquisto ne' la zona in cui cerca: si chiede dove sta l'immobile che ha,
+/// com'e' fatto e quando vuole venderlo. Sbagliare ramo qui significa fare a
+/// una persona quattro domande che non la riguardano.
+enum LeadIntent {
+  ACQUISTO
+  VENDITA
+  /// Vuole vendere per comprare: entrambi i percorsi valgono, ed e' il caso
+  /// commercialmente piu' interessante — due operazioni con lo stesso
+  /// contatto.
+  ENTRAMBI
+}
+
 enum SellerCategory {
   BUYER_ONLY
   SINGLE_SELLER
@@ -740,6 +763,28 @@ model Lead {
   ///
   /// `null` significa "non ancora rilevato" ed è diverso da `0`, che significa
   /// "acquirente senza immobili da vendere": la GUI mostra due cose diverse.
+  /// Cosa e' venuto a chiedere. `null` finche' non e' chiaro.
+  intent LeadIntent?
+
+  /// --- Immobile che il contatto vuole vendere (acquisizione incarico) ---
+  ///
+  /// Popolati dal ramo venditore della qualificazione. Restano `null` per chi
+  /// scrive solo per comprare, ed e' giusto cosi': un campo vuoto dice "non
+  /// chiesto", uno riempito a caso direbbe il falso su un immobile vero.
+  sellerPropertyComune       String?
+  sellerPropertyZona         String?
+  sellerPropertyType         PropertyType?
+  sellerPropertySquareMeters Int?
+  /// Stato dell'immobile come lo descrive il proprietario: "ristrutturato",
+  /// "da ristrutturare", "buono stato". Testo libero e non un enum: e' quello
+  /// che serve all'agente per decidere se vale un sopralluogo, e ogni
+  /// tassonomia che si potrebbe imporre qui perderebbe la sfumatura.
+  sellerPropertyCondition    String?
+  sellerTimeframe            String?
+  /// Ha detto di si' a un sopralluogo di valutazione. `null` = non ancora
+  /// chiesto, che e' diverso da `false` = ha rifiutato.
+  sellerValuationInterest    Boolean?
+
   ownedPropertiesCount Int?
   /// Derivata sempre da `ownedPropertiesCount`. È persistita, invece che
   /// calcolata a ogni lettura, solo per poter filtrare e ordinare i lead lato

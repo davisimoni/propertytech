@@ -399,6 +399,9 @@ export async function handleInboundWhatsAppMessage(
         profileName: message.profileName,
         messageText: message.text,
         chatJid: message.chatJid,
+        // Comprare o vendere: deciso dallo stesso verdetto che ha appena
+        // lasciato passare il messaggio, quindi senza una seconda chiamata.
+        intent: verdetto.intenzione,
       });
     } catch (error) {
       console.error("[whatsapp/inbound] Creazione lead da primo contatto fallita", error);

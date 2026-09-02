@@ -60,6 +60,18 @@ Le preferenze estratte (`preferredZone`, `preferredType`, `budgetMin`, `budgetMa
 
 Al termine della qualificazione, fissa un appuntamento direttamente in agenda.
 
+**Acquisizione incarichi: il modulo tratta anche chi vuole VENDERE.** `Lead.intent` (`ACQUISTO` | `VENDITA` | `ENTRAMBI`) e' deciso dal filtro di pertinenza gia' sul **primo** messaggio, prima che la scheda esista: e' l'unico momento in cui si puo' ancora scegliere come aprire la conversazione, e a chi chiede quanto vale casa sua non si puo' rispondere "che tipo di immobile cerca?". L'agente di qualificazione lo rilegge poi a ogni turno, con tutta la conversazione davanti.
+
+Per un venditore le domande sono altre, sempre una per messaggio: **ubicazione** dell'immobile → **tipologia, metratura approssimativa e stato** → **tempistica di vendita** → **sopralluogo di valutazione**, che e' l'obiettivo di tutta la conversazione. Budget d'acquisto e zona di ricerca non si chiedono mai a chi vende.
+
+**L'assistente non fornisce mai una valutazione, nemmeno indicativa, nemmeno sotto insistenza.** Non conosce il mercato di quella via e non ha visto l'immobile: una cifra detta adesso diventa l'aspettativa su cui l'agente dovra' trattare al ribasso davanti a un proprietario deluso.
+
+I campi del venditore (`sellerProperty*`, `sellerTimeframe`, `sellerValuationInterest`) sono **separati** da quelli d'acquisto e non riusati: un `preferredZone` che a volte e' la zona cercata e a volte quella dell'immobile posseduto e' un campo che nessuna query puo' interrogare, e su cui il matching sbaglierebbe in silenzio. `LeadIntent` e `SellerCategory` restano due assi diversi: il primo dice cosa e' venuto a chiedere, il secondo quanti immobili possiede.
+
+Un contatto `ENTRAMBI` percorre **prima** il ramo venditore e poi quello acquirente, e ha `mustSellFirst` a true: vende per comprare, che e' esattamente cio' che quel campo significa.
+
+**Vincolo dell'API da conoscere prima di aggiungere campi:** uno schema di output strutturato accetta al massimo **16 parametri con union** (ogni `.nullable()` ne e' una). Superandolo la chiamata viene rifiutata con un 400, cioe' *ogni* messaggio in arrivo finisce nel messaggio di ripiego, in silenzio. Per questo i testi del ramo venditore usano la stringa vuota al posto di `null` e la convertono con `vuotoComeNull()` prima di scrivere in scheda: restano nullable solo i campi dove il vuoto sarebbe ambiguo — un booleano deve distinguere "no" da "non chiesto".
+
 **Sincronizzazione calendari esterni (Google / Outlook).** L'agenda interna (`CalendarSlot`, gestita da `/settings/calendar`) resta la **fonte di verità** dell'agenzia: dice *cosa* si può proporre. Il calendario esterno serve a due cose soltanto — togliere dagli slot proponibili quelli che si sovrappongono a un impegno reale (`getAgentFreeSlots` in `lib/calendar/sync.ts`) e far comparire in agenda la visita fissata dall'AI (`createCalendarEvent`, titolo `Visita Immobiliare - [Nome Lead]`).
 
 Il collegamento è **per agente, non per agenzia** (`CalendarConnection`, unico su `[userId, provider]`): il calendario è quello personale di chi lo collega. Gli slot generici (`assignedToId: null`) non vengono scritti su nessun calendario — senza un agente, scegliere d'ufficio quello di un collaboratore riempirebbe l'agenda della persona sbagliata.

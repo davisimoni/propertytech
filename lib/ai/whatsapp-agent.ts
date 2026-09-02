@@ -106,15 +106,87 @@ export const agentReplySchema = z.object({
     .describe(
       "Superficie minima in metri quadri dichiarata dal cliente. null finché non emerge. Non dedurla dal numero di locali."
     ),
+
+  /*
+   * Il ramo venditore: acquisizione di un incarico.
+   *
+   * Un'agenzia immobiliare vive di due mestieri e finora la conversazione ne
+   * conosceva uno solo. A chi scriveva "quanto vale casa mia?" l'assistente
+   * chiedeva il budget d'acquisto e la zona in cui cercava — quattro domande
+   * che non lo riguardavano — e l'agenzia perdeva il tipo di contatto che
+   * vale di più: un incarico in acquisizione, non una richiesta fra le tante.
+   *
+   * I campi restano separati da quelli d'acquisto invece di riusarli. Un
+   * `preferredZone` che a volte è "la zona dove cerca" e a volte "la zona
+   * dove ha la casa" è un campo che nessuna query può interrogare con
+   * fiducia, e su cui il matching sbaglierebbe silenziosamente.
+   */
+  leadIntent: z
+    .enum(["ACQUISTO", "VENDITA", "ENTRAMBI"])
+    .nullable()
+    .describe(
+      "Cosa vuole fare il contatto, riletto su TUTTA la conversazione. ENTRAMBI se vuole vendere per comprare. null finché non è chiaro."
+    ),
+  /*
+   * I testi del ramo venditore usano la stringa vuota, non `null`.
+   *
+   * # Perche', visto che ovunque altrove il vuoto e' `null`
+   *
+   * Perche' l'API pone un tetto rigido: **al massimo 16 parametri con union**
+   * in uno schema di output strutturato, e ogni `.nullable()` e' una union.
+   * Con i sette campi del venditore lo schema arrivava a 18 e la chiamata
+   * veniva rifiutata con un 400 — cioe' ogni singolo messaggio in arrivo
+   * sarebbe finito nel messaggio di ripiego, in silenzio.
+   *
+   * Per un testo la stringa vuota dice la stessa cosa di `null` senza costare
+   * una union. Restano nullable solo i campi dove il vuoto e' ambiguo: un
+   * booleano ha bisogno di distinguere "no" da "non chiesto", e uno zero non
+   * si distingue da un valore mancante.
+   *
+   * `vuotoComeNull()` fa la conversione al momento di scrivere in scheda, cosi'
+   * il database continua a contenere `null` e questa concessione non esce da
+   * questo file.
+   */
+  sellerPropertyComune: z
+    .string()
+    .describe("Comune dell'immobile che il contatto vuole VENDERE. Stringa VUOTA se non emerge."),
+  sellerPropertyZona: z
+    .string()
+    .describe("Zona, quartiere o via dell'immobile da vendere. Stringa VUOTA se non emerge."),
+  sellerPropertyType: z
+    .enum(PROPERTY_TYPES as [PropertyType, ...PropertyType[]])
+    .nullable()
+    .describe("Tipologia dell'immobile da vendere. Un 'trilocale' è APPARTAMENTO. null se non emerge."),
+  sellerPropertySquareMeters: z
+    .number()
+    .int()
+    .nullable()
+    .describe("Metri quadri approssimativi dell'immobile da vendere, come li dichiara il proprietario."),
+  sellerPropertyCondition: z
+    .string()
+    .describe(
+      "Stato dell'immobile da vendere con le parole del proprietario: 'ristrutturato', 'da ristrutturare', 'buono stato'. Stringa VUOTA se non emerge."
+    ),
+  sellerTimeframe: z
+    .string()
+    .describe(
+      "Entro quando vuole vendere (es. 'entro 6 mesi', 'nessuna fretta'). Stringa VUOTA se non emerge."
+    ),
+  sellerValuationInterest: z
+    .boolean()
+    .nullable()
+    .describe(
+      "true se ha accettato un sopralluogo di valutazione, false se ha rifiutato, null se non gliel'hai ancora proposto."
+    ),
   offTopic: z
     .boolean()
     .describe(
-      "true se il messaggio del cliente non riguarda la ricerca di un immobile (saluto casuale, pubblicita', numero sbagliato, messaggio personale, provocazione). false in tutti gli altri casi, anche quando il cliente fa una domanda di servizio sull'agenzia."
+      "true se il messaggio non riguarda l'attivita' dell'agenzia (saluto casuale, pubblicita', numero sbagliato, messaggio personale, provocazione). false in tutti gli altri casi: comprare, VENDERE, far valutare un immobile e le domande di servizio sull'agenzia sono tutti in tema."
     ),
   outcome: z
     .enum(["CONTINUE", "QUALIFIED", "UNQUALIFIED"])
     .describe(
-      "CONTINUE se mancano ancora risposte alle 3 domande; QUALIFIED o UNQUALIFIED solo quando tutte e 3 le variabili sono note."
+      "CONTINUE finche' il criterio del percorso in corso non e' soddisfatto. QUALIFIED o UNQUALIFIED solo applicando il criterio del percorso giusto: quello dell'acquirente per chi compra, quello del venditore per chi vende, entrambi per un contatto ENTRAMBI."
     ),
   selectedSlotIndex: z
     .number()
@@ -126,6 +198,20 @@ export const agentReplySchema = z.object({
 });
 
 export type AgentReply = z.infer<typeof agentReplySchema>;
+
+/**
+ * Stringa vuota -> `null`, per i campi che usano la convenzione del vuoto.
+ *
+ * Il confine sta qui: dentro lo schema il vuoto e' `""` per non spendere una
+ * union (vedi la nota sui campi del venditore), in scheda torna a essere
+ * `null` come ogni altro dato non ancora raccolto. Senza questa conversione
+ * il database si riempirebbe di stringhe vuote, che a una query risultano
+ * "presenti" e a un occhio umano "vuote".
+ */
+export function vuotoComeNull(valore: string | null | undefined): string | null {
+  const pulito = valore?.trim();
+  return pulito ? pulito : null;
+}
 
 export class WhatsAppAgentError extends Error {
   constructor(
@@ -204,7 +290,29 @@ function buildSystemPrompt(
 # Tono
 Professionale, empatico, sintetico. Italiano impeccabile, forma di cortesia ("lei"). Massimo 2-3 frasi brevi per messaggio: stai scrivendo su WhatsApp, non via email. Niente elenchi puntati, niente emoji, niente formattazione markdown.
 
-# Obiettivo
+# Prima di tutto: vuole comprare o vendere?
+Un'agenzia fa due mestieri, e le domande sono diverse. Stabiliscilo dal primo messaggio utile e valorizza leadIntent.
+- Se **vende** (ha un immobile da valutare o da mettere sul mercato), segui il PERCORSO VENDITORE.
+- Se **compra**, segui il PERCORSO ACQUIRENTE.
+- Se dice tutte e due le cose — "devo vendere la mia per comprarne una più grande" — leadIntent è ENTRAMBI: fai PRIMA il percorso venditore e poi quello acquirente, senza mai mescolare le domande in uno stesso messaggio. L'immobile che ha in mano è la cosa concreta; quello che cercherà dipende da quanto ricava.
+- Se non è chiaro, fai il percorso acquirente: è il caso più frequente. Al primo segnale contrario cambia ramo senza farne un caso.
+
+# PERCORSO VENDITORE (leadIntent VENDITA o ENTRAMBI)
+Non chiedere MAI a un venditore il budget d'acquisto o la zona in cui cerca casa. Non sta cercando niente: ha qualcosa da vendere. Una domanda per messaggio, in quest'ordine, saltando ciò che ha già detto:
+1. UBICAZIONE — comune e zona o via dell'immobile.
+2. TIPOLOGIA E CARATTERISTICHE — che immobile è, quanti metri quadri all'incirca, in che stato (ristrutturato, da ristrutturare, buono stato). Se serve, spezzale in due messaggi: prima cosa è e quanto è grande, poi lo stato.
+3. TEMPISTICA — entro quando vorrebbe vendere.
+4. SOPRALLUOGO — proponi la valutazione gratuita di persona. È l'obiettivo di tutta la conversazione: una valutazione seria non si fa per messaggio, e nessuna agenzia prende un incarico senza aver visto l'immobile.
+
+Sui metri quadri e sullo stato accetta l'approssimazione: "un centinaio di metri", "diciamo buono". Chi vende spesso non ha i dati precisi sottomano, e insistere per un numero esatto fa abbandonare la conversazione.
+
+**Non dare mai una valutazione, nemmeno indicativa, nemmeno se insiste.** Non conosci il mercato di quella via, non hai visto l'immobile e una cifra sbagliata detta adesso diventa l'aspettativa su cui l'agente dovrà trattare al ribasso davanti a un proprietario deluso. Rispondi che la stima la fa l'agente dopo il sopralluogo, che è gratuito e senza impegno.
+
+Per un venditore puro (leadIntent VENDITA) mortgageApproved, mustSellFirst, timeframe e le preferenze d'acquisto restano null: sono domande dell'altro percorso.
+
+Per un contatto ENTRAMBI invece **mustSellFirst e' true**, a meno che dica esplicitamente di poter comprare senza aspettare la vendita: sta vendendo per comprare, ed e' esattamente cio' che quel campo significa. Vanno riempite sia le preferenze d'acquisto sia i campi dell'immobile da vendere.
+
+# PERCORSO ACQUIRENTE (leadIntent ACQUISTO)
 Capire cosa cerca e se può comprarlo. UNA SOLA DOMANDA per messaggio, sempre: due domande insieme su WhatsApp ne fanno rimanere senza risposta almeno una, e di solito è la seconda.
 
 Chiedi la prima cosa ancora sconosciuta seguendo QUESTO ordine. Salta ciò che il cliente ha già detto: richiedere un dato che ha appena scritto fa pensare che dall'altra parte non legga nessuno.
@@ -231,12 +339,19 @@ A volte il primo messaggio non e' una frase ma una scheda: righe come "Nome:", "
 
 Riconosci brevemente la risposta ricevuta prima di passare alla successiva. Se il cliente fa una domanda sull'immobile, rispondi che un agente fornirà i dettagli e riporta la conversazione sulla qualificazione.
 
-# Criterio di qualificazione (applicalo solo quando conosci tutte e 3 le variabili di FATTIBILITÀ)
+# Criterio di qualificazione — ACQUIRENTE (applicalo solo quando conosci tutte e 3 le variabili di FATTIBILITÀ)
 QUALIFIED se: (mutuo deliberato OPPURE liquidità immediata) E (non deve vendere prima, oppure la vendita non è vincolante) E (acquisto entro 6 mesi).
 UNQUALIFIED in tutti gli altri casi.
 
+# Criterio di qualificazione — VENDITORE
+QUALIFIED quando conosci ubicazione, tipologia e tempistica dell'immobile, E il proprietario ha accettato il sopralluogo di valutazione.
+UNQUALIFIED se rifiuta il sopralluogo o dichiara di non voler vendere davvero (voleva solo sapere una cifra).
+Finché una di queste manca, CONTINUE.
+
+Per un contatto ENTRAMBI: chiudi solo quando hai completato **entrambi** i percorsi. È il contatto più prezioso che l'agenzia possa ricevere — un incarico e un acquisto insieme — e chiuderlo a metà ne butta via una.
+
 # Messaggio finale
-Appena conosci tutte e 3 le variabili di FATTIBILITÀ, la qualificazione e' FINITA: non fare altre domande, chiudi. Vale anche se i dettagli del punto 4 sono ancora vuoti: quelli sono un di più, e trattenere una persona che ha già risposto a tutto per chiederle i metri quadri è il modo di perderla sull'ultimo passo.
+Appena il criterio del percorso in corso è soddisfatto, la qualificazione e' FINITA: non fare altre domande, chiudi. Per l'acquirente vale anche con i dettagli del punto 4 ancora vuoti: quelli sono un di più, e trattenere una persona che ha già risposto a tutto per chiederle i metri quadri è il modo di perderla sull'ultimo passo.
 - Se QUALIFIED: ringrazia e proponi di fissare una visita seguendo la sezione Agenda qui sotto.
 - Se UNQUALIFIED: ringrazia cordialmente, spiega che un agente lo ricontatterà appena disponibile. Non dire mai che non è idoneo o che non è qualificato.
 - Se CONTINUE: il messaggio deve contenere la domanda successiva.
@@ -249,7 +364,7 @@ ${buildSlotSection(availableSlots)}
 Se il cliente chiede dove siete, quando siete aperti o come contattarvi, rispondi con i dati sopra e SUBITO DOPO riprendi la domanda di qualificazione a cui non ti ha ancora risposto. Non e' un fuori tema: e' una persona che si sta orientando, e lasciarla senza risposta per insistere con le domande la fa smettere di scrivere.
 
 # Messaggi fuori contesto
-Alcuni messaggi non riguardano la ricerca di una casa: pubblicita', catene, numeri sbagliati, messaggi personali, provocazioni.
+Alcuni messaggi non riguardano l'attivita' dell'agenzia: pubblicita', catene, numeri sbagliati, messaggi personali, provocazioni. Chi vuole VENDERE o far valutare un immobile NON e' fuori contesto: e' un incarico in acquisizione, cioe' il contatto piu' prezioso che arrivi su questo numero.
 - Imposta offTopic a true e lascia TUTTE le variabili strutturate a null: non dedurre nulla da un messaggio che non parla di immobili.
 - Rispondi UNA volta, in modo breve e cortese, dicendo che questo e' il canale dell'agenzia per le richieste sugli immobili.
 - NON riproporre le domande di qualificazione e non insistere. Se la persona ha sbagliato numero, continuare a chiederle il budget e' molesto.

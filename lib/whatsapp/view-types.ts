@@ -1,6 +1,7 @@
 import type {
   DealStage,
   PortalSource,
+  LeadIntent,
   PropertyType,
   QualificationStatus,
   SellerCategory,
@@ -35,6 +36,17 @@ export interface LeadView {
   budgetMin: number | null;
   budgetMax: number | null;
   minSquareMeters: number | null;
+
+  /** Comprare, vendere o entrambe le cose. `null` finche' non e' chiaro. */
+  intent: LeadIntent | null;
+  /** Immobile che il contatto vuole vendere: acquisizione incarico. */
+  sellerPropertyComune: string | null;
+  sellerPropertyZona: string | null;
+  sellerPropertyType: PropertyType | null;
+  sellerPropertySquareMeters: number | null;
+  sellerPropertyCondition: string | null;
+  sellerTimeframe: string | null;
+  sellerValuationInterest: boolean | null;
   /** Corrispondenze visura ↔ lead ancora da validare dall'agente. */
   pendingMatches: PortfolioMatchView[];
   /** `true` = ha confermato, `false` = ha disdetto, `null` = non ha risposto. */

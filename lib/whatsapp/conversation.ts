@@ -11,7 +11,12 @@ import {
 } from "./client";
 import { appendMessage } from "./chat-history";
 import { buildOpeningMessage, OPT_OUT_CONFIRMATION } from "./compliance";
-import { generateAgentReply, AGENT_FALLBACK_MESSAGE, type AgencyProfile } from "@/lib/ai/whatsapp-agent";
+import {
+  generateAgentReply,
+  vuotoComeNull,
+  AGENT_FALLBACK_MESSAGE,
+  type AgencyProfile,
+} from "@/lib/ai/whatsapp-agent";
 import { deliverLeadToCrm } from "@/lib/integrations/crm-webhook";
 import { notifyHotLead } from "@/lib/notifications/hot-lead";
 import { linkLeadToProperty } from "@/lib/leads/resolve-property";
@@ -84,11 +89,24 @@ export async function startConversation(
   config: WhatsAppConfig,
   agencyName: string
 ): Promise<void> {
+  /*
+   * L'apertura cambia secondo cosa e' venuto a chiedere.
+   *
+   * A chi vuole vendere si chiede dove sta l'immobile; a chi vuole comprare,
+   * cosa cerca e dove. Sbagliare qui costa piu' che altrove: e' la prima
+   * frase, e nessuno la corregge dopo.
+   *
+   * Con `intent` a null — il filtro non ha capito — si apre col percorso
+   * d'acquisto, che resta il caso di gran lunga piu' frequente per un numero
+   * pubblicato sui portali.
+   */
   const opening = buildOpeningMessage(
     lead.clientName,
     lead.propertyRef,
     agencyName,
-    QUALIFICATION_QUESTIONS.searchCriteria
+    lead.intent === "VENDITA"
+      ? QUALIFICATION_QUESTIONS.sellerLocation
+      : QUALIFICATION_QUESTIONS.searchCriteria
   );
 
   await sendWhatsAppMessageForProvider(
@@ -239,6 +257,28 @@ export async function handleIncomingMessage(
         budgetMin: agentReply.budgetMinEur ?? lead.budgetMin,
         budgetMax: agentReply.budgetMaxEur ?? lead.budgetMax,
         minSquareMeters: agentReply.minSquareMeters ?? lead.minSquareMeters,
+
+        /*
+         * Ramo venditore, stessa regola del `??`.
+         *
+         * `intent` in particolare non torna mai indietro a null: il filtro di
+         * pertinenza lo aveva già deciso sul primo messaggio, e un turno in
+         * cui il modello non se ne occupa non deve cancellare quella
+         * classificazione. Con essa sparirebbe il badge dalla scheda e il ramo
+         * delle domande cambierebbe a metà conversazione.
+         */
+        intent: agentReply.leadIntent ?? lead.intent,
+        sellerPropertyComune: vuotoComeNull(agentReply.sellerPropertyComune) ?? lead.sellerPropertyComune,
+        sellerPropertyZona: vuotoComeNull(agentReply.sellerPropertyZona) ?? lead.sellerPropertyZona,
+        sellerPropertyType: agentReply.sellerPropertyType ?? lead.sellerPropertyType,
+        sellerPropertySquareMeters:
+          agentReply.sellerPropertySquareMeters ?? lead.sellerPropertySquareMeters,
+        sellerPropertyCondition:
+          vuotoComeNull(agentReply.sellerPropertyCondition) ?? lead.sellerPropertyCondition,
+        sellerTimeframe: vuotoComeNull(agentReply.sellerTimeframe) ?? lead.sellerTimeframe,
+        sellerValuationInterest:
+          agentReply.sellerValuationInterest ?? lead.sellerValuationInterest,
+
         qualificationStatus:
           agentReply.outcome === "CONTINUE" ? "IN_PROGRESS" : agentReply.outcome,
         ownedPropertiesCount,

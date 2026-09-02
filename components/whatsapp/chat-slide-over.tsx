@@ -19,6 +19,12 @@ import { STATUS_BADGE_CLASSES, type LeadView } from "@/lib/whatsapp/view-types";
 import type { ChatMessage } from "@/lib/whatsapp/types";
 import { PortfolioCard } from "./portfolio-card";
 import { LeadPreferencesCard } from "./lead-preferences-card";
+import {
+  LEAD_INTENT_CLASSES,
+  LEAD_INTENT_LABELS,
+  SellerLeadCard,
+  isSellerIntent,
+} from "./seller-lead-card";
 import { LeadMatchesCard } from "./lead-matches-card";
 import { LeadAssignment } from "./lead-assignment";
 import { LeadNotesCard } from "./lead-notes-card";
@@ -163,6 +169,20 @@ export function ChatSlideOver({
             <p className="mt-1 truncate text-xs text-muted-foreground">{lead.propertyRef}</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {/* Prima dello stato di qualificazione, di proposito: dice CHE
+                COSA e' questo contatto, e da li' dipende cosa ci si fa.
+                "Qualificato" su un venditore e su un acquirente significano
+                due lavori diversi. */}
+            {isSellerIntent(lead.intent) && lead.intent && (
+              <span
+                className={cn(
+                  "hidden rounded-full px-2.5 py-1 text-xs font-semibold sm:inline",
+                  LEAD_INTENT_CLASSES[lead.intent]
+                )}
+              >
+                {LEAD_INTENT_LABELS[lead.intent]}
+              </span>
+            )}
             <span
               className={cn(
                 "rounded-full px-2.5 py-1 text-xs font-medium",
@@ -308,6 +328,16 @@ export function ChatSlideOver({
               </div>
             </div>
           </div>
+
+          {/* L'acquisizione viene prima delle preferenze d'acquisto: per un
+              venditore e' la sostanza della scheda, e per un contatto che fa
+              entrambe le cose e' la parte concreta — l'immobile che ha in
+              mano, non quello che cerchera'. */}
+          {isSellerIntent(lead.intent) && (
+            <div className="border-b border-border p-4">
+              <SellerLeadCard lead={lead} />
+            </div>
+          )}
 
           {/* Subito dopo le preferenze: sono i criteri da cui questi
               abbinamenti nascono, e leggerli di seguito ha senso. */}

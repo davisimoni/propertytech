@@ -19,6 +19,17 @@
 export const QUALIFICATION_QUESTIONS = {
   searchCriteria:
     "Per aiutarla al meglio: che tipo di immobile sta cercando e in quale zona?",
+  /**
+   * Apertura per chi scrive per vendere.
+   *
+   * A chi ha appena chiesto quanto vale la sua casa non si puo' rispondere
+   * "che tipo di immobile cerca?": e' la prima frase della conversazione, e
+   * gli direbbe che dall'altra parte non ha letto nessuno. Qui la prima
+   * domanda e' dove sta l'immobile, che e' anche il dato senza il quale
+   * l'agente non sa nemmeno se la zona la copre.
+   */
+  sellerLocation:
+    "Volentieri. Per darle una valutazione attendibile: in che comune e in quale zona si trova l'immobile?",
   mortgage:
     "Ha già ottenuto la delibera del mutuo dalla banca, oppure dispone di liquidità immediata?",
   sellFirst: "Per acquistare questo immobile deve prima venderne un altro?",

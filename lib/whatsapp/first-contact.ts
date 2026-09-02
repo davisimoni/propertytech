@@ -1,5 +1,5 @@
 import "server-only";
-import type { Lead, WhatsAppConfig } from "@prisma/client";
+import type { Lead, LeadIntent, WhatsAppConfig } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { checkUsageLimit } from "@/lib/usage";
 import { initialDealStage } from "@/lib/leads/deal-stage";
@@ -57,8 +57,10 @@ export async function createLeadFromFirstMessage(params: {
   profileName?: string;
   messageText: string;
   chatJid?: string;
+  /** Comprare o vendere, dal filtro di pertinenza. `null` se non e' chiaro. */
+  intent?: LeadIntent | null;
 }): Promise<Lead | null> {
-  const { config, agencyName, fromPhone, profileName, messageText, chatJid } = params;
+  const { config, agencyName, fromPhone, profileName, messageText, chatJid, intent } = params;
   const organizationId = config.organizationId;
   const clientPhone = normalizePhone(fromPhone);
 
@@ -74,6 +76,9 @@ export async function createLeadFromFirstMessage(params: {
       propertyRef: propertyRefFromMessage(messageText),
       qualificationStatus: "PENDING",
       dealStage: initialDealStage("PENDING"),
+      // Deciso dal filtro di pertinenza sul primo messaggio: e' l'unico
+      // momento in cui si puo' ancora scegliere come aprire la conversazione.
+      intent: intent ?? null,
     },
   });
 
