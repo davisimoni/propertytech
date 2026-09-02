@@ -7,6 +7,7 @@ import {
   Clipboard,
   Crown,
   Loader2,
+  Plus,
   Trash2,
   UserPlus,
   Users,
@@ -51,9 +52,24 @@ const ROLE_LABELS: Record<UserRole, string> = {
  * nel database resta solo l'impronta del token, quindi non è recuperabile in
  * seguito. Se il titolare lo perde, rigenera l'invito.
  */
+/** Contabilità delle postazioni, come la restituisce `/api/team`. */
+interface SeatsView {
+  used: number;
+  max: number | null;
+  planSeats: number | null;
+  extra: number;
+  available: number | null;
+  isFull: boolean;
+  canBuyMore: boolean;
+  extraSeatPriceEur: number;
+  planName: string;
+}
+
 export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [seats, setSeats] = useState<SeatsView | null>(null);
+  const [isBuyingSeat, setIsBuyingSeat] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const [email, setEmail] = useState("");
@@ -72,14 +88,51 @@ export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
   async function load() {
     const response = await fetch("/api/team");
     if (!response.ok) return;
-    const data: { members: Member[]; currentUserId: string } = await response.json();
+    const data: { members: Member[]; currentUserId: string; seats?: SeatsView } =
+      await response.json();
     setMembers(data.members);
     setCurrentUserId(data.currentUserId);
+    setSeats(data.seats ?? null);
   }
 
   useEffect(() => {
     load().finally(() => setIsLoading(false));
   }, []);
+
+  /**
+   * Compra una postazione in piu'.
+   *
+   * Manda il TOTALE desiderato, non "+1": due clic ravvicinati su un
+   * incremento comprerebbero due postazioni, mentre due clic sullo stesso
+   * totale sono la stessa richiesta fatta due volte, che il server riconosce
+   * e non addebita di nuovo.
+   */
+  async function acquistaPostazione() {
+    if (!seats) return;
+    setIsBuyingSeat(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/team/seats", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ extraSeats: seats.extra + 1 }),
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        setError(body.message ?? "Non e' stato possibile aggiungere la postazione.");
+        return;
+      }
+
+      await load();
+      showToast("Postazione aggiunta. Puoi invitare un altro collaboratore.", "success");
+    } catch {
+      setError("Errore di rete. La postazione non e' stata aggiunta.");
+    } finally {
+      setIsBuyingSeat(false);
+    }
+  }
 
   async function sendInvite() {
     setIsInviting(true);
@@ -206,9 +259,46 @@ export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
           <h2 className="text-sm font-semibold text-foreground">Collaboratori</h2>
           <p className="text-sm text-muted-foreground">
             Ogni agente accede con le proprie credenziali e può ricevere in carico lead e visite.
+            Nessuno di loro vede la fatturazione né deve inserire una carta.
           </p>
         </div>
       </div>
+
+      {/* Le postazioni, prima dell'elenco.
+
+          Si vedono PRIMA di provare a invitare: scoprire il limite dopo aver
+          compilato un modulo e ricevuto un rifiuto e' il modo peggiore di
+          comunicarlo, e fa sembrare rotto un vincolo che era solo taciuto. */}
+      {seats && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">
+              {seats.used} {seats.max === null ? "postazioni occupate" : `di ${seats.max} postazioni`}
+            </span>
+            {seats.max === null
+              ? ` · piano ${seats.planName}, postazioni personalizzate`
+              : ` occupate · ${seats.planSeats} incluse nel piano ${seats.planName}${
+                  seats.extra > 0 ? ` piu' ${seats.extra} acquistate` : ""
+                }`}
+          </p>
+
+          {isOwner && seats.canBuyMore && (
+            <button
+              type="button"
+              onClick={acquistaPostazione}
+              disabled={isBuyingSeat}
+              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 disabled:opacity-50 sm:h-8"
+            >
+              {isBuyingSeat ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Plus className="h-3.5 w-3.5" />
+              )}
+              Aggiungi postazione · {seats.extraSeatPriceEur}&euro;/mese
+            </button>
+          )}
+        </div>
+      )}
 
       <ul className="mt-5 divide-y divide-border rounded-lg border border-border">
         {members.map((member) => {

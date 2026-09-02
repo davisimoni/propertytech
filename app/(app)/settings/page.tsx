@@ -77,12 +77,35 @@ export default async function SettingsPage() {
             </>
           }
           billing={
+            /*
+             * Listino e pulsanti d'acquisto solo al titolare.
+             *
+             * Le rotte Stripe rifiutavano gia' un collaboratore con un 403, ma
+             * la sezione gli restava davanti: vedeva i piani, premeva "Passa a
+             * Professional" e riceveva un errore. Un vincolo che si scopre solo
+             * sbattendoci contro sembra un guasto del prodotto.
+             *
+             * Il consumo resta visibile a tutti, ed e' voluto: sapere quante
+             * conversazioni restano serve a chi lavora, non a chi paga.
+             */
             <>
               <UsageWidget variant="full" />
-              {/* PlanGrid legge `?interval=` dalla query: serve un confine Suspense. */}
-              <Suspense>
-                <PlanGrid currentPlanId={currentPlanId} />
-              </Suspense>
+              {session?.user?.role === "OWNER" ? (
+                /* PlanGrid legge `?interval=` dalla query: serve un confine Suspense. */
+                <Suspense>
+                  <PlanGrid currentPlanId={currentPlanId} />
+                </Suspense>
+              ) : (
+                <section className="rounded-xl border border-border bg-card p-4">
+                  <p className="text-sm font-medium text-foreground">
+                    Abbonamento e fatturazione
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Li gestisce il titolare dell&apos;agenzia. Il tuo accesso e le tue funzioni
+                    sono gia&apos; inclusi: non devi inserire nessun dato di pagamento.
+                  </p>
+                </section>
+              )}
             </>
           }
           referral={<ReferralPanel />}

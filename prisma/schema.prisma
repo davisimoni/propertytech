@@ -367,6 +367,25 @@ model Organization {
   ///
   /// Endpoint a cui inoltrare il lead appena diventa QUALIFIED (Zapier, Make,
   /// Gestim o qualsiasi API esterna). `null` = integrazione non configurata.
+  /// Postazioni ACQUISTATE oltre quelle incluse nel piano.
+  ///
+  /// # Perche' l'extra e non il totale
+  ///
+  /// Perche' il totale e' derivabile e l'extra no. `maxSeats` assoluto
+  /// duplicherebbe le postazioni incluse nel piano, che vivono in
+  /// `lib/plans.ts`: al primo cambio di listino le due fonti divergono, e
+  /// un'agenzia si ritrova un limite che non corrisponde a quello che paga.
+  ///
+  /// Il totale si ottiene con `maxSeatsFor()` — postazioni del piano piu'
+  /// queste. Stessa scelta di `sellerCategory`, che si deriva sempre e si
+  /// persiste solo per poterla interrogare.
+  ///
+  /// Sincronizzato dal webhook Stripe con la quantita' della voce "postazione
+  /// aggiuntiva" sull'abbonamento: la fonte di verita' su quanto l'agenzia
+  /// paga resta Stripe, questo campo e' la copia locale per non interrogarlo
+  /// a ogni caricamento di pagina.
+  extraSeats Int @default(0)
+
   crmWebhookUrl    String?
   /// Segreto con cui si firma il payload (HMAC-SHA256, header
   /// `X-PropertyTech-Signature`). Generato dal sistema, non scelto dall'utente:

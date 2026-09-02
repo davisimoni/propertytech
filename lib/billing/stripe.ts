@@ -37,6 +37,22 @@ const PRICE_ENV_BY_PLAN: Record<PaidPlanId, Record<BillingInterval, string>> = {
   },
 };
 
+/**
+ * Prezzo della postazione aggiuntiva, fatturata a quantita'.
+ *
+ * Una sola voce di prezzo per tutte le postazioni extra: su Stripe la
+ * quantita' dell'abbonamento dice quante sono, e cambiarla e' un
+ * `subscriptions.update` invece di aggiungere e togliere righe. Anche il
+ * conteggio proporzionale sul periodo gia' pagato lo fa Stripe da solo, che e'
+ * la ragione principale per cui la quantita' sta li' e non da noi.
+ */
+const EXTRA_SEAT_PRICE_ENV = "STRIPE_PRICE_ID_EXTRA_SEAT";
+
+/** Prezzo Stripe della postazione aggiuntiva, o `null` se non configurato. */
+export function getExtraSeatPriceId(): string | null {
+  return readSecret(EXTRA_SEAT_PRICE_ENV) ?? null;
+}
+
 export function isStripeEnabled(): boolean {
   return isConfiguredSecret(process.env.STRIPE_SECRET_KEY);
 }

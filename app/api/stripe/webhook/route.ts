@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
-import { getStripe, isStripeEnabled, readPlanFromMetadata } from "@/lib/billing/stripe";
+import {
+  getExtraSeatPriceId,
+  getStripe,
+  isStripeEnabled,
+  readPlanFromMetadata,
+} from "@/lib/billing/stripe";
 import { readSecret } from "@/lib/env";
 import { activateRefereeReferral, expireRefereeReferral } from "@/lib/referrals/lifecycle";
 import {
@@ -131,6 +136,49 @@ async function syncCancellationState(organizationId: string, subscription: Strip
   });
 }
 
+/**
+ * Riallinea le postazioni acquistate con quelle che l'agenzia paga davvero.
+ *
+ * # Perche' Stripe comanda
+ *
+ * Perche' e' li' che si decide quanto si paga. La quantita' puo' cambiare
+ * anche fuori dalla nostra rotta — dal portale clienti di Stripe, da una
+ * correzione fatta a mano in dashboard, da un pagamento fallito che sospende
+ * una voce — e in tutti quei casi il nostro `extraSeats` resterebbe fermo su
+ * un numero che nessuno sta piu' pagando.
+ *
+ * Nella direzione sbagliata l'errore costa: un `extraSeats` locale piu' alto
+ * di quello fatturato significa postazioni regalate, e nessuno se ne accorge
+ * finche' non si guardano i conti.
+ *
+ * Non lancia: un abbonamento appena attivato non deve fallire per un
+ * riallineamento di postazioni, e il prossimo evento ripassa comunque di qui.
+ */
+async function syncExtraSeats(
+  organizationId: string,
+  subscription: Stripe.Subscription
+): Promise<void> {
+  const priceId = getExtraSeatPriceId();
+  if (!priceId) return;
+
+  try {
+    const voce = subscription.items.data.find((item) => item.price.id === priceId);
+    const quantita = voce?.quantity ?? 0;
+
+    await prisma.organization.update({
+      where: { id: organizationId },
+      data: { extraSeats: quantita },
+    });
+
+    console.info("[BILLING-SEATS-SYNC]", { organizationId, extraSeats: quantita });
+  } catch (error) {
+    console.error("[api/stripe/webhook] Riallineamento postazioni non riuscito", {
+      organizationId,
+      error,
+    });
+  }
+}
+
 export async function POST(request: Request) {
   if (!isStripeEnabled()) {
     return NextResponse.json({ error: "stripe_not_configured" }, { status: 503 });
@@ -193,6 +241,7 @@ export async function POST(request: Request) {
         if (organizationId && planId && subscription.status === "active") {
           await activatePlan(organizationId, planId, subscription.id, null);
           await syncCancellationState(organizationId, subscription);
+          await syncExtraSeats(organizationId, subscription);
         } else if (subscription.status === "canceled" || subscription.status === "unpaid") {
           await downgradeToTrial(subscription.id);
         }

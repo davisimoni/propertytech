@@ -41,6 +41,38 @@ export interface Plan {
   advancedReporting: boolean;
 }
 
+/**
+ * Postazione aggiuntiva, oltre quelle incluse nel piano.
+ *
+ * Si acquista solo sul Professional. Sullo Starter no — chi ha bisogno di piu'
+ * di una persona ha bisogno anche delle conversazioni e delle agende che il
+ * Professional porta con se', e vendergli tre postazioni su un piano da 150
+ * chat al mese significa vendergli un limite che raggiungera' il mese dopo.
+ * Sull'Enterprise nemmeno: li' le postazioni si concordano.
+ */
+export const EXTRA_SEAT_PRICE_EUR = 29;
+
+/** I piani su cui si possono comprare postazioni in piu'. */
+export const PLANS_WITH_EXTRA_SEATS: PlanId[] = ["pro"];
+
+export function canBuyExtraSeats(planId: PlanId): boolean {
+  return PLANS_WITH_EXTRA_SEATS.includes(planId);
+}
+
+/**
+ * Postazioni totali dell'agenzia: quelle del piano piu' quelle acquistate.
+ *
+ * `null` significa illimitate ed e' il caso dell'Enterprise, dove il numero si
+ * concorda invece di comprarlo a pezzi. Un piano illimitato resta illimitato
+ * qualunque cosa dica `extraSeats`: sommare a null non ha senso, e un residuo
+ * di postazioni acquistate su un piano precedente non deve trasformarsi in un
+ * tetto dove tetto non c'e'.
+ */
+export function maxSeatsFor(plan: Plan, extraSeats: number): number | null {
+  if (plan.seatsLimit === null) return null;
+  return plan.seatsLimit + Math.max(0, extraSeats);
+}
+
 export const PLANS: Record<PlanId, Plan> = {
   trial: {
     id: "trial",
@@ -88,12 +120,12 @@ export const PLANS: Record<PlanId, Plan> = {
   pro: {
     id: "pro",
     name: "Professional",
-    audience: "Per agenzie strutturate, fino a 5 agenti",
+    audience: "Per agenzie strutturate, con postazioni aggiuntive a richiesta",
     priceEurMonthly: 279,
     waConversationsLimit: 500,
     waConversationsOverageNote: null,
     ocrDocumentsLimit: null,
-    seatsLimit: 5,
+    seatsLimit: 3,
     agendasLimit: 3,
     voiceReportsLimit: 0,
     documentVault: true,
@@ -109,7 +141,7 @@ export const PLANS: Record<PlanId, Plan> = {
     waConversationsLimit: 2500,
     waConversationsOverageNote: "extra a 0,05€/chat",
     ocrDocumentsLimit: null,
-    seatsLimit: 20,
+    seatsLimit: null,
     agendasLimit: null,
     voiceReportsLimit: null,
     documentVault: true,

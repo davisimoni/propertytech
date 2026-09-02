@@ -160,14 +160,24 @@ Trascrive le note vocali registrate dall'agente subito dopo una visita immobilia
 |---|---|---|---|---|---|---|---|---|---|
 | **Trial** | Gratuito | 15 (totali, non mensili) | 5 estratti | 1 | — | ❌ | ❌ | 3 report (assaggio) | ❌ |
 | **Starter** | 99 €/mese | 150 | Illimitato | 1 | 1 | ✅ | ❌ | ❌ | ❌ |
-| **Professional** | 279 €/mese | 500 | Illimitato | 5 | 3 | ✅ | ❌ | ❌ | ❌ |
-| **Enterprise** | 499 €/mese | 2.500 (extra a 0,05€/chat) | Illimitato | 20 | Illimitate | ✅ | ✅ | ✅ | ✅ |
+| **Professional** | 279 €/mese | 500 | Illimitato | 3 (+29 €/mese l'una) | 3 | ✅ | ❌ | ❌ | ❌ |
+| **Enterprise** | 499 €/mese | 2.500 (extra a 0,05€/chat) | Illimitato | Personalizzate | Illimitate | ✅ | ✅ | ✅ | ✅ |
 
 - Il Trial non richiede carta di credito.
 - Il Social Multiplier (Modulo 3) è **sbloccato esclusivamente** nel piano Enterprise.
 - Il **Voice Seller-Reporting Engine (Modulo 4)** è incluso a regime solo in Enterprise, ma il Trial ne concede **3 report di assaggio** a crediti (`voiceReportsLimit: 3`, `voiceSellerReporting: true` in `lib/plans.ts`). È l'unica funzione Enterprise provabile in prova: un modulo che non si può nemmeno vedere è un modulo che non si compra. Su **Starter e Professional resta chiuso** — il flag è `false` — quindi la scala non è monotòna e `cheapestPlanWith()` in `lib/feature-access.ts` **esclude il Trial** dal calcolo del piano da consigliare, altrimenti a un cliente Starter verrebbe suggerito di "passare al Free Trial".
 - Il Modulo 4 attraversa **due gate in sequenza** (`app/api/reports/voice-to-report/route.ts`): prima `checkFeatureAccess` (piano), poi `checkUsageLimit` (crediti). Entrambi rispondono 402 e la UI li distingue dal campo `error` per mostrare "non nel tuo piano" oppure "prove esaurite".
-- Le **postazioni** (`seatsLimit` in `lib/plans.ts`) sono le persone che possono accedere per quell'agenzia. Il controllo è in `POST /api/team` e conta **anche gli inviti non ancora accettati**: altrimenti basterebbe generarne dieci di fila per superare il limite. Verificato prima di creare l'invito, non dopo. Il piano da suggerire è calcolato — Starter ha una postazione come il Trial, quindi il salto utile è Professional.
+- Le **postazioni** sono le persone che possono accedere per quell'agenzia. Il totale non è un campo: si calcola con `maxSeatsFor()` come **postazioni del piano** (`seatsLimit` in `lib/plans.ts`) **più quelle acquistate** (`Organization.extraSeats`). Un `maxSeats` assoluto in tabella duplicherebbe il primo dei due, e al primo cambio di listino un'agenzia si ritroverebbe un limite che non corrisponde a quello che paga.
+
+- Il conto vive in `lib/billing/seats.ts` e lo usano tutti e tre i punti che devono dire la stessa cosa: il gate che rifiuta l'invito, il pannello che mostra "2 di 3", la rotta che vende una postazione. Conta **anche gli inviti non ancora accettati** — altrimenti basterebbe generarne dieci di fila — ed è verificato prima di creare l'invito, non dopo.
+
+- **Postazioni aggiuntive a 29 €/mese, solo sul Professional.** Sullo Starter no: chi ha bisogno di più di una persona ha bisogno anche delle conversazioni e delle agende che il Professional porta con sé. Sull'Enterprise nemmeno, lì si concordano. Su Stripe sono **una voce con una quantità** (`STRIPE_PRICE_ID_EXTRA_SEAT`): cambiarla è un `subscriptions.update`, e il conteggio proporzionale sul periodo già pagato lo fa Stripe — rifarlo da noi significherebbe sbagliarlo.
+
+- L'ordine delle scritture è **prima Stripe, poi il database**. Se Stripe fallisce non si scrive nulla; se fallisse la scrittura locale, `customer.subscription.updated` riallinea comunque leggendo la quantità dalla stessa voce. Mai il contrario: un `extraSeats` locale più alto di quello fatturato significa postazioni regalate, e nessuno se ne accorge finché non si guardano i conti.
+
+- **Non si scende sotto le postazioni occupate**: togliere una postazione dove è già seduto qualcuno lascerebbe l'agenzia oltre il limite, e il sistema dovrebbe scegliere chi disattivare. Prima si rimuove la persona.
+
+- **Solo il titolare** vede e tocca la fatturazione: le tre rotte Stripe lo verificavano già, e ora anche la scheda in `/settings` — un collaboratore vedeva il listino e riceveva un 403 premendo "Passa a Professional", cioè scopriva il vincolo sbattendoci contro. Il consumo resta visibile a tutti: sapere quante conversazioni restano serve a chi lavora, non a chi paga. I crediti (conversazioni WA, documenti, note vocali) sono **dell'agenzia e condivisi**, non per postazione.
 - Il **Fascicolo documentale** è escluso dal Trial: promettere una conservazione decennale su un account di prova che può sparire in due settimane non ha senso.
 
 ### Middleware Paywall — Enforcement dei Limiti
