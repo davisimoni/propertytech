@@ -58,7 +58,7 @@ function openingMessage(agencyName: string): ChatMessage {
       DEMO_CLIENT,
       DEMO_PROPERTY,
       agencyName,
-      QUALIFICATION_QUESTIONS.mortgage
+      QUALIFICATION_QUESTIONS.searchCriteria
     ),
     timestamp: new Date().toISOString(),
   };

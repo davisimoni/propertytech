@@ -88,7 +88,7 @@ export async function startConversation(
     lead.clientName,
     lead.propertyRef,
     agencyName,
-    QUALIFICATION_QUESTIONS.mortgage
+    QUALIFICATION_QUESTIONS.searchCriteria
   );
 
   await sendWhatsAppMessageForProvider(
@@ -221,10 +221,24 @@ export async function handleIncomingMessage(
         mustSellFirst: agentReply.mustSellFirst,
         timeframe: agentReply.timeframe,
         budget: agentReply.budget ?? lead.budget,
-        // `??` e non sovrascrittura secca, come per il budget: se il cliente ha
-        // nominato la zona a inizio conversazione e non la ripete più, i turni
-        // successivi restituiscono null e la cancellerebbero.
+        /*
+         * Preferenze di ricerca: `??` e non sovrascrittura secca.
+         *
+         * Il modello legge tutta la conversazione ma risponde sul turno
+         * corrente: se il cliente ha nominato la zona all'inizio e non la
+         * ripete più, i turni successivi restituiscono null. Con
+         * un'assegnazione diretta ogni messaggio successivo cancellerebbe
+         * ciò che era già stato raccolto, e la scheda si svuoterebbe da sola
+         * mentre la conversazione prosegue.
+         *
+         * Un criterio si toglie solo a mano dalla scheda: lì è la decisione
+         * di una persona, qui sarebbe un effetto collaterale.
+         */
         preferredZone: agentReply.preferredZone ?? lead.preferredZone,
+        preferredType: agentReply.preferredType ?? lead.preferredType,
+        budgetMin: agentReply.budgetMinEur ?? lead.budgetMin,
+        budgetMax: agentReply.budgetMaxEur ?? lead.budgetMax,
+        minSquareMeters: agentReply.minSquareMeters ?? lead.minSquareMeters,
         qualificationStatus:
           agentReply.outcome === "CONTINUE" ? "IN_PROGRESS" : agentReply.outcome,
         ownedPropertiesCount,
@@ -383,6 +397,69 @@ export async function handleIncomingMessage(
 
       const matching = await runMatchingForLead(updated);
       await notifyMatchesForLead(updated, matching);
+      return;
+    }
+
+    /**
+     * Preferenze cambiate a metà conversazione: si ricalcola subito.
+     *
+     * # Perché non basta più aspettare QUALIFIED
+     *
+     * Perché adesso i criteri arrivano molto prima della fine. Tipologia,
+     * zona e budget sono le prime cose che l'assistente chiede, e il resto
+     * della conversazione — mutuo, vendita, tempistiche — può durare giorni o
+     * non concludersi mai. Aspettare la qualificazione per interrogare il
+     * portafoglio significherebbe tenere l'agente all'oscuro di un immobile
+     * compatibile che ha già in catalogo, proprio mentre la persona sta
+     * ancora scrivendo.
+     *
+     * # Perché solo quando cambiano davvero
+     *
+     * Il confronto è coi valori precedenti, non con la presenza dei campi:
+     * ogni turno della conversazione riscrive gli stessi criteri anche se non
+     * si sono mossi, e senza questo controllo si rifarebbe una scansione
+     * completa del portafoglio a ogni messaggio, per un risultato identico al
+     * precedente.
+     */
+    const criteriCambiati =
+      updated.preferredZone !== lead.preferredZone ||
+      updated.preferredType !== lead.preferredType ||
+      updated.budgetMin !== lead.budgetMin ||
+      updated.budgetMax !== lead.budgetMax ||
+      updated.minSquareMeters !== lead.minSquareMeters;
+
+    if (criteriCambiati) {
+      console.info("[WA-PREFERENCES-UPDATED]", {
+        leadId: updated.id,
+        organizationId: updated.organizationId,
+        zona: updated.preferredZone,
+        tipologia: updated.preferredType,
+        budgetMin: updated.budgetMin,
+        budgetMax: updated.budgetMax,
+        mqMin: updated.minSquareMeters,
+      });
+
+      /*
+       * Nessuna notifica qui, a differenza del ramo sopra.
+       *
+       * `notifyMatchesForLead` avvisa l'agente via email degli abbinamenti
+       * forti. Su una conversazione ancora in corso i criteri si assestano
+       * turno dopo turno: mandare un'email a ogni assestamento vorrebbe dire
+       * tre messaggi per lo stesso contatto in cinque minuti, e chi li riceve
+       * smette di leggerli. Gli abbinamenti restano visibili in scheda, e
+       * l'email parte comunque quando il lead si qualifica.
+       *
+       * Non bloccante: la risposta al cliente è già partita, e un errore del
+       * matching non deve trasformare una conversazione riuscita in un errore.
+       */
+      try {
+        await runMatchingForLead(updated);
+      } catch (error) {
+        console.error("[whatsapp/conversation] Matching non riuscito", {
+          leadId: updated.id,
+          error,
+        });
+      }
     }
   }
 }

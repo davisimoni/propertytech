@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { PropertyType } from "@prisma/client";
 import { Check, Loader2, Save, SlidersHorizontal } from "lucide-react";
 import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS } from "@/lib/listings/property-fields";
@@ -30,6 +30,50 @@ export function LeadPreferencesCard({ lead }: { lead: LeadView }) {
   const [isSaving, setIsSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * I criteri raccolti dall'assistente compaiono qui mentre la si guarda.
+   *
+   * # Perché serve un travaso esplicito
+   *
+   * Perché questi campi partono da `useState(lead.…)`, che legge la proprietà
+   * una volta sola al montaggio. La lista si aggiorna da sé ogni quindici
+   * secondi e il cassetto aperto viene riallineato, ma questa scheda restava
+   * ferma ai valori di quando era stata aperta: l'assistente raccoglieva zona
+   * e budget su WhatsApp, il database li registrava, e l'agente che aveva la
+   * scheda davanti continuava a leggere "non dichiarato".
+   *
+   * # Perché solo i campi non toccati
+   *
+   * Perché l'agente può stare scrivendo in questi stessi campi mentre il
+   * cliente risponde su WhatsApp. Sovrascrivere tutto gli cancellerebbe le
+   * parole sotto le dita, che è peggio di un campo aggiornato un momento più
+   * tardi. Un campo toccato resta suo finché non salva.
+   */
+  const [toccati, setToccati] = useState<ReadonlySet<string>>(new Set());
+  const segna = (campo: string) =>
+    setToccati((current) => (current.has(campo) ? current : new Set(current).add(campo)));
+
+  useEffect(() => {
+    if (!toccati.has("zone")) setZone(lead.preferredZone ?? "");
+    if (!toccati.has("type")) setType(lead.preferredType ?? "");
+    if (!toccati.has("budgetMin")) {
+      setBudgetMin(lead.budgetMin === null ? "" : String(lead.budgetMin));
+    }
+    if (!toccati.has("budgetMax")) {
+      setBudgetMax(lead.budgetMax === null ? "" : String(lead.budgetMax));
+    }
+    if (!toccati.has("minMq")) {
+      setMinMq(lead.minSquareMeters === null ? "" : String(lead.minSquareMeters));
+    }
+  }, [
+    lead.preferredZone,
+    lead.preferredType,
+    lead.budgetMin,
+    lead.budgetMax,
+    lead.minSquareMeters,
+    toccati,
+  ]);
 
   /** Campo vuoto = criterio non dichiarato, quindi `null` e non `0`. */
   function toNullableInt(value: string): number | null {
@@ -64,6 +108,9 @@ export function LeadPreferencesCard({ lead }: { lead: LeadView }) {
       }
 
       setSavedAt(Date.now());
+      // Salvato: quello che ha scritto e' a database, quindi la scheda puo'
+      // tornare a seguire cio' che arriva dalla conversazione.
+      setToccati(new Set());
       setTimeout(() => setSavedAt(null), 2500);
     } catch {
       setError("Errore di rete durante il salvataggio.");
@@ -92,7 +139,10 @@ export function LeadPreferencesCard({ lead }: { lead: LeadView }) {
             id={`pref-zone-${lead.id}`}
             type="text"
             value={zone}
-            onChange={(event) => setZone(event.target.value)}
+            onChange={(event) => {
+              segna("zone");
+              setZone(event.target.value);
+            }}
             placeholder="Navigli"
             className="input-field mt-0.5 text-sm"
           />
@@ -105,7 +155,10 @@ export function LeadPreferencesCard({ lead }: { lead: LeadView }) {
           <select
             id={`pref-type-${lead.id}`}
             value={type}
-            onChange={(event) => setType(event.target.value as PropertyType | "")}
+            onChange={(event) => {
+              segna("type");
+              setType(event.target.value as PropertyType | "");
+            }}
             className="input-field mt-0.5 text-sm"
           >
             <option value="">Non dichiarata</option>
@@ -127,7 +180,10 @@ export function LeadPreferencesCard({ lead }: { lead: LeadView }) {
             inputMode="numeric"
             min={0}
             value={budgetMin}
-            onChange={(event) => setBudgetMin(event.target.value)}
+            onChange={(event) => {
+              segna("budgetMin");
+              setBudgetMin(event.target.value);
+            }}
             placeholder="—"
             className="input-field mt-0.5 text-sm"
           />
@@ -143,7 +199,10 @@ export function LeadPreferencesCard({ lead }: { lead: LeadView }) {
             inputMode="numeric"
             min={0}
             value={budgetMax}
-            onChange={(event) => setBudgetMax(event.target.value)}
+            onChange={(event) => {
+              segna("budgetMax");
+              setBudgetMax(event.target.value);
+            }}
             placeholder="250000"
             className="input-field mt-0.5 text-sm"
           />
@@ -159,7 +218,10 @@ export function LeadPreferencesCard({ lead }: { lead: LeadView }) {
             inputMode="numeric"
             min={0}
             value={minMq}
-            onChange={(event) => setMinMq(event.target.value)}
+            onChange={(event) => {
+              segna("minMq");
+              setMinMq(event.target.value);
+            }}
             placeholder="—"
             className="input-field mt-0.5 text-sm"
           />

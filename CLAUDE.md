@@ -43,10 +43,20 @@ Web App SaaS B2B rivolta alle **agenzie immobiliari italiane** ("AI Operations A
 ## 3. I 4 Moduli Core del Software
 
 ### Modulo 1 — AI WhatsApp Speed-to-Lead
-Intercetta i lead in tempo reale dai portali immobiliari (Immobiliare.it, Idealista) tramite webhook o email parser. Il bot AI qualifica il potenziale acquirente via WhatsApp ponendo 3 domande chiave:
-1. Necessità di mutuo?
-2. Ha un immobile da vendere?
-3. Tempistiche di acquisto?
+Intercetta i lead in tempo reale dai portali immobiliari (Immobiliare.it, Idealista) tramite webhook o email parser. Il bot AI qualifica il potenziale acquirente via WhatsApp **una domanda per messaggio**, in quest'ordine di priorità (salta ciò che il cliente ha già dichiarato):
+
+1. **Tipologia e zona** — cosa cerca e dove.
+2. **Budget massimo**.
+3. **Fattibilità**, che è ciò che decide l'esito: mutuo o liquidità → deve vendere un altro immobile prima → tempistiche di acquisto.
+4. **Dettagli**: superficie minima, e poi garage, ascensore, giardino.
+
+L'ordine non è estetico. I criteri del punto 1 e 2 sono quelli che alimentano lo Smart Match: una conversazione che si interrompe a metà — e succede spesso — deve aver già lasciato qualcosa su cui l'agenzia possa lavorare. Prima l'apertura chiedeva il mutuo, e un contatto che smetteva di rispondere lasciava una scheda con la sua situazione bancaria e nient'altro: non abbastanza per proporgli una casa.
+
+**L'esito resta governato dal solo punto 3**: appena mutuo, vendita e tempistiche sono noti la qualificazione si chiude, anche con i dettagli del punto 4 vuoti. Trattenere una persona che ha già risposto a tutto per chiederle i metri quadri è il modo di perderla sull'ultimo passo.
+
+Se il cliente risponde in modo vago l'assistente **guida invece di ripetere**: propone due o tre fasce concrete, o chiede quale criterio conta di più. Alla seconda risposta vaga sullo stesso punto lascia perdere quel dato e passa oltre — un campo vuoto vale più di un contatto perso.
+
+Le preferenze estratte (`preferredZone`, `preferredType`, `budgetMin`, `budgetMax`, `minSquareMeters`) si scrivono in scheda a ogni turno con `??` e mai per sovrascrittura: il modello risponde sul turno corrente, e un'assegnazione secca cancellerebbe a ogni messaggio ciò che era già stato raccolto. **Ogni volta che uno di quei criteri cambia davvero, il matching col portafoglio si ricalcola subito** — non più solo al raggiungimento di QUALIFIED, che poteva arrivare giorni dopo o mai.
 
 Al termine della qualificazione, fissa un appuntamento direttamente in agenda.
 

@@ -56,7 +56,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     id: "notizie-whatsapp",
     title: "2. Filtro notizie su WhatsApp",
     intro:
-      "L'assistente risponde in pochi secondi a chi scrive dai portali, a qualsiasi ora. Pone tre domande — mutuo o liquidità, immobile da vendere prima, tempistiche — e propone gli orari liberi della tua agenda.",
+      "L'assistente risponde in pochi secondi a chi scrive dai portali, a qualsiasi ora. Chiede una cosa alla volta — prima cosa cerca e dove, poi il budget, poi mutuo, vendita e tempistiche — e propone gli orari liberi della tua agenda.",
     steps: [
       {
         action: "Guarda la pipeline in Qualifica Lead",
@@ -76,7 +76,9 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     ],
     notes: [
       "Se il contatto risponde con una nota vocale, viene trascritta e la qualificazione prosegue senza interruzioni. Se l'audio non si capisce, l'assistente chiede di scrivere invece di restare in silenzio.",
-      "Zona e budget vengono raccolti solo se il cliente li nomina da solo: non glieli chiediamo, perché una quarta domanda allungherebbe la qualificazione proprio dove le persone smettono di rispondere.",
+      "Zona, tipologia, budget e metratura finiscono da soli nelle «Preferenze di ricerca» della scheda, mentre la conversazione va avanti: non devi ribatterli a mano. Se correggi un campo, la tua correzione vince e non viene sovrascritta.",
+      "Appena quei criteri cambiano, gli immobili compatibili in portafoglio si ricalcolano subito. L'email di segnalazione parte però solo a qualificazione conclusa: durante la conversazione i criteri si assestano turno dopo turno, e un avviso a ogni assestamento diventerebbe rumore.",
+      "Se il cliente risponde in modo vago l'assistente propone due o tre fasce fra cui scegliere. Dopo la seconda risposta vaga sullo stesso punto lascia perdere e prosegue: insistere una terza volta fa chiudere la conversazione.",
       "Chi risponde STOP viene escluso in modo permanente da ogni invio automatico, come impone il GDPR. Nemmeno una nuova richiesta dai portali riattiva i messaggi verso quel numero.",
       "I crediti WhatsApp si consumano all'avvio della conversazione, non a ogni messaggio scambiato.",
     ],

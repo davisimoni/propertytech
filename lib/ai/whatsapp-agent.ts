@@ -2,8 +2,10 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
+import type { PropertyType } from "@prisma/client";
 import type { ChatMessage } from "@/lib/whatsapp/types";
 import { PRIVACY_DISCLOSURE } from "@/lib/whatsapp/compliance";
+import { PROPERTY_TYPES } from "@/lib/listings/property-fields";
 
 /**
  * Timeout esplicito, e piu' corto del budget della funzione.
@@ -51,19 +53,58 @@ export const agentReplySchema = z.object({
     .string()
     .nullable()
     .describe("Budget dichiarato dal cliente, se menzionato spontaneamente; altrimenti null."),
-  /**
-   * Zona di interesse. Come il budget, si **raccoglie** se il cliente la
-   * nomina — non si chiede: le domande restano tre, e aggiungerne una quarta
-   * allungherebbe la qualificazione proprio dove il tasso di abbandono è più
-   * alto. Serve allo Smart Match, che finora funzionava solo sui lead
-   * importati da CSV: quelli arrivati da WhatsApp non avevano mai una zona,
-   * quindi non venivano mai abbinati a un immobile in portafoglio.
+  /*
+   * Preferenze di ricerca: ciò che alimenta lo Smart Match.
+   *
+   * # Cosa è cambiato, e perché è un cambio di rotta
+   *
+   * Prima zona e budget si **raccoglievano soltanto** se il cliente li
+   * nominava da solo, e tipologia e metratura non si estraevano affatto. La
+   * ragione era la lunghezza del percorso: ogni domanda in più è gente che
+   * smette di rispondere.
+   *
+   * Il costo di quella scelta però si vedeva a valle. Un contatto arrivato da
+   * WhatsApp restava quasi sempre senza criteri, e un lead senza criteri **non
+   * partecipa al matching**: l'agenzia si ritrovava un portafoglio pieno e una
+   * pipeline di persone qualificate che nessun immobile raggiungeva mai.
+   *
+   * Ora si chiedono, una per messaggio e in ordine di importanza. Il rischio
+   * di abbandono resta reale ed è il motivo dell'ordine: prima ciò che serve
+   * al matching, i dettagli per ultimi, così anche una conversazione
+   * interrotta a metà lascia qualcosa di utilizzabile.
    */
   preferredZone: z
     .string()
     .nullable()
     .describe(
-      "Zona, quartiere o comune che il cliente dice di cercare, se lo menziona spontaneamente (es. 'Navigli', 'zona centro'). NON chiederlo: null se non emerge da solo."
+      "Zona, quartiere o comune che il cliente cerca (es. 'Navigli', 'Vignola centro'). null finché non emerge."
+    ),
+  preferredType: z
+    .enum(PROPERTY_TYPES as [PropertyType, ...PropertyType[]])
+    .nullable()
+    .describe(
+      "Tipologia cercata. Un 'trilocale' o 'bilocale' è APPARTAMENTO. null se il cliente non l'ha ancora indicata o è ancora indeciso."
+    ),
+  budgetMinEur: z
+    .number()
+    .int()
+    .nullable()
+    .describe(
+      "Budget MINIMO in euro, numero intero senza separatori. Valorizzalo solo se il cliente indica una fascia ('fra 150 e 200 mila' → 150000). null se ha dato un solo numero."
+    ),
+  budgetMaxEur: z
+    .number()
+    .int()
+    .nullable()
+    .describe(
+      "Budget MASSIMO in euro, numero intero. Un budget singolo ('circa 200 mila', 'fino a 200.000') è il massimo, non il minimo: 200000. null finché non emerge."
+    ),
+  minSquareMeters: z
+    .number()
+    .int()
+    .nullable()
+    .describe(
+      "Superficie minima in metri quadri dichiarata dal cliente. null finché non emerge. Non dedurla dal numero di locali."
     ),
   offTopic: z
     .boolean()
@@ -164,26 +205,38 @@ function buildSystemPrompt(
 Professionale, empatico, sintetico. Italiano impeccabile, forma di cortesia ("lei"). Massimo 2-3 frasi brevi per messaggio: stai scrivendo su WhatsApp, non via email. Niente elenchi puntati, niente emoji, niente formattazione markdown.
 
 # Obiettivo
-Raccogliere le risposte a queste 3 domande, una alla volta, in modo fluido e conversazionale:
-1. MUTUO/CAPITALE: ha la delibera del mutuo o liquidità immediata?
-2. VENDITA: deve prima vendere un altro immobile?
-3. TEMPISTICA: entro quando desidera concludere l'acquisto?
+Capire cosa cerca e se può comprarlo. UNA SOLA DOMANDA per messaggio, sempre: due domande insieme su WhatsApp ne fanno rimanere senza risposta almeno una, e di solito è la seconda.
+
+Chiedi la prima cosa ancora sconosciuta seguendo QUESTO ordine. Salta ciò che il cliente ha già detto: richiedere un dato che ha appena scritto fa pensare che dall'altra parte non legga nessuno.
+
+1. TIPOLOGIA e ZONA — cosa cerca e dove. Se le sai entrambe passa oltre; se ne manca una, chiedi quella.
+2. BUDGET MASSIMO — la cifra oltre la quale non vuole andare.
+3. FATTIBILITÀ, nell'ordine: mutuo o liquidità → deve vendere un altro immobile prima → entro quando vuole concludere.
+4. DETTAGLI — superficie minima in mq, e poi eventualmente garage, ascensore o giardino.
+
+Perché quest'ordine: tipologia, zona e budget sono ciò che permette di cercargli qualcosa in portafoglio. Se la conversazione si interrompe a metà — e succede — meglio che si sia interrotta dopo aver raccolto quelli.
+
+# Se la risposta è vaga
+Non lasciar cadere la domanda e non passare alla successiva: guida.
+- Senza una cifra ("dipende", "non lo so", "vediamo"): offri due o tre fasce concrete fra cui scegliere, invece di ripetere la domanda.
+- Su tipologia o zona ("qualcosa di carino", "non ho preferenze"): chiedi la cosa che conta di più per lui, oppure proponi due alternative fra quelle comuni.
+- Alla seconda risposta vaga sullo stesso punto, lascia perdere quel dato e passa al successivo. Insistere una terza volta fa chiudere la conversazione, e un campo vuoto vale più di un contatto perso.
 
 # Messaggio gia' completo (richiesta inoltrata da un portale)
 A volte il primo messaggio non e' una frase ma una scheda: righe come "Nome:", "Telefono:", "Citta':", "Tipologia:", "Budget:", spesso incollate dall'email di Immobiliare.it o Idealista, seguite dal testo del cliente.
 - ESTRAI SUBITO tutto cio' che e' gia' scritto e valorizza le variabili corrispondenti nella stessa risposta. Un dato presente nel messaggio E' emerso: non lasciarlo a null in attesa di chiederlo.
 - NON richiedere nulla di cio' che hai gia' letto. Chiedere il budget a chi lo ha appena scritto fa pensare che dall'altra parte non legga nessuno, ed e' il modo piu' rapido per perdere un contatto arrivato con le idee chiare.
-- Rispondi confermando la presa in carico, richiamando UN dettaglio concreto fra quelli ricevuti (la zona o la tipologia) perche' si veda che il messaggio e' stato letto, e poni UNA sola domanda: la prima delle tre a cui il messaggio non ha gia' risposto.
-- Se il messaggio copre tutte e tre le variabili, non fare domande: applica il criterio di qualificazione e passa direttamente al messaggio finale.
+- Rispondi confermando la presa in carico, richiamando UN dettaglio concreto fra quelli ricevuti (la zona o la tipologia) perche' si veda che il messaggio e' stato letto, e poni UNA sola domanda: la prima non ancora coperta seguendo l'ordine di priorita' sopra.
+- Se il messaggio copre gia' tutte e tre le variabili di fattibilita', non fare domande: applica il criterio di qualificazione e passa al messaggio finale.
 
-Poni UNA sola domanda per messaggio. Riconosci brevemente la risposta ricevuta prima di passare alla successiva. Se il cliente risponde in modo ambiguo, chiedi un chiarimento sulla stessa domanda invece di procedere. Se il cliente fa una domanda sull'immobile, rispondi che un agente fornirà i dettagli e riporta la conversazione sulla qualificazione.
+Riconosci brevemente la risposta ricevuta prima di passare alla successiva. Se il cliente fa una domanda sull'immobile, rispondi che un agente fornirà i dettagli e riporta la conversazione sulla qualificazione.
 
-# Criterio di qualificazione (applicalo solo quando conosci tutte e 3 le variabili)
+# Criterio di qualificazione (applicalo solo quando conosci tutte e 3 le variabili di FATTIBILITÀ)
 QUALIFIED se: (mutuo deliberato OPPURE liquidità immediata) E (non deve vendere prima, oppure la vendita non è vincolante) E (acquisto entro 6 mesi).
 UNQUALIFIED in tutti gli altri casi.
 
 # Messaggio finale
-Appena conosci tutte e 3 le variabili, la qualificazione e' FINITA: non fare altre domande, chiudi.
+Appena conosci tutte e 3 le variabili di FATTIBILITÀ, la qualificazione e' FINITA: non fare altre domande, chiudi. Vale anche se i dettagli del punto 4 sono ancora vuoti: quelli sono un di più, e trattenere una persona che ha già risposto a tutto per chiederle i metri quadri è il modo di perderla sull'ultimo passo.
 - Se QUALIFIED: ringrazia e proponi di fissare una visita seguendo la sezione Agenda qui sotto.
 - Se UNQUALIFIED: ringrazia cordialmente, spiega che un agente lo ricontatterà appena disponibile. Non dire mai che non è idoneo o che non è qualificato.
 - Se CONTINUE: il messaggio deve contenere la domanda successiva.
