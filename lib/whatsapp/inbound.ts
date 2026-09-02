@@ -6,7 +6,7 @@ import { isOptOutMessage } from "./compliance";
 import { handleClosedConversation, handleIncomingMessage, handleOptOut } from "./conversation";
 import { applyReminderReply, isAwaitingReminderReply, parseReminderReply } from "./reminders";
 import { createLeadFromFirstMessage } from "./first-contact";
-import { classifyIntent } from "@/lib/ai/intent-gateway";
+import { classifyIntent, type IntentVerdict } from "@/lib/ai/intent-gateway";
 import { recordOffTopicMessage, resetOffTopicStreak } from "./off-topic";
 import { AGENT_COMMAND_REPLIES, parseAgentCommand } from "./agent-commands";
 import { sendWhatsAppMessageForProvider } from "./client";
@@ -133,7 +133,11 @@ async function applyAgentCommand(
   if (command !== "help") {
     await prisma.lead.update({
       where: { id: lead.id },
-      data: { aiEnabled: command === "resume_ai" },
+      data: {
+        aiEnabled: command === "resume_ai",
+        // Riacceso: l'origine non serve piu'. Spento da qui: e' l'agente.
+        aiPausedBy: command === "resume_ai" ? null : ("AGENTE" as const),
+      },
     });
   }
 
@@ -425,6 +429,94 @@ export async function handleInboundWhatsAppMessage(
     return;
   }
 
+  /**
+   * Verdetto del filtro di pertinenza, calcolato al massimo una volta.
+   *
+   * Da qui in avanti servono a tre punti diversi — la revoca della
+   * sospensione automatica, la riapertura di una pratica chiusa e il filtro
+   * sulla conversazione in corso — e prima ognuno se lo ricostruiva per conto
+   * suo. Oltre a pagare due classificazioni per lo stesso messaggio, i tre
+   * punti potevano rispondersi in modo diverso sullo stesso testo.
+   */
+  let verdettoCache: IntentVerdict | null = null;
+  const valutaIntento = async (): Promise<IntentVerdict> => {
+    if (verdettoCache) return verdettoCache;
+
+    // La cronologia recente viaggia col messaggio: senza contesto un "si" o un
+    // "200 mila" sembrano frasi a caso, mentre sono la risposta alla domanda
+    // che l'assistente ha appena fatto.
+    const storico = parseChatMessages(
+      (await prisma.whatsAppChat.findUnique({
+        where: { leadId: lead.id },
+        select: { messages: true },
+      }))?.messages
+    );
+
+    verdettoCache = await classifyIntent({
+      message: message.text,
+      recentContext: storico
+        .slice(-4)
+        .map((m) => `${m.sender === "bot" ? "Agenzia" : "Cliente"}: ${m.text}`),
+    });
+    return verdettoCache;
+  };
+
+  /**
+   * Una richiesta immobiliare vera revoca la sospensione automatica.
+   *
+   * # Il difetto che chiude
+   *
+   * Il filtro sospende l'assistente dopo due messaggi fuori tema, per non
+   * inseguire chi ha sbagliato numero. Ma `aiEnabled = false` era
+   * indistinguibile da una pausa chiesta dall'agente, e il ramo che la
+   * gestisce tace **prima** di guardare cosa c'è scritto. Risultato: due
+   * "ciao come stai" bastavano a zittire per sempre quel contatto, e la
+   * domanda vera che arrivava dopo — "avete già qualche casa in vendita?" —
+   * non riceveva risposta né lasciava traccia. Nessuno se ne accorgeva,
+   * perché in scheda la conversazione sembrava semplicemente ferma.
+   *
+   * # Perché solo la sospensione del filtro
+   *
+   * Perché quella dell'agente è una decisione presa da una persona che sta
+   * rispondendo al cliente in quel momento. Riaccendere l'assistente lì
+   * significherebbe farlo parlare sopra di lei, davanti al suo cliente: si
+   * revoca solo ciò che era stato deciso da un automatismo.
+   *
+   * # Perché la soglia è `nuovaRichiesta` e non la sola pertinenza
+   *
+   * Perché il contatto è già stato giudicato fuori tema due volte di fila.
+   * Un "ok" o un "buongiorno" sono pertinenti ma non portano una richiesta:
+   * riaccendere su quelli rimetterebbe l'assistente esattamente nella
+   * situazione da cui era uscito.
+   */
+  if (!lead.aiEnabled && lead.aiPausedBy === "FILTRO") {
+    const verdetto = await valutaIntento();
+
+    if (verdetto.pertinente && verdetto.nuovaRichiesta) {
+      lead = await prisma.lead.update({
+        where: { id: lead.id },
+        data: { aiEnabled: true, aiPausedBy: null, offTopicStreak: 0 },
+      });
+
+      logDecision({
+        organizationId: config.organizationId,
+        from: clientPhone,
+        text: message.text,
+        intent: verdetto,
+        leadStatus: lead.qualificationStatus,
+        aiEnabled: true,
+        decision:
+          "RIATTIVATO — sospensione automatica revocata da una nuova richiesta immobiliare",
+      });
+
+      console.info("[WA-AI-REACTIVATED]", {
+        leadId: lead.id,
+        organizationId: config.organizationId,
+        motivo: verdetto.motivo,
+      });
+    }
+  }
+
   try {
     const reminderReply = isAwaitingReminderReply(lead) ? parseReminderReply(message.text) : null;
 
@@ -447,7 +539,10 @@ export async function handleInboundWhatsAppMessage(
         text: message.text,
         leadStatus: lead.qualificationStatus,
         aiEnabled: false,
-        decision: "NESSUNA RISPOSTA — assistente in pausa, messaggio salvato in cronologia",
+        decision:
+          lead.aiPausedBy === "FILTRO"
+            ? "NESSUNA RISPOSTA — sospeso dal filtro, e il messaggio non e' una nuova richiesta"
+            : "NESSUNA RISPOSTA — messo in pausa dall'agente, messaggio salvato in cronologia",
       });
     } else if (lead.qualificationStatus === "QUALIFIED" || lead.qualificationStatus === "UNQUALIFIED") {
       /**
@@ -468,19 +563,7 @@ export async function handleInboundWhatsAppMessage(
        * ripartire nulla. Il classificatore ha istruzione di stare basso e di
        * scegliere `false` nel dubbio.
        */
-      const storicoChiuso = parseChatMessages(
-        (await prisma.whatsAppChat.findUnique({
-          where: { leadId: lead.id },
-          select: { messages: true },
-        }))?.messages
-      );
-
-      const verdettoChiuso = await classifyIntent({
-        message: message.text,
-        recentContext: storicoChiuso
-          .slice(-4)
-          .map((m) => `${m.sender === "bot" ? "Agenzia" : "Cliente"}: ${m.text}`),
-      });
+      const verdettoChiuso = await valutaIntento();
 
       if (verdettoChiuso.pertinente && verdettoChiuso.nuovaRichiesta) {
         /*
@@ -545,19 +628,7 @@ export async function handleInboundWhatsAppMessage(
        * "si" o un "200 mila" sembrano frasi a caso, mentre sono la risposta
        * alla domanda che l'assistente ha appena fatto.
        */
-      const storico = parseChatMessages(
-        (await prisma.whatsAppChat.findUnique({
-          where: { leadId: lead.id },
-          select: { messages: true },
-        }))?.messages
-      );
-
-      const verdetto = await classifyIntent({
-        message: message.text,
-        recentContext: storico
-          .slice(-4)
-          .map((m) => `${m.sender === "bot" ? "Agenzia" : "Cliente"}: ${m.text}`),
-      });
+      const verdetto = await valutaIntento();
 
       if (!verdetto.pertinente) {
         // Nessuna risposta: e' il punto della funzione. Il messaggio resta in

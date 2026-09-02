@@ -42,6 +42,25 @@ enum CancellationReason {
 /// Stato del funnel di qualificazione di un lead.
 /// OPT_OUT è distinto da UNQUALIFIED: indica una revoca esplicita del consenso
 /// (STOP/CANCELLAMI) e blocca in modo permanente ogni invio successivo.
+/// Chi ha spento l'assistente su una conversazione.
+///
+/// Serve perche' `aiEnabled = false` da solo non distingue due situazioni
+/// opposte. Se l'ha spento **l'agente**, sta rispondendo lui e l'assistente
+/// deve tacere qualunque cosa arrivi: riaccendersi significherebbe parlare
+/// sopra una persona davanti al suo cliente.
+///
+/// Se l'ha spento **il filtro** dopo due messaggi fuori tema, e' una
+/// precauzione automatica presa su chi sembrava aver sbagliato numero. Quella
+/// precauzione non deve sopravvivere a una richiesta immobiliare vera: finora
+/// lo faceva, e chi tornava a chiedere di una casa restava senza risposta per
+/// sempre senza che nessuno se ne accorgesse.
+enum AiPauseOrigin {
+  /// `!pausa`, o l'interruttore nella scheda lead.
+  AGENTE
+  /// Sospensione automatica per messaggi fuori contesto ripetuti.
+  FILTRO
+}
+
 enum QualificationStatus {
   PENDING
   IN_PROGRESS
@@ -671,6 +690,11 @@ model Lead {
   /// Default `true` per non cambiare il comportamento delle conversazioni gia'
   /// aperte quando questo campo e' stato introdotto.
   aiEnabled Boolean @default(true)
+
+  /// Perche' l'assistente e' spento, quando lo e'. `null` quando e' acceso.
+  /// Vedi `AiPauseOrigin`: e' la differenza fra "tace perche' rispondi tu" e
+  /// "tace perche' sembrava un numero sbagliato".
+  aiPausedBy AiPauseOrigin?
 
   /// Messaggi consecutivi giudicati fuori contesto dal filtro di pertinenza.
   ///

@@ -54,7 +54,11 @@ export async function recordOffTopicMessage(
       // `aiEnabled` si tocca solo per spegnerlo: se l'agente l'ha già
       // riacceso a mano, questo contatore non deve rispegnerlo alle sue
       // spalle. Per questo la condizione include `lead.aiEnabled`.
-      ...(daSospendere ? { aiEnabled: false } : {}),
+      // Si registra CHI ha spento l'assistente, non solo che e' spento: e'
+      // la differenza fra una precauzione automatica, che una richiesta
+      // immobiliare vera deve poter revocare, e un agente che sta rispondendo
+      // di persona, sopra il quale non si torna a parlare.
+      ...(daSospendere ? { aiEnabled: false, aiPausedBy: "FILTRO" as const } : {}),
     },
   });
 

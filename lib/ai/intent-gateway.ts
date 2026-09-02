@@ -82,7 +82,9 @@ Solo quando è **evidente** che non c'entra nulla:
 # Richiesta nuova (nuovaRichiesta)
 Serve a decidere se **riaprire** una pratica gia' chiusa, quindi la soglia e' alta: la si alza solo per un messaggio che porta una domanda immobiliare che sta in piedi da sola.
 - nuovaRichiesta: true — "Gentile Agenzia, vorrei informazioni su…", "sto cercando un trilocale a…", "avrei un immobile da far valutare", una scheda inoltrata da un portale, una richiesta su un immobile o una zona diversi da quelli gia' discussi.
+- nuovaRichiesta: true anche per: una domanda su **cosa avete disponibile** ("avete gia' qualche casa in vendita?", "cos'altro avete in zona?"); una **richiesta di appuntamento o di disponibilita' avviata dal cliente** ("avete disponibilita' per una visita questa settimana?"); un'**esigenza cambiata** ("mi e' cambiato il budget", "cerco anche un box"). Sono domande che aspettano una risposta: senza, quella persona resta in silenzio convinta che l'agenzia la stia ignorando.
 - nuovaRichiesta: false — ringraziamenti, "va bene", "a presto", conferme, saluti di commiato, domande di seguito su cio' di cui si e' gia' parlato, risposte alle domande di qualificazione.
+- Non confondere le due righe qui sopra. Guarda l'ULTIMO messaggio dell'agenzia: se il cliente sta rispondendo a una domanda che gli e' appena stata fatta — "va bene giovedi'", "il secondo", "si, ho il mutuo" — sta rispondendo, non avviando, e nuovaRichiesta e' false. Se invece e' lui a chiedere qualcosa di nuovo, e' true.
 Se pertinente e' false, nuovaRichiesta e' false.
 Nel dubbio, false: riaprire una pratica chiusa fa ripartire l'assistente sopra un agente che l'aveva gia' presa in carico, ed e' un danno peggiore di una riapertura mancata, che l'agente vede comunque in cronologia.
 

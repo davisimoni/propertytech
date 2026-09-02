@@ -90,7 +90,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   // mettere in pausa l'assistente di un'altra agenzia (CLAUDE.md §5).
   const result = await prisma.lead.updateMany({
     where: { id, organizationId: session.user.organizationId },
-    data: { aiEnabled: parsed.data.aiEnabled },
+    data: {
+      aiEnabled: parsed.data.aiEnabled,
+      // Stessa distinzione del comando in chat: spegnere da qui e' una
+      // decisione di una persona, e vale finche' non la revoca lei.
+      aiPausedBy: parsed.data.aiEnabled ? null : "AGENTE",
+    },
   });
 
   if (result.count === 0) {
