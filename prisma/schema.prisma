@@ -957,11 +957,26 @@ model Property {
   /// Testo dell'annuncio generato dall'AI, riusato nel feed XML.
   description String?
 
-  /// Stato commerciale. `ACTIVE` di default: le schede gia' in portafoglio
-  /// quando questo campo e' stato introdotto erano tutte pubblicabili, e un
-  /// default diverso le avrebbe ritirate in blocco dai portali alla prima
-  /// rilettura del feed.
-  status PropertyStatus @default(ACTIVE)
+  /// Stato commerciale. `DRAFT` di default.
+  ///
+  /// # Perche' e' cambiato da ACTIVE
+  ///
+  /// Perche' un immobile appena salvato non e' un immobile pronto. Arriva da
+  /// una generazione, da un import o da un modulo compilato in fretta: puo'
+  /// avere il prezzo sbagliato, nessuna fotografia, una descrizione ancora da
+  /// rileggere. Con il default precedente finiva nel feed alla prima lettura
+  /// del portale, cioe' online, prima che qualcuno lo avesse guardato.
+  ///
+  /// La pubblicazione diventa cosi' un gesto: si sceglie "In vendita" dal menu
+  /// quando la scheda e' a posto. E' un passaggio in piu' per l'agente, ed e'
+  /// voluto — ritirare un annuncio sbagliato dai portali costa molto piu' di
+  /// un clic.
+  ///
+  /// Il cambio riguarda solo le righe NUOVE: quelle gia' a portafoglio
+  /// mantengono lo stato che hanno, e nessun immobile pubblicato viene
+  /// ritirato. Il feed continua a esportare `PUBLISHED_STATUSES` e non e'
+  /// stato toccato.
+  status PropertyStatus @default(DRAFT)
 
   /// Fotografie dell'annuncio, in ordine di pubblicazione: la prima e' la
   /// copertina.

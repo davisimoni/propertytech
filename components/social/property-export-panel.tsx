@@ -408,7 +408,17 @@ export function PropertyExportPanel({
           <div className="text-sm text-foreground">
             <p>
               Immobile <span className="font-medium">{saved.reference}</span> salvato in
-              portafoglio.
+              portafoglio come <span className="font-medium">bozza</span>.
+            </p>
+            {/* Detto qui e non solo in portafoglio.
+
+                I nuovi immobili nascono in bozza e restano fuori dal feed: chi
+                salva da qui e non lo sa aspetta di vederlo comparire sul
+                portale, e dopo due giorni scrive per dire che il feed non
+                funziona. La riga costa nulla e risparmia quella telefonata. */}
+            <p className="mt-0.5 text-muted-foreground">
+              Non è ancora sui portali: aprilo dal Portafoglio Immobili e mettilo «In vendita»
+              quando la scheda è a posto.
             </p>
             <p className="mt-0.5 flex items-center gap-1.5 text-muted-foreground">
               <Users className="h-3.5 w-3.5" />

@@ -192,6 +192,12 @@ export function PropertyPortfolio({ currentRole }: { currentRole: UserRole }) {
               property.images.length === 0
           ).length
         }
+        publishedCount={
+          properties.filter((property) =>
+            (PUBLISHED_STATUSES as readonly PropertyStatus[]).includes(property.status)
+          ).length
+        }
+        draftCount={properties.filter((property) => property.status === "DRAFT").length}
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">

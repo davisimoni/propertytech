@@ -233,12 +233,14 @@ export const GUIDE_SECTIONS: GuideSection[] = [
           "Riferimento, contratto, tipologia, comune, prezzo e superficie sono obbligatori: senza, nessun portale accetta l'annuncio in caricamento.",
       },
       {
-        action: "Scarica il feed XML",
+        action: "Mettilo «In vendita» quando la scheda e' a posto",
         detail:
-          "Un solo immobile o l'intero portafoglio. Fai validare il tracciato dal referente del portale prima del primo caricamento massivo: ogni portale ha il suo.",
+          "Un immobile appena salvato nasce come BOZZA e resta fuori dai portali: puo' avere il prezzo sbagliato o nessuna fotografia, e ritirare un annuncio gia' online costa molto piu' di un clic. Dal Portafoglio Immobili scegli «In vendita» dal menu della scheda: da quel momento entra nel feed alla lettura successiva.",
       },
     ],
     notes: [
+      "Il feed XML si configura UNA volta sola: da Portafoglio Immobili copi l'indirizzo con «Copia Indirizzo Feed XML» e lo consegni al referente del portale. Da li' in poi rilegge da solo, e ogni immobile che marchi «In vendita» compare senza che tu faccia altro.",
+      "Il pannello del feed dice quanti immobili sta pubblicando e quanti sono ancora in bozza: se il portale ti sembra vuoto, e' li' che si vede il perche'.",
       "Quando un portale rifiuta la lettura del link te lo diciamo e ti portiamo il cursore nel riquadro del testo. Non è un guasto della piattaforma: è quel sito che non si lascia leggere da un programma.",
       "L'AI usa soltanto ciò che trova nella fonte. Se un dato non c'è il campo resta vuoto invece di essere inventato: rileggi sempre prezzo e metratura prima di pubblicare.",
     ],

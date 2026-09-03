@@ -3,7 +3,8 @@
 import type { UserRole } from "@prisma/client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, Clipboard, Loader2, Rss, TriangleAlert } from "lucide-react";
+import { Check, Clipboard, HelpCircle, Loader2, Rss, TriangleAlert } from "lucide-react";
+import { FeedSetupDialog } from "@/components/properties/feed-setup-dialog";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useToast } from "@/components/shared/toast-provider";
 
@@ -22,9 +23,15 @@ export function PortalFeedPanel({
    * l'agenzia ha finito di caricarle.
    */
   missingPhotos,
+  publishedCount,
+  draftCount,
   currentRole,
 }: {
   missingPhotos: number;
+  /** Immobili che il feed esporta davvero. */
+  publishedCount?: number;
+  /** Immobili in bozza: fuori dal feed finche' l'agente non li pubblica. */
+  draftCount?: number;
   currentRole: UserRole;
 }) {
   // Attivare e revocare il feed vale per TUTTA l'agenzia: la revoca ritira gli
@@ -39,6 +46,8 @@ export function PortalFeedPanel({
   const [origin, setOrigin] = useState("");
   /** Revoca in attesa di conferma: spegne il feed su tutti i portali. */
   const [confirmingRevoke, setConfirmingRevoke] = useState(false);
+  /** Istruzioni per i portali, aperte su richiesta. */
+  const [showSetup, setShowSetup] = useState(false);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -103,11 +112,13 @@ export function PortalFeedPanel({
           <Rss className="h-4 w-4" />
         </span>
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-foreground">Feed XML per i portali</h2>
+          <h2 className="text-sm font-semibold text-foreground">
+            Sincronizzazione Automatica Portali (XML)
+          </h2>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Incolla questo indirizzo nel pannello di Immobiliare.it, Idealista o Casa.it: il
-            portale lo rilegge da solo a intervalli regolari e pubblica il tuo portafoglio
-            aggiornato, senza che tu debba ricaricare nulla a mano.
+            Incolla questo link una sola volta nelle impostazioni del tuo portale
+            (Immobiliare.it, Idealista, Casa.it) o nel tuo gestionale per sincronizzare
+            automaticamente tutti gli immobili marcati come &laquo;In vendita&raquo;.
           </p>
         </div>
       </div>
@@ -119,23 +130,59 @@ export function PortalFeedPanel({
         </p>
       ) : token ? (
         <div className="mt-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-foreground">
-              {feedUrl}
-            </code>
-            <button
-              type="button"
-              onClick={copy}
-              aria-label="Copia l'indirizzo del feed XML"
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border text-foreground transition-all duration-200 hover:bg-muted sm:h-9 sm:w-9"
-            >
+          {/* L'indirizzo resta visibile ma smette di essere il protagonista.
+
+              Prima era un link nudo con un'iconcina accanto: chi non sapeva
+              gia' cosa farne leggeva una stringa lunga e non capiva se andasse
+              cliccata, aperta o copiata. Ora l'azione ha un nome — "Copia
+              Indirizzo Feed XML" — e la stringa serve solo a verificare che sia
+              quella giusta. */}
+          <code className="block truncate rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+            {feedUrl}
+          </code>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={copy} className="btn-brand text-xs">
               {copied ? (
-                <Check className="h-4 w-4 text-status-qualified" />
+                <Check className="h-4 w-4" />
               ) : (
                 <Clipboard className="h-4 w-4" />
               )}
+              {copied ? "Copiato!" : "Copia Indirizzo Feed XML"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowSetup(true)}
+              className="btn-outline text-xs"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+              Come configurarlo
             </button>
           </div>
+
+          {/* Quanti immobili il feed porta davvero.
+
+              Serve da quando i nuovi immobili nascono in bozza: senza questa
+              riga, un'agenzia che ne salva cinque e incolla il link vedrebbe
+              il portale restare vuoto senza capire perche', e concluderebbe
+              che il feed non funziona. */}
+          {typeof publishedCount === "number" && (
+            <p className="text-xs text-muted-foreground">
+              Nel feed adesso:{" "}
+              <span className="font-medium text-foreground">
+                {publishedCount} {publishedCount === 1 ? "immobile" : "immobili"}
+              </span>
+              {draftCount ? (
+                <>
+                  {" "}
+                  &middot; {draftCount} in bozza, {draftCount === 1 ? "escluso" : "esclusi"}{" "}
+                  finche&apos; non {draftCount === 1 ? "lo marchi" : "li marchi"} &laquo;In
+                  vendita&raquo; dalla scheda.
+                </>
+              ) : null}
+            </p>
+          )}
 
           <p className="text-xs text-muted-foreground">
             L&apos;indirizzo contiene una chiave riservata: chi lo possiede legge il tuo
@@ -200,6 +247,8 @@ export function PortalFeedPanel({
           onCancel={() => setConfirmingRevoke(false)}
         />
       )}
+
+      {showSetup && <FeedSetupDialog onClose={() => setShowSetup(false)} />}
 
       {missingPhotos > 0 ? (
         <p className="mt-4 flex items-start gap-2 rounded-lg border border-status-pending/40 bg-status-pending/10 px-3 py-2 text-xs leading-relaxed text-muted-foreground">

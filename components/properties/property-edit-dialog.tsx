@@ -227,8 +227,8 @@ export function PropertyEditDialog({
         const abbinati = (data as { matching?: { matched?: number } } | null)?.matching?.matched ?? 0;
         showToast(
           abbinati > 0
-            ? `Immobile aggiunto. ${abbinati} ${abbinati === 1 ? "lead compatibile" : "lead compatibili"} in portafoglio.`
-            : "Immobile aggiunto al portafoglio.",
+            ? `Immobile aggiunto come bozza. ${abbinati} ${abbinati === 1 ? "lead compatibile" : "lead compatibili"} in portafoglio.`
+            : "Immobile aggiunto come bozza: mettilo «In vendita» per pubblicarlo sui portali.",
           "success"
         );
         onCreated?.();
