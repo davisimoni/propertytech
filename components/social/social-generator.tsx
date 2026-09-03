@@ -180,60 +180,52 @@ export function SocialGenerator() {
           setError(null);
         }}
         onLocked={() => setLockedPlan("Enterprise")}
-      />
-
-      {/* Tono e generazione, subito sotto l'input.
-
-          Il riquadro "Dati dell'immobile" che stava qui — titolo, punti
-          chiave, testo libero — chiedeva una seconda volta cio' che l'agente
-          aveva gia' incollato sopra. Due caselle che vogliono la stessa cosa
-          non sono una scelta: sono un dubbio su quale delle due conti, e chi
-          non lo scioglie compila entrambe. */}
-      <section className="rounded-xl border border-border bg-card p-4 md:p-5">
-        <div className="space-y-4">
-          <div>
-            <span className="text-xs font-medium text-muted-foreground">Tono di voce</span>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {TONE_OPTIONS.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setTone(option)}
-                  aria-pressed={tone === option}
-                  className={cn(
-                    "rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200",
-                    tone === option
-                      ? "bg-brand-gradient text-white shadow-sm"
-                      : "border border-border text-muted-foreground hover:bg-muted"
-                  )}
-                >
-                  {TONE_LABELS[option]}
-                </button>
-              ))}
+        footer={
+          <div className="space-y-4">
+            <div>
+              <span className="text-xs font-medium text-muted-foreground">Tono di voce</span>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {TONE_OPTIONS.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setTone(option)}
+                    aria-pressed={tone === option}
+                    className={cn(
+                      "rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200",
+                      tone === option
+                        ? "bg-brand-gradient text-white shadow-sm"
+                        : "border border-border text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    {TONE_LABELS[option]}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {error && (
+              <p role="alert" className="text-sm text-status-blocked">
+                {error}
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={!canGenerate || isGenerating}
+              className="inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 disabled:opacity-50"
+            >
+              {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {isGenerating ? "Generazione in corso…" : "Genera annuncio, post e Reel"}
+            </button>
+
+            {/* I messaggi ruotano sotto il pulsante e non dentro: cambiando
+                lunghezza farebbero saltare la larghezza del bottone a ogni giro. */}
+            {isGenerating && <ProgressMessages messages={LISTING_PROGRESS} className="block" />}
           </div>
-
-          {error && (
-            <p role="alert" className="text-sm text-status-blocked">
-              {error}
-            </p>
-          )}
-
-          <button
-            type="button"
-            onClick={handleGenerate}
-            disabled={!canGenerate || isGenerating}
-            className="inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 disabled:opacity-50"
-          >
-            {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {isGenerating ? "Generazione in corso…" : "Genera annuncio, post e Reel"}
-          </button>
-
-          {/* I messaggi ruotano sotto il pulsante e non dentro: cambiando
-              lunghezza farebbero saltare la larghezza del bottone a ogni giro. */}
-          {isGenerating && <ProgressMessages messages={LISTING_PROGRESS} className="block" />}
-        </div>
-      </section>
+        }
+      />
 
       {content && (
         <section className="rounded-xl border border-border bg-card p-4 md:p-5">

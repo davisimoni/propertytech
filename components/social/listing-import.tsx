@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { AlertTriangle, Link2, Loader2, Wand2 } from "lucide-react";
 import { IMPORT_PROGRESS, ProgressMessages } from "@/components/shared/progress-messages";
 
@@ -25,18 +25,41 @@ export interface ImportedListingView {
 
 interface ListingImportProps {
   /**
-   * Testo controllato dal componente padre: serve anche al pulsante "Genera",
-   * che può inviarlo direttamente all'AI saltando la compilazione dei campi.
+   * Testo controllato dal componente padre, perché è lui a generare: questo
+   * riquadro raccoglie la fonte, la generazione la fa chi ha il tono e lo
+   * stato dei contenuti.
    */
   rawText: string;
   onRawTextChange: (value: string) => void;
-  /** Riempie il form principale con i dati estratti. */
+  /** Riempie la scheda di portafoglio coi dati estratti dal link. */
   onImported: (listing: ImportedListingView) => void;
   onLocked: () => void;
+  /**
+   * Tono di voce e pulsante di generazione, resi dal padre e mostrati qui
+   * sotto la textarea.
+   *
+   * Passati come contenuto invece di essere ricostruiti qui perché dipendono
+   * da stato che vive nel generatore — il tono scelto, la generazione in
+   * corso, i contenuti già prodotti. Duplicarlo per averlo in questo riquadro
+   * significherebbe tenerne due copie sincronizzate a mano.
+   */
+  footer?: ReactNode;
 }
 
 /**
- * Compilazione automatica della scheda immobile: da link o da testo.
+ * Il punto di partenza di /social: la fonte da cui generare, e i comandi.
+ *
+ * # Cosa e' cambiato, e perche'
+ *
+ * C'era un pulsante "Compila i campi" che leggeva il testo incollato e ne
+ * ricavava i dati della scheda. Faceva una cosa utile, ma accanto a "Genera"
+ * ne sembrava un doppione: due pulsanti che partono dallo stesso testo, e
+ * nessuno dei due dice quale viene prima. Chi non lo scioglieva li premeva
+ * entrambi, pagando due volte la stessa lettura.
+ *
+ * Ora si genera e basta: i campi della scheda di portafoglio si riempiono da
+ * soli in sottofondo subito dopo, che era gia' quello che succedeva a chi
+ * premeva "Genera" direttamente.
  *
  * # Perché il link sta sopra e il testo sotto
  *
@@ -55,8 +78,8 @@ export function ListingImport({
   onRawTextChange,
   onImported,
   onLocked,
+  footer,
 }: ListingImportProps) {
-  const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [url, setUrl] = useState("");
@@ -64,41 +87,6 @@ export function ListingImport({
 
   /** Serve a portare il cursore nel riquadro quando il portale blocca il link. */
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  async function handleImport() {
-    setIsImporting(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/social/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rawText }),
-      });
-
-      if (response.status === 402) {
-        onLocked();
-        return;
-      }
-
-      const body = await response.json();
-
-      if (!response.ok) {
-        setError(body.message ?? "Compilazione non riuscita.");
-        return;
-      }
-
-      // `missingInfo` non viene più mostrato qui: elencare ciò che manca
-      // subito dopo una compilazione riuscita si leggeva come un blocco,
-      // mentre i campi si erano popolati regolarmente. Chi vuole integrare
-      // vede già i campi vuoti sotto, che è un'informazione più diretta.
-      onImported(body.listing as ImportedListingView);
-    } catch {
-      setError("Errore di rete durante la compilazione.");
-    } finally {
-      setIsImporting(false);
-    }
-  }
 
   async function handleExtractUrl() {
     setIsExtracting(true);
@@ -138,19 +126,20 @@ export function ListingImport({
     }
   }
 
-  const canImport = rawText.trim().length > 30;
   const canExtract = /^https?:\/\/\S+$/i.test(url.trim());
-  const isBusy = isImporting || isExtracting;
+  // Solo la lettura del link resta un'attesa da segnalare qui: la
+  // generazione ha il suo indicatore accanto al proprio pulsante.
+  const isBusy = isExtracting;
 
   return (
     <section className="rounded-xl border border-primary/25 bg-primary/5 p-5">
       <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
         <Wand2 className="h-4 w-4 text-primary" />
-        Compila la scheda da un link o da un testo
+        Da dove partiamo
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Incolla il link dell&apos;annuncio, oppure il testo copiato da un portale, da
-        un&apos;email o dal gestionale: l&apos;AI ne ricava i dati dell&apos;immobile.
+        un&apos;email o dal gestionale. Basta una delle due cose.
       </p>
 
       {/* --- Da link --- */}
@@ -222,6 +211,15 @@ export function ListingImport({
         </p>
       </div>
 
+      {/* Tono e generazione, dentro lo stesso riquadro dell'input.
+
+          Stavano in una scheda a parte, sotto: fra l'ultimo campo compilato e
+          il pulsante che lo usa c'era un bordo, e a quel punto sembra che
+          servano due passaggi invece di uno. Qui la sequenza si legge in
+          verticale — incolla, scegli il tono, genera — che e' anche l'ordine
+          in cui le tre cose si fanno. */}
+      {footer && <div className="mt-4 border-t border-border pt-4">{footer}</div>}
+
       {error && (
         <div
           role="alert"
@@ -231,25 +229,6 @@ export function ListingImport({
           <p className="text-xs text-foreground">{error}</p>
         </div>
       )}
-
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={handleImport}
-          disabled={!canImport || isBusy}
-          className="btn-brand"
-        >
-          {isImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-          {isImporting ? "Lettura in corso…" : "Compila i campi"}
-        </button>
-        {/* Detto qui perché è la domanda che sorge davanti a due pulsanti che
-            sembrano fare la stessa cosa: questo serve solo a rileggere e
-            correggere i dati prima di generare, non è un passaggio dovuto. */}
-        <p className="text-xs text-muted-foreground">
-          Facoltativo: serve a rivedere i dati prima di generare. Puoi anche generare
-          direttamente dal testo.
-        </p>
-      </div>
 
       {isBusy && <ProgressMessages messages={IMPORT_PROGRESS} className="mt-3 block" />}
     </section>
