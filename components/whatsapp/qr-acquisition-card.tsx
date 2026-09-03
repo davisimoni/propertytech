@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Download, Loader2, Printer, QrCode } from "lucide-react";
 import {
+  buildPropertyQrMessage,
   buildWhatsAppQrLink,
   DEFAULT_QR_MESSAGE,
   MAX_QR_MESSAGE_LENGTH,
@@ -18,10 +19,33 @@ import type { WhatsAppConfigView } from "@/lib/whatsapp/view-types";
  * inquadra apre WhatsApp sul numero dell'agenzia con il messaggio già scritto,
  * il bot risponde e la notizia entra in pipeline già qualificata.
  */
+/** Solo quello che serve alla tendina: riferimento e titolo per riconoscerlo. */
+interface PropertyOption {
+  id: string;
+  reference: string;
+  title: string;
+}
+
 export function QrAcquisitionCard() {
   const [message, setMessage] = useState(DEFAULT_QR_MESSAGE);
   const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  /**
+   * Immobili del portafoglio, per il selettore.
+   *
+   * # A cosa serve legare il QR a un immobile
+   *
+   * Il cartello sta su UNA casa. Chi lo inquadra sta guardando quella, e
+   * scrivendo "ho visto un vostro immobile" costringe l'assistente a chiedere
+   * quale — a una persona che ha appena il telefono davanti a una vetrina, ed
+   * e' il momento in cui piu' facilmente lascia perdere.
+   *
+   * Col riferimento nel messaggio, l'assistente sa gia' di quale casa si
+   * parla, risponde con i dati veri e passa subito alla qualificazione.
+   */
+  const [properties, setProperties] = useState<PropertyOption[]>([]);
+  const [selectedRef, setSelectedRef] = useState("");
 
   // La card legge il numero da sé invece di riceverlo dal pannello di
   // connessione: resta indipendente, e il genitore la rimonta dopo un
@@ -32,6 +56,32 @@ export function QrAcquisitionCard() {
       .then((data: WhatsAppConfigView | null) => setPhoneNumber(data?.phoneNumber ?? null))
       .finally(() => setIsLoading(false));
   }, []);
+
+  // Il portafoglio a parte: se non risponde, il QR generico funziona lo
+  // stesso, e un errore di caricamento non deve togliere all'agenzia il
+  // codice che stava per stampare.
+  useEffect(() => {
+    fetch("/api/properties")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { properties?: PropertyOption[] } | null) =>
+        setProperties(data?.properties ?? [])
+      )
+      .catch(() => setProperties([]));
+  }, []);
+
+  /**
+   * Cambio immobile: riscrive il messaggio.
+   *
+   * Sovrascrive quello che c'e', anche se l'agente lo aveva modificato. E'
+   * voluto: ha appena scelto un altro immobile, e tenere il testo del
+   * precedente lascerebbe stampato un riferimento che non corrisponde piu' —
+   * l'errore peggiore possibile su un cartello, perche' porta le persone a
+   * chiedere di una casa e a sentirsi rispondere di un'altra.
+   */
+  function scegliImmobile(reference: string) {
+    setSelectedRef(reference);
+    setMessage(reference ? buildPropertyQrMessage(reference) : DEFAULT_QR_MESSAGE);
+  }
 
   const link = useMemo(() => buildWhatsAppQrLink(phoneNumber, message), [phoneNumber, message]);
 
@@ -83,6 +133,39 @@ export function QrAcquisitionCard() {
         />
 
         <div className="min-w-0 flex-1">
+          {/* Il selettore PRIMA del messaggio: scegliere l'immobile riscrive
+              il testo, e un controllo che modifica il campo sotto deve stargli
+              sopra, o si vede cambiare qualcosa che si era gia' letto. */}
+          {properties.length > 0 && (
+            <div className="mb-4">
+              <label
+                htmlFor="qr-property"
+                className="text-xs font-medium text-muted-foreground"
+              >
+                Seleziona Immobile (opzionale)
+              </label>
+              <select
+                id="qr-property"
+                value={selectedRef}
+                onChange={(event) => scegliImmobile(event.target.value)}
+                className="input-field mt-1"
+                aria-describedby="qr-property-hint"
+              >
+                <option value="">Nessuno — messaggio generico</option>
+                {properties.map((property) => (
+                  <option key={property.id} value={property.reference}>
+                    {property.reference} · {property.title}
+                  </option>
+                ))}
+              </select>
+              <p id="qr-property-hint" className="mt-1 text-xs text-muted-foreground">
+                Scegliendo un immobile, il riferimento finisce nel messaggio: l&apos;assistente
+                sa subito di quale casa si parla e risponde con i dati veri invece di chiedere
+                quale sia.
+              </p>
+            </div>
+          )}
+
           <label htmlFor="qr-message" className="text-xs font-medium text-muted-foreground">
             Messaggio precompilato
           </label>

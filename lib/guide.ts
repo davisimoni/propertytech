@@ -118,9 +118,9 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       "Il codice che trovi in Qualifica Lead apre WhatsApp sul tuo numero con un messaggio già scritto. Stampalo in vetrina, sui cartelli degli immobili e sui volantini.",
     steps: [
       {
-        action: "Personalizza il messaggio precompilato",
+        action: "Scegli l'immobile dalla tendina, se il QR va su un cartello",
         detail:
-          "Se il QR finisce sul cartello di un immobile, aggiungi il riferimento: comparirà nella scheda della notizia e saprai da quale immobile arriva il contatto.",
+          "Il riferimento finisce da solo nel messaggio precompilato e il QR si aggiorna mentre guardi. Chi lo inquadra scrive citando quell'immobile, e l'assistente risponde con i dati veri — prezzo, metratura, zona — invece di chiedere di quale casa si tratti a una persona che ha il cartello davanti.",
       },
       {
         action: "Scarica il PNG o stampa direttamente",
@@ -129,6 +129,8 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     ],
     notes: [
       "Chi scansiona e scrive diventa una notizia con fonte \"QR in vetrina\", distinta dai portali: così vedi se quel cartello sta davvero producendo contatti.",
+      "Senza immobile selezionato il messaggio resta generico e va bene per la vetrina o un volantino: l'assistente chiede lui cosa si sta cercando.",
+      "L'assistente riferisce solo i dati che hai in scheda. Su ciò che non c'è — spese condominiali, anno di costruzione, trattabilità del prezzo — dice che ci pensi tu, invece di inventare un numero su un immobile vero.",
     ],
   },
   {

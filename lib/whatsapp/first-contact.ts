@@ -5,6 +5,7 @@ import { checkUsageLimit } from "@/lib/usage";
 import { initialDealStage } from "@/lib/leads/deal-stage";
 import { normalizePhone } from "./types";
 import { startConversation } from "./conversation";
+import { resolvePropertyFromText } from "@/lib/leads/resolve-property";
 import { appendMessage } from "./chat-history";
 
 /**
@@ -79,6 +80,21 @@ export async function createLeadFromFirstMessage(params: {
       // Deciso dal filtro di pertinenza sul primo messaggio: e' l'unico
       // momento in cui si puo' ancora scegliere come aprire la conversazione.
       intent: intent ?? null,
+      /*
+       * L'immobile riconosciuto dal messaggio, gia' alla creazione.
+       *
+       * Prima il collegamento avveniva solo a qualificazione conclusa
+       * (`linkLeadToProperty` in conversation.ts): utile per la scheda, inutile
+       * per la conversazione. Chi inquadra il QR sul cartello di una casa
+       * scrive "[Rif: A102]" nel primo messaggio, e l'assistente rispondeva
+       * senza sapere di quale casa si trattasse — chiedendo un'informazione che
+       * la persona aveva gia' dato.
+       *
+       * Il riconoscimento e' lo stesso di prima e resta severo: si collega solo
+       * su una corrispondenza inequivocabile, perche' un lead attribuito
+       * all'immobile sbagliato inquina il bilancio che va al proprietario.
+       */
+      propertyId: await resolvePropertyFromText(organizationId, messageText),
     },
   });
 

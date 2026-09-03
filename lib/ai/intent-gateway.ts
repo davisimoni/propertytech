@@ -112,7 +112,7 @@ Nel dubbio, false: riaprire una pratica chiusa fa ripartire l'assistente sopra u
 # Comprare o vendere (intenzione)
 Un'agenzia immobiliare vive di due mestieri, e le domande da fare sono diverse.
 - VENDITA: "vorrei vendere casa", "quanto vale il mio appartamento?", "fate valutazioni gratuite?", "ho un immobile da mettere in vendita", "ho ereditato una casa e vorrei liberarmene", "mi fareste una stima?".
-- ACQUISTO: cerca, vuole visitare, chiede il prezzo di un immobile in annuncio, parla di mutuo per comprare.
+- ACQUISTO: cerca, vuole visitare, chiede il prezzo di un immobile in annuncio, parla di mutuo per comprare. Ci rientra anche chi chiede se un immobile e' ANCORA DISPONIBILE o ne chiede informazioni dopo averlo visto in annuncio, in vetrina o su un cartello: chiede di una casa che e' gia' dell'agenzia, quindi vuole comprarla, non venderla.
 - ENTRAMBI: dice tutte e due le cose — tipicamente "devo vendere la mia per comprarne una piu' grande". Usalo solo quando entrambe sono esplicite.
 - null quando il messaggio non basta: un "buongiorno" secco, una domanda di servizio, una frase ambigua. Non tirare a indovinare — dall'intenzione dipende quali domande verranno fatte a questa persona, e sbagliare ramo significa farne quattro che non la riguardano.
 Se pertinente e' false, intenzione e' null.

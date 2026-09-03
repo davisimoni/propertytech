@@ -8,9 +8,28 @@ import { normalizePhone } from "./types";
  * cento cartelli è un errore che si scopre troppo tardi.
  */
 
-/** Messaggio proposto quando l'agente non ne scrive uno suo. */
+/** Messaggio proposto quando il QR non e' legato a un immobile preciso. */
 export const DEFAULT_QR_MESSAGE =
-  "Salve, ho visto questo immobile e vorrei ricevere maggiori informazioni.";
+  "Salve, ho visto un vostro immobile e vorrei maggiori informazioni.";
+
+/**
+ * Messaggio per il QR stampato sul cartello di UN immobile.
+ *
+ * # Perche' il riferimento fra parentesi quadre
+ *
+ * Perche' deve sopravvivere a chi lo riscrive. Il testo arriva precompilato ma
+ * la persona puo' aggiungerci una frase davanti, e un riferimento nudo in
+ * mezzo a un discorso e' indistinguibile da una parola qualsiasi. `[Rif: X]`
+ * si riconosce anche dentro "Buongiorno, ho visto [Rif: A102] in vetrina,
+ * quanto costa?", che e' come scrive la gente.
+ *
+ * Chi lo legge dall'altra parte e' `resolvePropertyFromText`, che normalizza
+ * la punteggiatura e cerca il riferimento come parola intera: le parentesi non
+ * lo disturbano, e il prefisso "Rif" non viene scambiato per parte del codice.
+ */
+export function buildPropertyQrMessage(reference: string): string {
+  return `Salve, ho visto l'immobile [Rif: ${reference.trim()}] e vorrei maggiori informazioni.`;
+}
 
 /** Tetto al testo precompilato: oltre, alcuni telefoni troncano il messaggio. */
 export const MAX_QR_MESSAGE_LENGTH = 300;

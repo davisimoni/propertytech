@@ -31,6 +31,7 @@ import { runMatchingForLead } from "@/lib/matching/run-matching";
 import { notifyMatchesForLead } from "@/lib/notifications/match-found";
 import { notifyLeadNeedsAttention } from "@/lib/notifications/lead-attention";
 import { QUALIFICATION_QUESTIONS } from "./questions";
+import { CONTRACT_LABELS, PROPERTY_TYPE_LABELS } from "@/lib/listings/property-fields";
 import {
   detectedCountFromQualification,
   deriveSellerCategory,
@@ -223,6 +224,39 @@ export async function handleIncomingMessage(
     : await getBookableSlots(lead.organizationId);
 
   try {
+    /*
+     * L'immobile di cui il cliente sta chiedendo.
+     *
+     * Il collegamento e' gia' stato fatto al primo contatto se il messaggio
+     * portava un riferimento riconoscibile — tipicamente il QR sul cartello.
+     * Qui si leggono i dati veri e si mettono nel prompt: senza, l'assistente
+     * rispondeva "un agente le fornira' i dettagli" a chi chiedeva il prezzo
+     * di una casa che l'agenzia ha in catalogo, con la scheda a database.
+     *
+     * Una lettura in piu' per conversazione, e solo quando il collegamento
+     * c'e': un lead senza immobile non paga nulla.
+     */
+    const property = lead.propertyId
+      ? await prisma.property.findFirst({
+          where: { id: lead.propertyId, organizationId: lead.organizationId },
+          select: {
+            reference: true,
+            title: true,
+            contract: true,
+            type: true,
+            comune: true,
+            zona: true,
+            priceEur: true,
+            squareMeters: true,
+            rooms: true,
+            bathrooms: true,
+            floor: true,
+            energyClass: true,
+            description: true,
+          },
+        })
+      : null;
+
     const agentReply = await generateAgentReply({
       agencyName,
       clientName: lead.clientName,
@@ -230,6 +264,18 @@ export async function handleIncomingMessage(
       history,
       availableSlots: availableSlots.map(formatSlotForChat),
       agencyProfile,
+      ...(property
+        ? {
+            property: {
+              ...property,
+              // Etichette leggibili invece dei valori dell'enum: nel prompt
+              // "VENDITA" e "APPARTAMENTO" sono gergo nostro, e il modello poi
+              // li ripete al cliente cosi' come li legge.
+              contract: CONTRACT_LABELS[property.contract],
+              type: PROPERTY_TYPE_LABELS[property.type],
+            },
+          }
+        : {}),
     });
 
     replyText = agentReply.reply;

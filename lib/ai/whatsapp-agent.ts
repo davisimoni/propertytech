@@ -279,6 +279,75 @@ export interface AgencyProfile {
  * solo la regola: non si risponde a domande di servizio a cui non sappiamo
  * rispondere.
  */
+/** L'immobile a cui il contatto si riferisce, quando si e' riusciti a riconoscerlo. */
+export interface PropertyContext {
+  reference: string;
+  title: string;
+  contract: string;
+  type: string;
+  comune: string;
+  zona: string | null;
+  priceEur: number;
+  squareMeters: number;
+  rooms: number | null;
+  bathrooms: number | null;
+  floor: string | null;
+  energyClass: string | null;
+  description: string | null;
+}
+
+/**
+ * I dati veri dell'immobile che la persona sta guardando.
+ *
+ * # Perche' cambia il tono di tutta la conversazione
+ *
+ * Chi inquadra il QR sul cartello di una casa ha quella casa davanti agli
+ * occhi. Senza questa sezione l'assistente rispondeva "un agente le fornira' i
+ * dettagli" a chi chiedeva il prezzo di un immobile che l'agenzia ha in
+ * catalogo, con la scheda a database: una non-risposta su un dato pubblico,
+ * gia' scritto sul cartello accanto al QR.
+ *
+ * # Il vincolo che resta
+ *
+ * Si dice solo cio' che c'e' scritto qui. Un dato assente resta assente: "non
+ * ho questa informazione, gliela fa avere l'agente" e' una risposta onesta,
+ * mentre una metratura inventata su un immobile vero diventa una trattativa
+ * costruita su un numero falso.
+ */
+function buildPropertySection(property: PropertyContext | undefined): string {
+  if (!property) {
+    return `# Immobile
+Non sappiamo con certezza di quale immobile si parli. Se il cliente chiede prezzo, metratura o disponibilita', rispondi che un agente gli fornira' i dettagli e prosegui con la qualificazione. NON inventare mai caratteristiche.`;
+  }
+
+  const euro = new Intl.NumberFormat("it-IT").format(property.priceEur);
+  const righe = [
+    `Riferimento: ${property.reference}`,
+    `Titolo: ${property.title}`,
+    `Contratto: ${property.contract}`,
+    `Tipologia: ${property.type}`,
+    `Comune: ${property.comune}${property.zona ? `, zona ${property.zona}` : ""}`,
+    `Prezzo: ${euro} EUR`,
+    `Superficie: ${property.squareMeters} mq`,
+    property.rooms !== null ? `Locali: ${property.rooms}` : null,
+    property.bathrooms !== null ? `Bagni: ${property.bathrooms}` : null,
+    property.floor ? `Piano: ${property.floor}` : null,
+    property.energyClass ? `Classe energetica: ${property.energyClass}` : null,
+    property.description ? `Descrizione: ${property.description}` : null,
+  ].filter(Boolean);
+
+  return `# Immobile di cui il cliente sta chiedendo
+Il cliente ha scritto indicando il riferimento di QUESTO immobile del nostro portafoglio — tipicamente inquadrando il QR sul cartello o sul volantino:
+
+${righe.join("\n")}
+
+## Come usarlo
+- Rispondi con questi dati quando te li chiede: prezzo, metratura, locali, piano, zona. Sono nostri e sono corretti, e dire "un agente le fornira' i dettagli" su un dato scritto sul cartello che ha davanti fa sembrare che dall'altra parte non ci sia nessuno.
+- Nel PRIMO messaggio richiama l'immobile con una frase concreta (tipologia, zona e prezzo), cosi' capisce di essere stato riconosciuto, e SUBITO DOPO poni la prima domanda di qualificazione. Non aspettare che sia lui a chiedere.
+- Cio' che NON e' scritto qui sopra non lo sai: spese condominiali, anno di costruzione, disponibilita' delle chiavi, trattabilita' del prezzo. Dillo con franchezza e rimanda all'agente. Non dedurre e non stimare: una metratura inventata su un immobile vero diventa una trattativa costruita su un numero falso.
+- Non promettere mai uno sconto o una trattativa sul prezzo: non e' una decisione tua.`;
+}
+
 function buildAgencySection(agencyName: string, profile: AgencyProfile | undefined): string {
   const righe = [
     profile?.address ? `- Indirizzo: ${profile.address}` : null,
@@ -333,7 +402,8 @@ function buildSystemPrompt(
   propertyRef: string,
   clientName: string,
   availableSlots: string[],
-  profile: AgencyProfile | undefined
+  profile: AgencyProfile | undefined,
+  property: PropertyContext | undefined
 ): string {
   /*
    * Che giorno e' oggi.
@@ -427,6 +497,8 @@ Appena il criterio del percorso in corso è soddisfatto, la qualificazione e' FI
 - Se UNQUALIFIED: ringrazia cordialmente, spiega che un agente lo ricontatterà appena disponibile. Non dire mai che non è idoneo o che non è qualificato.
 - Se CONTINUE: il messaggio deve contenere la domanda successiva.
 
+${buildPropertySection(property)}
+
 ${buildAgencySection(agencyName, profile)}
 
 ${buildSlotSection(availableSlots)}
@@ -459,14 +531,31 @@ export async function generateAgentReply(params: {
   history: ChatMessage[];
   availableSlots: string[];
   agencyProfile?: AgencyProfile;
+  /** L'immobile riconosciuto dal riferimento nel messaggio, se c'e'. */
+  property?: PropertyContext;
 }): Promise<AgentReply> {
-  const { agencyName, clientName, propertyRef, history, availableSlots, agencyProfile } = params;
+  const {
+    agencyName,
+    clientName,
+    propertyRef,
+    history,
+    availableSlots,
+    agencyProfile,
+    property,
+  } = params;
 
   const response = await client.messages
     .parse({
       model: AGENT_MODEL,
       max_tokens: 2048,
-      system: buildSystemPrompt(agencyName, propertyRef, clientName, availableSlots, agencyProfile),
+      system: buildSystemPrompt(
+        agencyName,
+        propertyRef,
+        clientName,
+        availableSlots,
+        agencyProfile,
+        property
+      ),
       output_config: {
         effort: "low",
         format: zodOutputFormat(agentReplySchema),
