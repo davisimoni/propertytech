@@ -10,6 +10,7 @@ import {
   calendarRedirectUri,
   isCalendarProviderConfigured,
   type CalendarOAuthProviderId,
+  buildCalendarAuthorizeUrl,
 } from "./oauth";
 import { saveCalendarConnection } from "./connections";
 
@@ -96,22 +97,10 @@ export async function handleCalendarConnect(
   const config = CALENDAR_OAUTH_PROVIDERS[provider];
   const state = randomBytes(32).toString("base64url");
 
-  const authorizeUrl = new URL(config.authorizeUrl);
-  authorizeUrl.searchParams.set("client_id", config.clientId() as string);
-  authorizeUrl.searchParams.set("redirect_uri", calendarRedirectUri(provider));
-  authorizeUrl.searchParams.set("response_type", "code");
-  authorizeUrl.searchParams.set("scope", config.scopes.join(" "));
-  authorizeUrl.searchParams.set("state", state);
-
-  if (provider === "google") {
-    // `offline` + `consent` sono ciò che fa rilasciare il refresh token a
-    // Google: senza `consent` una seconda autorizzazione dello stesso account
-    // non lo restituisce, e il collegamento morirebbe dopo un'ora.
-    authorizeUrl.searchParams.set("access_type", "offline");
-    authorizeUrl.searchParams.set("prompt", "consent");
-  }
-
-  const response = NextResponse.redirect(authorizeUrl.toString());
+  // Costruito in `lib/calendar/oauth.ts`, dove sta la conoscenza di ciascun
+  // fornitore — ed e' l'unico posto in cui si puo' verificare senza una
+  // sessione che `access_type=offline` e `prompt=consent` ci siano davvero.
+  const response = NextResponse.redirect(buildCalendarAuthorizeUrl(provider, state));
   response.cookies.set(stateCookieName(provider), state, {
     httpOnly: true,
     secure: true,

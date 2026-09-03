@@ -70,11 +70,7 @@ export async function getBookableSlots(
     // Slot generico: nessun agente assegnato, quindi nessun calendario da
     // interrogare. Lo può coprire chiunque, e resta proponibile.
     if (!slot.assignedToId) return true;
-
-    const busy = impegni.get(slot.assignedToId);
-    if (!busy || busy.length === 0) return true;
-
-    return !busy.some((i) => slot.startTime < i.end && slot.endTime > i.start);
+    return !confliggeCon(slot, impegni.get(slot.assignedToId));
   });
 
   return liberi.slice(0, limit).map((slot) => ({
@@ -83,6 +79,42 @@ export async function getBookableSlots(
     endTime: slot.endTime,
     agentName: slot.agentName,
   }));
+}
+
+/**
+ * Vero se la fascia si sovrappone a un impegno reale dell'agente.
+ *
+ * # Perche' esportata
+ *
+ * Perche' e' la regola che decide se un orario viene proposto a un cliente, ed
+ * era una riga dentro un `filter` che nessun test poteva raggiungere senza
+ * database e rete. Una copia riscritta nel test direbbe di si' anche il giorno
+ * in cui l'originale sbaglia il confronto fra i due estremi.
+ *
+ * # Il confronto e' stretto su entrambi i lati
+ *
+ * `inizio < fineImpegno && fine > inizioImpegno`. Due fasce che si toccano
+ * appena — una finisce alle 10:00, l'altra comincia alle 10:00 — NON sono in
+ * conflitto: e' il caso normale di due appuntamenti consecutivi, e trattarlo
+ * come sovrapposizione toglierebbe meta' delle disponibilita' di un'agenda
+ * piena.
+ *
+ * # Senza impegni noti si propone
+ *
+ * `undefined` significa "il calendario non ha risposto", non "e' libero" — ma
+ * la scelta prudente e' proporre lo stesso: un servizio esterno lento non deve
+ * poter azzerare l'agenda di un'agenzia e far perdere una visita. L'agente
+ * vede la sovrapposizione e sposta; un cliente che non riceve nessun orario
+ * non si recupera.
+ */
+export function confliggeCon(
+  fascia: { startTime: Date; endTime: Date },
+  impegni: readonly { start: Date; end: Date }[] | undefined
+): boolean {
+  if (!impegni || impegni.length === 0) return false;
+  return impegni.some(
+    (impegno) => fascia.startTime < impegno.end && fascia.endTime > impegno.start
+  );
 }
 
 /**

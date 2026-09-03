@@ -108,3 +108,46 @@ export function isCalendarProviderConfigured(id: CalendarOAuthProviderId): boole
 export function calendarRedirectUri(id: CalendarOAuthProviderId): string {
   return `${SITE_URL}/api/calendar/${id}/callback`;
 }
+
+/**
+ * Indirizzo del consenso, completo dei parametri del fornitore.
+ *
+ * # Perche' sta qui e non dentro il gestore della rotta
+ *
+ * Perche' e' esattamente cio' che questo modulo dichiara di contenere: come si
+ * parla con ciascun fornitore. E perche' dentro la rotta non era verificabile
+ * — il gestore ha bisogno di una sessione, quindi l'unico modo di controllare
+ * che `access_type=offline` e `prompt=consent` ci fossero davvero era leggerli
+ * a occhio.
+ *
+ * # I due parametri che decidono se il collegamento sopravvive
+ *
+ * Google rilascia il refresh token SOLO con `access_type=offline`, e solo alla
+ * PRIMA autorizzazione di quell'account: da li' in poi lo omette, a meno che
+ * non si chieda `prompt=consent`. Senza i due insieme il collegamento funziona
+ * per un'ora e poi smette, e l'agente si ritrova gli appuntamenti che non
+ * arrivano piu' in agenda senza che nulla glielo dica.
+ *
+ * Su Microsoft l'equivalente e' lo scope `offline_access`, gia' nell'elenco:
+ * i due parametri di Google li' non esistono e non vanno aggiunti.
+ */
+export function buildCalendarAuthorizeUrl(
+  id: CalendarOAuthProviderId,
+  state: string
+): string {
+  const config = CALENDAR_OAUTH_PROVIDERS[id];
+
+  const url = new URL(config.authorizeUrl);
+  url.searchParams.set("client_id", config.clientId() ?? "");
+  url.searchParams.set("redirect_uri", calendarRedirectUri(id));
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("scope", config.scopes.join(" "));
+  url.searchParams.set("state", state);
+
+  if (id === "google") {
+    url.searchParams.set("access_type", "offline");
+    url.searchParams.set("prompt", "consent");
+  }
+
+  return url.toString();
+}
