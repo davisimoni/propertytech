@@ -10,6 +10,7 @@ import { sellerReportFileName } from "@/lib/pdf/file-name";
 import { DownloadPdfButton } from "@/components/shared/download-pdf-button";
 import { AI_DISCLAIMER_SHORT } from "@/lib/compliance";
 import { AudioRecorder } from "./audio-recorder";
+import { JobPaywallError, useJobs } from "@/components/jobs/job-provider";
 import {
   FEEDBACK_CATEGORY_LABELS,
   SENTIMENT_LABELS,
@@ -83,33 +84,55 @@ export function VoiceReportStudio() {
   const [recorderKey, setRecorderKey] = useState(0);
   const [isDragActive, setIsDragActive] = useState(false);
 
-  const [report, setReport] = useState<VoiceReportContent | null>(null);
-  const [reportId, setReportId] = useState<string | null>(null);
-  const [transcript, setTranscript] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
+  /*
+   * Report ed esito della generazione vivono nel provider.
+   *
+   * Un report post-visita e' il caso peggiore del difetto: l'agente lo lancia
+   * appena uscito dall'appuntamento, dal telefono, e mentre aspetta apre la
+   * scheda del lead. Al ritorno trovava la pagina vuota, con la nota vocale
+   * gia' consumata come credito.
+   */
+  const { jobFor, startJob, clearJob } = useJobs();
+  const job = jobFor("voice");
+  const esito = (job?.status === "done" ? job.result : null) as {
+    report: VoiceReportContent;
+    reportId: string;
+    transcript: string;
+  } | null;
+
+  const report = esito?.report ?? null;
+  const reportId = esito?.reportId ?? null;
+  const transcript = esito?.transcript ?? null;
+  const isGenerating = job?.status === "running";
+  /*
+   * Gli errori che non riguardano la generazione restano locali.
+   *
+   * Validazione dell'audio, invio del report al proprietario, campi mancanti:
+   * non sono lavorazioni da seguire fra le pagine, e metterli nel provider li
+   * farebbe comparire nell'indicatore come se un'elaborazione fosse fallita.
+   */
+  const [localError, setLocalError] = useState<string | null>(null);
+  const error = localError ?? job?.error ?? null;
+
   const [isSending, setIsSending] = useState(false);
   const [sent, setSent] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   /**
    * Le due 402 non dicono la stessa cosa e non vanno mostrate uguali: a un
    * utente Starter serve sapere che il modulo è di Enterprise, a uno in prova
    * che ha finito i tre report inclusi. Il campo `error` della risposta le
    * distingue (CLAUDE.md §4).
    */
-  const [locked, setLocked] = useState<{
-    reason: "limit_reached" | "not_in_plan";
-    requiredPlan?: string;
-  } | null>(null);
+  const locked = job?.paywallDetail ?? null;
 
   const inputRef = useRef<HTMLInputElement>(null);
 
   /** Caricamento da dispositivo: sostituisce l'eventuale registrazione. */
   function acceptAudio(file: File) {
     if (file.size > MAX_AUDIO_BYTES) {
-      setError("Il file audio supera i 25MB.");
+      setLocalError("Il file audio supera i 25MB.");
       return;
     }
-    setError(null);
+    setLocalError(null);
     setAudio({ file, origin: "upload" });
     // Il registratore aveva un'anteprima? Va via: da qui in poi parte il file.
     setRecorderKey((key) => key + 1);
@@ -123,11 +146,13 @@ export function VoiceReportStudio() {
   }
 
   async function handleGenerate() {
-    setIsGenerating(true);
-    setError(null);
     setSent(false);
+    setLocalError(null);
 
-    try {
+    await startJob({
+      kind: "voice",
+      title: propertyRef || sellerName || "Report post-visita",
+      run: async () => {
       const response =
         mode === "audio" && audio
           ? await (() => {
@@ -151,12 +176,11 @@ export function VoiceReportStudio() {
 
       if (response.status === 402) {
         const body = await response.json().catch(() => null);
-        setLocked(
+        throw new JobPaywallError(
           body?.error === "feature_not_in_plan"
             ? { reason: "not_in_plan", requiredPlan: body.requiredPlan }
             : { reason: "limit_reached" }
         );
-        return;
       }
 
       const body = await response.json();
@@ -164,18 +188,16 @@ export function VoiceReportStudio() {
       if (!response.ok) {
         const issues = body.issues as Record<string, string[]> | undefined;
         const firstIssue = issues ? Object.values(issues).flat()[0] : undefined;
-        setError(body.message ?? firstIssue ?? "Generazione del report non riuscita.");
-        return;
+        throw new Error(body.message ?? firstIssue ?? "Generazione del report non riuscita.");
       }
 
-      setReport(body.report as VoiceReportContent);
-      setReportId(body.reportId as string);
-      setTranscript(body.transcript as string);
-    } catch {
-      setError("Errore di rete durante la generazione del report.");
-    } finally {
-      setIsGenerating(false);
-    }
+      return {
+        report: body.report as VoiceReportContent,
+        reportId: body.reportId as string,
+        transcript: body.transcript as string,
+      };
+      },
+    });
   }
 
   /**
@@ -222,7 +244,7 @@ export function VoiceReportStudio() {
     }
 
     setIsSending(true);
-    setError(null);
+    setLocalError(null);
     setPhoneInvalid(false);
 
     try {
@@ -244,7 +266,7 @@ export function VoiceReportStudio() {
           return;
         }
 
-        setError(
+        setLocalError(
           body.error === "whatsapp_not_connected"
             ? "WhatsApp non è collegato. Configuralo in Qualifica Lead per inviare il report."
             : (body.message ?? "Invio non riuscito.")
@@ -260,7 +282,7 @@ export function VoiceReportStudio() {
       setSent(true);
       setToast("Report inviato al proprietario.");
     } catch {
-      setError("Errore di rete durante l'invio.");
+      setLocalError("Errore di rete durante l'invio.");
       setToast("Errore di rete durante l'invio.");
     } finally {
       setIsSending(false);
@@ -374,7 +396,7 @@ export function VoiceReportStudio() {
                 // riga col nome del file sparisce da sé, perché dipende da
                 // `audio.origin`.
                 setAudio({ file, origin: "recording" });
-                setError(null);
+                setLocalError(null);
               }}
               onCleared={() =>
                 // Il cestino del registratore cancella solo la registrazione,
@@ -872,7 +894,7 @@ export function VoiceReportStudio() {
           feature="voice-reports"
           reason={locked.reason}
           requiredPlan={locked.requiredPlan}
-          onNavigateAway={() => setLocked(null)}
+          onNavigateAway={() => clearJob("voice")}
         />
       )}
     </div>

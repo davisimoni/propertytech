@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type DragEvent } from "react";
+import { JobPaywallError, useJobs } from "@/components/jobs/job-provider";
 import {
   AlertTriangle,
   Check,
@@ -41,62 +42,77 @@ function isPdfFile(file: File): boolean {
 }
 
 export function DocumentExtractor() {
-  const [status, setStatus] = useState<Status>("idle");
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [result, setResult] = useState<DocumentExtractionResult | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  /*
+   * Lavorazione ed esito vivono nel provider, non qui.
+   *
+   * Tenerli in questo componente era il difetto: cambiando pagina si smontava
+   * e portava via tutto, mentre l'analisi sul server proseguiva e finiva in
+   * `AiGeneration` senza che nessuno la vedesse.
+   */
+  const { jobFor, startJob, updateResult, clearJob } = useJobs();
+  const job = jobFor("documents");
+
+  const status: Status =
+    job?.status === "running"
+      ? "uploading"
+      : job?.status === "done"
+        ? "success"
+        : job?.status === "error"
+          ? "error"
+          : "idle";
+
+  const fileName = job?.title ?? null;
+  const result = (job?.status === "done" ? job.result : null) as DocumentExtractionResult | null;
+  // Un errore di validazione locale (formato, peso) non passa dal provider:
+  // non c'e' nessuna elaborazione da tracciare, il file non parte nemmeno.
+  const [localError, setLocalError] = useState<string | null>(null);
+  const errorMessage = localError ?? job?.error ?? null;
+
   const [isDragActive, setIsDragActive] = useState(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const showUpgradeModal = job?.paywall === true;
 
   async function handleFile(file: File) {
-    setErrorMessage(null);
+    setLocalError(null);
+    clearJob("documents");
 
     if (!isPdfFile(file)) {
-      setErrorMessage("Formato non supportato: carica un file PDF.");
-      setStatus("error");
+      setLocalError("Formato non supportato: carica un file PDF.");
       return;
     }
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      setErrorMessage("Il file supera la dimensione massima di 15MB.");
-      setStatus("error");
+      setLocalError("Il file supera la dimensione massima di 15MB.");
       return;
     }
 
-    setFileName(file.name);
-    setStatus("uploading");
-    setResult(null);
+    /*
+     * La chiamata la esegue il provider.
+     *
+     * Non e' un dettaglio di stile: se restasse qui, allo smontaggio la `then`
+     * scriverebbe in uno stato che non esiste piu' e il risultato andrebbe
+     * perso lo stesso, anche tenendo lo stato altrove.
+     */
+    await startJob({
+      kind: "documents",
+      title: file.name,
+      run: async () => {
+        const formData = new FormData();
+        formData.append("file", file);
 
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
+        const response = await fetch("/api/documents/extract", {
+          method: "POST",
+          body: formData,
+        });
 
-      const response = await fetch("/api/documents/extract", {
-        method: "POST",
-        body: formData,
-      });
+        if (response.status === 402) throw new JobPaywallError();
 
-      if (response.status === 402) {
-        setStatus("idle");
-        setShowUpgradeModal(true);
-        return;
-      }
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.message ?? "Analisi non riuscita. Riprova.");
 
-      const body = await response.json();
-
-      if (!response.ok) {
-        setErrorMessage(body.message ?? "Analisi non riuscita. Riprova.");
-        setStatus("error");
-        return;
-      }
-
-      setResult(body.extraction as DocumentExtractionResult);
-      setStatus("success");
-    } catch {
-      setErrorMessage("Errore di rete durante l'analisi del documento.");
-      setStatus("error");
-    }
+        return body.extraction as DocumentExtractionResult;
+      },
+    });
   }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
@@ -107,10 +123,8 @@ export function DocumentExtractor() {
   }
 
   function reset() {
-    setStatus("idle");
-    setFileName(null);
-    setResult(null);
-    setErrorMessage(null);
+    clearJob("documents");
+    setLocalError(null);
     if (inputRef.current) inputRef.current.value = "";
   }
 
@@ -137,7 +151,7 @@ export function DocumentExtractor() {
       <div>
         <ExtractionResultView
           result={result}
-          onChange={setResult}
+          onChange={(aggiornato) => updateResult("documents", aggiornato)}
           onCopy={handleCopy}
           onDownloadJson={handleDownloadJson}
           copied={copied}
@@ -241,7 +255,7 @@ export function DocumentExtractor() {
       )}
 
       {showUpgradeModal && (
-        <UpgradeLimitModal feature="documents" onNavigateAway={() => setShowUpgradeModal(false)} />
+        <UpgradeLimitModal feature="documents" onNavigateAway={() => clearJob("documents")} />
       )}
     </div>
   );

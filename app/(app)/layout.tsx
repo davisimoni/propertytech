@@ -3,6 +3,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/layout/app-shell";
 import { ToastProvider } from "@/components/shared/toast-provider";
+import { JobProvider } from "@/components/jobs/job-provider";
+import { JobIndicator } from "@/components/jobs/job-indicator";
 import { DpaAcceptancePrompt } from "@/components/dashboard/dpa-acceptance-prompt";
 import { ReferralPromo } from "@/components/referrals/referral-promo";
 import { SupportWidget } from "@/components/support/support-widget";
@@ -31,6 +33,10 @@ export default async function AppGroupLayout({ children }: { children: ReactNode
     // puo' dare un riscontro immediato senza montarsi il proprio avviso, e il
     // feedback ha la stessa forma in ogni pagina.
     <ToastProvider>
+      {/* Le elaborazioni AI vivono qui, non nei moduli che le lanciano: il
+          layout non si smonta cambiando pagina, quindi una generazione
+          continua e il suo risultato e' ancora li' al ritorno. */}
+      <JobProvider>
       <AppShell>
         {needsDpaAcceptance ? (
           <div className="mx-auto max-w-2xl space-y-4">
@@ -53,7 +59,12 @@ export default async function AppGroupLayout({ children }: { children: ReactNode
             Escluso mentre manca l'accettazione del DPA: quel passaggio è
             bloccante e non va coperto da una promozione. */}
         {!needsDpaAcceptance && <ReferralPromo />}
+
+        {/* Fuori dal gate del DPA: chi non l'ha accettato non ha potuto
+            lanciare nessuna elaborazione. */}
+        {!needsDpaAcceptance && <JobIndicator />}
       </AppShell>
+      </JobProvider>
     </ToastProvider>
   );
 }

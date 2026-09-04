@@ -8,6 +8,7 @@ import { ListingImport, type ImportedListingView } from "@/components/social/lis
 import { PropertyExportPanel } from "@/components/social/property-export-panel";
 import { PublishButton } from "@/components/social/publish-button";
 import { MediaAttachments } from "@/components/social/media-attachments";
+import { JobPaywallError, useJobs } from "@/components/jobs/job-provider";
 import { AiDisclaimer } from "@/components/shared/ai-disclaimer";
 import { AI_DISCLAIMER_SHORT } from "@/lib/compliance";
 import { TONE_LABELS, TONE_OPTIONS, type SocialContent, type ToneOfVoice } from "@/lib/ai/social-schema";
@@ -54,50 +55,67 @@ export function SocialGenerator() {
    */
   const [rawText, setRawText] = useState("");
   const [tone, setTone] = useState<ToneOfVoice>("professionale");
-  const [content, setContent] = useState<SocialContent | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("portal");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [lockedPlan, setLockedPlan] = useState<string | null>(null);
+
+  /*
+   * Contenuto generato e stato della generazione vivono nel provider.
+   *
+   * Erano la causa del difetto: passare ai lead mentre l'AI scriveva smontava
+   * questo componente, e al ritorno il modulo era vuoto anche se la
+   * generazione era finita e gia' salvata in `AiGeneration`.
+   */
+  const { jobFor, startJob, clearJob } = useJobs();
+  const job = jobFor("social");
+  const isGenerating = job?.status === "running";
+  const content = (job?.status === "done" ? job.result : null) as SocialContent | null;
+  const error = job?.error ?? null;
+  /*
+   * Il paywall ha due sorgenti: la generazione e l'importazione da link.
+   *
+   * Quella dell'importazione resta locale perche' non e' una lavorazione da
+   * seguire fra le pagine — e' un rifiuto immediato, e non ha un risultato
+   * che possa arrivare mentre l'agente e' altrove.
+   */
+  const [lockedFromImport, setLockedFromImport] = useState<string | null>(null);
+  const lockedPlan = lockedFromImport ?? (job?.paywall ? "Enterprise" : null);
   /** Annuncio importato da link, se presente: precompila i campi per i portali. */
   const [imported, setImported] = useState<ImportedListingView | null>(null);
 
   async function handleGenerate() {
-    setIsGenerating(true);
-    setError(null);
+    setActiveTab("portal");
 
-    try {
-      const response = await fetch("/api/social/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // Si manda ciò che c'è: i campi se compilati, il testo grezzo se
-        // l'agente ha saltato la compilazione, entrambi se ha corretto i
-        // campi partendo da un testo — in quel caso il server dà la
-        // precedenza ai campi rivisti.
-        body: JSON.stringify({
-          ...(propertyTitle.trim() ? { propertyTitle: propertyTitle.trim() } : {}),
-          ...(keyPoints.trim() ? { keyPoints: keyPoints.trim() } : {}),
-          ...(rawText.trim() ? { rawText: rawText.trim() } : {}),
-          tone,
-        }),
-      });
+    const generato = await startJob({
+      kind: "social",
+      // Cosa si sta generando, per l'indicatore: il titolo se c'e', altrimenti
+      // l'inizio del testo incollato — "Generazione in corso" e basta non
+      // direbbe quale, con piu' schede aperte.
+      title: propertyTitle.trim() || rawText.trim().slice(0, 60) || "Nuovo annuncio",
+      run: async () => {
+        const response = await fetch("/api/social/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          // Si manda ciò che c'è: i campi se compilati, il testo grezzo se
+          // l'agente ha saltato la compilazione, entrambi se ha corretto i
+          // campi partendo da un testo — in quel caso il server dà la
+          // precedenza ai campi rivisti.
+          body: JSON.stringify({
+            ...(propertyTitle.trim() ? { propertyTitle: propertyTitle.trim() } : {}),
+            ...(keyPoints.trim() ? { keyPoints: keyPoints.trim() } : {}),
+            ...(rawText.trim() ? { rawText: rawText.trim() } : {}),
+            tone,
+          }),
+        });
 
-      if (response.status === 402) {
+        if (response.status === 402) throw new JobPaywallError();
+
         const body = await response.json();
-        setLockedPlan(body.requiredPlan ?? "Enterprise");
-        return;
-      }
+        if (!response.ok) throw new Error(body.message ?? "Generazione non riuscita. Riprova.");
 
-      const body = await response.json();
+        return body.content as SocialContent;
+      },
+    });
 
-      if (!response.ok) {
-        setError(body.message ?? "Generazione non riuscita. Riprova.");
-        return;
-      }
-
-      const generato = body.content as SocialContent;
-      setContent(generato);
-      setActiveTab("portal");
+    if (generato) {
 
       /*
        * Il titolo per il portafoglio, se non ce l'abbiamo gia'.
@@ -115,10 +133,6 @@ export function SocialGenerator() {
       // annuncio appena scritto dagli stessi dati. Si recuperano ora, in
       // sottofondo.
       void riempiSchedaPortafoglio();
-    } catch {
-      setError("Errore di rete durante la generazione.");
-    } finally {
-      setIsGenerating(false);
     }
   }
 
@@ -186,9 +200,12 @@ export function SocialGenerator() {
           setPropertyTitle(listing.propertyTitle);
           setKeyPoints(listing.keyPoints);
           setImported(listing);
-          setError(null);
+          // Solo un tentativo fallito va tolto di mezzo: azzerare tutto
+          // butterebbe via un annuncio gia' generato che l'agente non ha
+          // ancora copiato.
+          if (job?.status === "error") clearJob("social");
         }}
-        onLocked={() => setLockedPlan("Enterprise")}
+        onLocked={() => setLockedFromImport("Enterprise")}
         footer={
           <div className="space-y-4">
             <div>
@@ -410,7 +427,10 @@ export function SocialGenerator() {
           feature="social"
           reason="not_in_plan"
           requiredPlan={lockedPlan}
-          onNavigateAway={() => setLockedPlan(null)}
+          onNavigateAway={() => {
+            setLockedFromImport(null);
+            if (job?.paywall) clearJob("social");
+          }}
         />
       )}
     </div>
