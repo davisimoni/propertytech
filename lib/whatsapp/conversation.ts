@@ -66,17 +66,44 @@ async function mirrorAppointmentToExternalCalendar(lead: Lead, slotId: string): 
       select: { assignedToId: true, startTime: true, endTime: true },
     });
 
-    if (!slot?.assignedToId) return;
+    /*
+     * Perche' si logga invece di uscire in silenzio.
+     *
+     * Questo era il ramo che faceva sembrare rotta l'integrazione: una fascia
+     * senza agente assegnato non finisce su nessun calendario personale, ma
+     * l'appuntamento risultava fissato ovunque nell'app e su Google non
+     * compariva niente — senza una riga da nessuna parte che dicesse perche'.
+     * Ora la ragione e' scritta, e l'agenzia sa che le basta assegnare le
+     * fasce a una persona in Impostazioni -> Agende.
+     */
+    if (!slot?.assignedToId) {
+      console.info("[WA-CALENDAR-SKIPPED]", {
+        leadId: lead.id,
+        organizationId: lead.organizationId,
+        motivo: "fascia senza agente assegnato: nessun calendario personale su cui scrivere",
+      });
+      return;
+    }
 
     const { createCalendarEvent } = await import("@/lib/calendar/sync");
 
-    await createCalendarEvent(slot.assignedToId, {
+    const scritto = await createCalendarEvent(slot.assignedToId, {
       leadName: lead.clientName,
       leadPhone: lead.clientPhone,
       startTime: slot.startTime,
       endTime: slot.endTime,
       propertyRef: lead.propertyRef,
       notes: `Telefono lead: ${lead.clientPhone}`,
+    });
+
+    // `false` significa "nessun calendario collegato, oppure la scrittura non
+    // e' riuscita". Non cambia nulla per il cliente, ma e' la differenza fra
+    // un'integrazione da configurare e una rotta.
+    console.info(scritto ? "[WA-CALENDAR-EVENT-CREATED]" : "[WA-CALENDAR-NOT-WRITTEN]", {
+      leadId: lead.id,
+      organizationId: lead.organizationId,
+      agentId: slot.assignedToId,
+      quando: slot.startTime.toISOString(),
     });
   } catch (error) {
     console.error("[whatsapp/conversation] Sincronizzazione calendario esterno fallita", {

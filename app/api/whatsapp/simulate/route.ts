@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { getAvailableSlots, formatSlotForChat } from "@/lib/calendar";
+import { formatSlotForChat } from "@/lib/calendar";
+import { getBookableSlots } from "@/lib/calendar/booking";
+import { CONTRACT_LABELS, PROPERTY_TYPE_LABELS } from "@/lib/listings/property-fields";
 import { chatMessagesSchema } from "@/lib/whatsapp/types";
 import { isOptOutMessage, OPT_OUT_CONFIRMATION } from "@/lib/whatsapp/compliance";
 import { generateAgentReply, WhatsAppAgentError } from "@/lib/ai/whatsapp-agent";
@@ -72,12 +74,57 @@ export async function POST(request: Request) {
     });
   }
 
+  /*
+   * Gli stessi ingressi del flusso reale, non un sottoinsieme.
+   *
+   * Il simulatore leggeva il solo `agencyName` e le fasce dell'agenda interna,
+   * mentre in produzione l'assistente riceve anche la scheda dell'agenzia e
+   * l'immobile citato, e vede le fasce gia' depurate dagli impegni veri
+   * dell'agente. Con meno contesto il modello risponde in modo diverso: chi
+   * provava il bot qui vedeva una conversazione che non era quella che poi
+   * arrivava ai clienti, ed e' il difetto peggiore che possa avere un
+   * simulatore — dice che va tutto bene.
+   */
   const organization = await prisma.organization.findUnique({
     where: { id: session.user.organizationId },
-    select: { agencyName: true },
+    select: {
+      agencyName: true,
+      address: true,
+      publicPhone: true,
+      officeHours: true,
+      visitHours: true,
+      knowledgeNotes: true,
+    },
   });
 
-  const slots = await getAvailableSlots(session.user.organizationId);
+  /*
+   * L'immobile si cerca per riferimento.
+   *
+   * In produzione il collegamento e' gia' su `lead.propertyId`, fatto al primo
+   * contatto; qui il riferimento lo scrive chi sta provando, quindi si risale
+   * dalla stessa stringa. Se non corrisponde a niente si va avanti senza: e'
+   * esattamente cio' che succede a un lead senza immobile collegato.
+   */
+  const property = await prisma.property.findFirst({
+    where: { organizationId: session.user.organizationId, reference: propertyRef },
+    select: {
+      reference: true,
+      title: true,
+      contract: true,
+      type: true,
+      comune: true,
+      zona: true,
+      priceEur: true,
+      squareMeters: true,
+      rooms: true,
+      bathrooms: true,
+      floor: true,
+      energyClass: true,
+      description: true,
+    },
+  });
+
+  const slots = await getBookableSlots(session.user.organizationId);
 
   /*
    * Stesso filtro del flusso reale, stessa ripulitura.
@@ -121,6 +168,26 @@ export async function POST(request: Request) {
           [...history.slice(0, -1), { ...lastMessage, text: testoPulito }]
         : history,
       availableSlots: slots.map(formatSlotForChat),
+      ...(organization
+        ? {
+            agencyProfile: {
+              address: organization.address,
+              publicPhone: organization.publicPhone,
+              officeHours: organization.officeHours,
+              visitHours: organization.visitHours,
+              knowledgeNotes: organization.knowledgeNotes,
+            },
+          }
+        : {}),
+      ...(property
+        ? {
+            property: {
+              ...property,
+              contract: CONTRACT_LABELS[property.contract],
+              type: PROPERTY_TYPE_LABELS[property.type],
+            },
+          }
+        : {}),
     });
 
     return NextResponse.json({
