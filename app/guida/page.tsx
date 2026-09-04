@@ -60,14 +60,14 @@ export default async function GuidePage() {
             In questa guida
           </h2>
           <ol className="mt-3 grid gap-2 sm:grid-cols-2">
-            {GUIDE_SECTIONS.map((section) => (
+            {GUIDE_SECTIONS.map((section, i) => (
               <li key={section.id}>
                 <a
                   href={`#${section.id}`}
                   className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <ArrowRight className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
-                  {section.title}
+                  {i + 1}. {section.title}
                 </a>
               </li>
             ))}
@@ -75,9 +75,11 @@ export default async function GuidePage() {
         </nav>
 
         <div className="mt-10 space-y-10">
-          {GUIDE_SECTIONS.map((section) => (
+          {GUIDE_SECTIONS.map((section, i) => (
             <section key={section.id} id={section.id} className="scroll-mt-20">
-              <h2 className="text-lg font-semibold text-foreground">{section.title}</h2>
+              <h2 className="text-lg font-semibold text-foreground">
+                {i + 1}. {section.title}
+              </h2>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{section.intro}</p>
 
               {section.steps && (

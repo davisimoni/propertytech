@@ -16,6 +16,13 @@ export interface GuideStep {
 export interface GuideSection {
   /** Ancora per l'indice e per i collegamenti profondi. */
   id: string;
+  /**
+   * Senza numero: lo mette la pagina contando le sezioni.
+   *
+   * I numeri erano scritti a mano dentro il titolo, e bastava inserire un
+   * capitolo a meta' per avere due «8.» e nessun «9.» finche' qualcuno non
+   * li risistemava tutti a valle.
+   */
   title: string;
   intro: string;
   steps?: GuideStep[];
@@ -26,19 +33,29 @@ export interface GuideSection {
 export const GUIDE_SECTIONS: GuideSection[] = [
   {
     id: "primi-passi",
-    title: "1. Primi passi",
+    title: "Primi passi",
     intro:
       "Servono meno di dieci minuti per vedere la piattaforma al lavoro. Non c'è niente da installare e non devi cambiare il gestionale che usi già.",
     steps: [
       {
         action: "Collega il numero WhatsApp Business dell'agenzia",
         detail:
-          "Da Qualifica Lead inserisci le credenziali Meta Business. Copia l'indirizzo webhook che ti mostriamo e consegnalo a Immobiliare.it, Idealista o al tuo gestionale: da quel momento le notizie entrano in automatico.",
+          "Da Qualifica Lead. Puoi collegarlo inquadrando un codice QR, oppure con le credenziali Meta Business se hai gia' un account WhatsApp Cloud API.",
+      },
+      {
+        action: "Consegna ai portali il link che trovi in «Collegamento Portali»",
+        detail:
+          "Sempre in Qualifica Lead. Premi «Copia Link Webhook Portali» e incollalo dove indicato: «Istruzioni di collegamento» apre le istruzioni per Immobiliare.it, per Idealista e Casa.it e per i gestionali esterni. Si fa una volta sola, e da quel momento le notizie entrano da sole.",
       },
       {
         action: "Indica le fasce in cui fai vedere gli immobili",
         detail:
-          "Da Impostazioni → Agende. Senza slot liberi l'assistente non può fissare appuntamenti da solo, e la conversazione si ferma un passo prima della visita.",
+          "Da Impostazioni → Agende & Disponibilità. Senza slot liberi l'assistente non può fissare appuntamenti da solo, e la conversazione si ferma un passo prima della visita.",
+      },
+      {
+        action: "Collega il tuo calendario, nella stessa schermata",
+        detail:
+          "«Connetti Google Calendar» oppure «Connetti Microsoft Outlook / Office 365». Da quel momento l'assistente non propone piu' orari in cui sei gia' occupato, e ogni visita che fissa ti compare sul calendario che usi tutti i giorni. Ogni agente collega il proprio.",
       },
       {
         action: "Carica il primo immobile o una visura",
@@ -47,14 +64,14 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
     ],
     notes: [
-      "Il titolare invita i collaboratori da Impostazioni → Team: l'agente riceve un'email con il link per scegliere la propria password. L'invito vale sette giorni e si puo' rinviare o annullare.",
+      "Il titolare invita i collaboratori da Impostazioni → Team. Quante persone puoi far entrare dipende dal piano: vedi «Crediti, piani e postazioni».",
       "Titolare e collaboratore non fanno le stesse cose. Restano al titolare: abbonamento e fatturazione, dati e logo dell'agenzia, scheda agenzia, feed verso i portali, gestione del team.",
       "Password dimenticata: dalla schermata di accesso. Il link vale un'ora e si usa una volta sola.",
     ],
   },
   {
     id: "notizie-whatsapp",
-    title: "2. Filtro notizie su WhatsApp",
+    title: "Filtro notizie su WhatsApp",
     intro:
       "L'assistente risponde in pochi secondi a chi scrive dai portali, a qualsiasi ora. Chiede una cosa alla volta — prima cosa cerca e dove, poi il budget, poi mutuo, vendita e tempistiche — e propone gli orari liberi della tua agenda.",
     steps: [
@@ -85,12 +102,13 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       "L'assistente fissa l'appuntamento da solo. Il cliente puo' scegliere fra gli orari proposti oppure indicarne uno suo (\"domani alle 11:40\"): se cade in una fascia libera viene confermato subito, altrimenti riceve i due o tre orari liberi piu' vicini a quello che aveva chiesto.",
       "Gli orari proposti tengono conto sia delle fasce che hai aperto in Impostazioni → Agende sia degli impegni reali sul tuo Google o Outlook collegato: l'assistente non propone un orario in cui sei gia' occupato.",
       "A visita fissata trovi l'evento sul tuo calendario, la scheda passa a «Visita Programmata» e l'appuntamento compare fra le prossime visite in Dashboard.",
+      "Partono anche due email di conferma: una a te (o all'agente assegnato) con i dati del contatto e le sue preferenze, e una al cliente. Quella al cliente parte solo se conosciamo il suo indirizzo — l'assistente lo raccoglie se il cliente lo scrive, ma non lo chiede apposta: la conferma vera l'ha gia' ricevuta su WhatsApp.",
       "I crediti WhatsApp si consumano all'avvio della conversazione, non a ogni messaggio scambiato.",
     ],
   },
   {
     id: "handover",
-    title: "3. Prendere in mano una conversazione",
+    title: "Prendere in mano una conversazione",
     intro:
       "L'assistente lavora da solo, ma la conversazione resta tua: puoi fermarlo in qualsiasi momento, e in alcuni casi si ferma da sé.",
     steps: [
@@ -113,7 +131,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: "qr-vetrina",
-    title: "4. QR per acquisire notizie",
+    title: "QR per acquisire notizie",
     intro:
       "Il codice che trovi in Qualifica Lead apre WhatsApp sul tuo numero con un messaggio già scritto. Stampalo in vetrina, sui cartelli degli immobili e sui volantini.",
     steps: [
@@ -135,7 +153,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: "sicurezza-whatsapp",
-    title: "5. Sicurezza WhatsApp e prevenzione dei blocchi",
+    title: "Sicurezza WhatsApp e prevenzione dei blocchi",
     intro:
       "La piattaforma e' costruita per rispondere a chi scrive per primo all'agenzia: e' il traffico che WhatsApp considera legittimo. Cosa facciamo noi per proteggere il tuo numero, e le quattro regole che restano in mano tua.",
     steps: [
@@ -173,7 +191,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: "promemoria",
-    title: "6. Promemoria anti no-show",
+    title: "Promemoria anti no-show",
     intro:
       "Prima di ogni visita l'assistente scrive al cliente per confermare. Se risponde NO, lo slot torna libero in agenda e la scheda segna la disdetta.",
     steps: [
@@ -189,7 +207,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: "visure",
-    title: "7. Lettura di visure e atti",
+    title: "Lettura di visure e atti",
     intro:
       "Carichi il PDF e ottieni intestatari, quote di proprietà, foglio, particella, subalterno, categoria e rendita già in chiaro, più una sintesi di due righe su cosa manca o non torna.",
     steps: [
@@ -212,8 +230,44 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     ],
   },
   {
+    id: "fascicolo",
+    title: "Fascicolo documentale",
+    intro:
+      "L'archivio dei documenti di un incarico, dentro la scheda a cui appartengono: quello dell'immobile nel Portafoglio Immobili, quello del cliente nella scheda del contatto. Serve a due cose che una cartella condivisa non fa — dirti cosa manca prima del rogito, e avvisarti prima che un documento scada.",
+    steps: [
+      {
+        action: "Apri la scheda e vai al Fascicolo",
+        detail:
+          "Sull'immobile lo trovi nella card del Portafoglio; sul cliente dentro la sua conversazione. Trascina il file o scegli «Carica documento».",
+      },
+      {
+        action: "Scegli di che documento si tratta",
+        detail:
+          "Incarico di mediazione, visura, planimetria, atto di provenienza, APE, conformità impianti, proposta, preliminare, identità, codice fiscale. È da questa scelta che dipende tutto il resto: la casella nell'elenco di cosa manca, e se ti viene chiesta la scadenza.",
+      },
+      {
+        action: "Metti la scadenza quando te la chiede",
+        detail:
+          "Il campo compare solo per i documenti che scadono davvero — APE, conformità impianti, incarico e proposta. Sugli altri non compare apposta: una scadenza inventata su un atto di provenienza è peggio di nessuna scadenza.",
+      },
+      {
+        action: "Guarda «Manca un documento»",
+        detail:
+          "L'elenco confronta quello che hai caricato con quello che serve per andare dal notaio: sull'immobile incarico, visura, planimetria, atto di provenienza, APE e conformità impianti; sul cliente identità e codice fiscale. È la parte che ti fa scoprire il buco settimane prima del rogito, non il giorno stesso.",
+      },
+    ],
+    notes: [
+      "L'avviso di scadenza arriva sessanta giorni prima, non trenta: rifare un APE richiede settimane, e un avviso che arriva a rogito già fissato non serve a niente.",
+      "Ogni documento nasce con una conservazione di dieci anni, come impone la legge antiriciclaggio agli agenti immobiliari. Il termine viene calcolato al caricamento e resta quello, anche se la norma cambia dopo.",
+      "Puoi cancellare quello che vuoi — i dati sono tuoi, e un cliente può chiederti di rimuovere i suoi — ma su un documento ancora in conservazione ti viene chiesta una conferma. Serve a fermare il clic sbagliato, non la decisione presa.",
+      "Si caricano PDF, JPEG, PNG e WebP fino a 5 MB. Per ora è pensato per la singola scansione, non per riversarci l'archivio storico dell'agenzia.",
+      "Il Fascicolo è incluso dal piano Starter in su. Non c'è nel Trial: una conservazione decennale promessa su un account di prova che può sparire in due settimane non avrebbe senso.",
+      "NON è uno strumento di conformità antiriciclaggio e non certifica niente. Ti aiuta a tenere in ordine i documenti e a non farteli scadere; la valutazione del rischio, la segnalazione alla UIF e la responsabilità di quanto dichiari restano tue.",
+    ],
+  },
+  {
     id: "annunci",
-    title: "8. Annunci, social e portali",
+    title: "Annunci, social e portali",
     intro:
       "Da quattro righe sull'immobile — o dal link di un annuncio già online — ottieni il testo per i portali, il post per Instagram e Facebook e lo script del Reel scena per scena.",
     steps: [
@@ -225,7 +279,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         action: "Da testo — la strada certa per Immobiliare.it e Idealista",
         detail:
-          "Quei due portali respingono le letture automatiche: non perdere il tentativo col link. Seleziona il testo dell'annuncio, incollalo nel riquadro e premi «Compila i campi». Funziona sempre, ed è anche l'unico modo di partire da un'email, un PDF o una scheda del gestionale.",
+          "Quei due portali respingono le letture automatiche: non perdere il tentativo col link. Seleziona il testo dell'annuncio, incollalo nel riquadro sotto e premi «Genera». Funziona sempre, ed è anche l'unico modo di partire da un'email, un PDF o una scheda del gestionale. Non devi premere altro prima: i campi della scheda di portafoglio si riempiono da soli subito dopo.",
       },
       {
         action: "Riempi i dati per i portali e salva in portafoglio",
@@ -247,7 +301,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: "incarichi",
-    title: "9. Incarichi, provvigioni e chiavi",
+    title: "Incarichi, provvigioni e chiavi",
     intro:
       "Nella scheda di ogni immobile puoi registrare i dati del mandato. Sono facoltativi, ma la scadenza governa la pubblicazione sui portali.",
     steps: [
@@ -276,7 +330,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: "matching",
-    title: "10. Abbinamento clienti e immobili",
+    title: "Abbinamento clienti e immobili",
     intro:
       "L'abbinamento funziona nelle due direzioni: quando entra un immobile la piattaforma cerca chi potrebbe comprarlo, e quando un contatto finisce la qualificazione passa in rassegna tutto il portafoglio.",
     steps: [
@@ -305,7 +359,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: "radar",
-    title: "11. Radar Immobili & Aste",
+    title: "Radar Immobili & Aste",
     intro:
       "Le occasioni che stai seguendo — aste giudiziarie e ribassi di mercato — con la perizia letta dall'AI, i conti già fatti e i clienti in pipeline che potrebbero comprarle.",
     steps: [
@@ -336,6 +390,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
     ],
     notes: [
+      "Quando il prezzo di un lotto che segui cala, la scheda si marca «Ribassato» con la percentuale. Se il nuovo prezzo fa rientrare l'immobile nel budget di clienti che prima non lo raggiungevano, accanto trovi quanti sono: è il momento in cui conviene richiamarli, non il giorno dell'asta.",
       "Il messaggio che vedi in anteprima è esattamente quello che parte: è composto dal server, non ricostruito dal browser.",
       "Il copy per i social non contiene mai margine, semaforo dei rischi o difformità: sono informazioni tue, non del pubblico.",
       "Il semaforo e i conti sono uno strumento di lavoro, non una perizia. La verifica in cancelleria e il sopralluogo restano necessari prima di qualunque offerta.",
@@ -343,7 +398,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: "report-vocali",
-    title: "12. Report al proprietario (piano Enterprise)",
+    title: "Report al proprietario (piano Enterprise)",
     intro:
       "Finita la visita parli trenta secondi al telefono, come faresti con un collega. Ricevi un report professionale per il proprietario, pronto da inviare.",
     steps: [
@@ -363,7 +418,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: "gestionale",
-    title: "13. Integrazione con il gestionale",
+    title: "Integrazione con il gestionale",
     intro:
       "I contatti qualificati possono arrivare da soli nel gestionale che usi già, senza doppio inserimento.",
     steps: [
@@ -384,13 +439,29 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: "crediti",
-    title: "14. Crediti e piani",
+    title: "Crediti, piani e postazioni",
     intro:
-      "Ogni piano include un numero di conversazioni WhatsApp al mese e un numero di documenti analizzati. Il conteggio è visibile in alto in ogni schermata.",
+      "Ogni piano include un numero di conversazioni WhatsApp al mese, un numero di documenti analizzati e un numero di postazioni, cioè di persone che possono entrare. Il conteggio è visibile in alto in ogni schermata.",
+    steps: [
+      {
+        action: "Invita i collaboratori da Impostazioni → Team",
+        detail:
+          "Ricevono un'email con il link per scegliere la password. L'invito vale sette giorni e puoi rinviarlo o annullarlo.",
+      },
+      {
+        action: "Controlla le postazioni rimaste prima di invitare",
+        detail:
+          "Trial e Starter ne hanno una — quella del titolare — Professional tre, Enterprise nessun limite. Se sono finite l'invito non parte e ti viene detto perché: si sale di piano.",
+      },
+    ],
     notes: [
+      "Anche gli inviti ancora da accettare occupano una postazione. Altrimenti basterebbe mandarne dieci di fila per superare il limite, e i primi ad accorgersene sarebbero i colleghi rimasti fuori.",
+      "Abbonamento, fatturazione e cambio piano sono riservati al titolare: un collaboratore non vede nemmeno la scheda.",
       "Il badge rosso \"Limiti raggiunti\" compare solo quando i crediti sono davvero esauriti, non quando una funzione non è compresa nel tuo piano.",
-      "Il piano Trial include 15 conversazioni totali e 5 documenti, e non richiede carta di credito.",
-      "Social & Annunci e Report Vocali sono esclusivi del piano Enterprise.",
+      "Il piano Trial include 15 conversazioni totali — non al mese — e 5 documenti, e non richiede carta di credito.",
+      "Le conversazioni incluse: 150 al mese con Starter, 500 con Professional, 2.500 con Enterprise, che è l'unico piano in cui oltre l'incluso si prosegue a 0,05 € a conversazione invece di fermarsi.",
+      "L'analisi dei documenti è illimitata su tutti i piani a pagamento; il Trial ne include cinque.",
+      "Social & Annunci e Report Vocali sono esclusivi del piano Enterprise. Il Fascicolo documentale è incluso da Starter in su.",
     ],
   },
 ];
