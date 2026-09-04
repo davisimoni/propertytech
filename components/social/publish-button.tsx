@@ -24,7 +24,7 @@ interface EsitoPubblicazione {
   error?: string;
 }
 
-export function PublishButton({ testo }: { testo: string }) {
+export function PublishButton({ testo, media = [] }: { testo: string; media?: string[] }) {
   const [stato, setStato] = useState<SocialConnectionStatus | null>(null);
   const [mostraGuida, setMostraGuida] = useState(false);
   const [inCorso, setInCorso] = useState(false);
@@ -51,17 +51,18 @@ export function PublishButton({ testo }: { testo: string }) {
 
     try {
       /*
-       * Solo Facebook, per ora.
+       * Instagram entra fra i canali solo con almeno una foto allegata.
        *
-       * Instagram richiede un'immagine a un URL pubblico, e da questa
-       * schermata un'immagine non c'è: il post è testo appena generato.
-       * Chiederlo lo stesso produrrebbe un errore garantito su un canale che
-       * l'agente ha visto elencato — peggio che non offrirlo.
+       * Prima era escluso sempre, perche' da questa schermata un'immagine non
+       * c'era: ora c'e', e includerlo a vuoto produrrebbe un errore garantito
+       * su un canale che l'agente ha visto elencato.
        */
+      const targets = media.length > 0 ? ["facebook", "instagram"] : ["facebook"];
+
       const response = await fetch("/api/social/publish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: testo, targets: ["facebook"] }),
+        body: JSON.stringify({ message: testo, mediaUrls: media, targets }),
       });
 
       const body = await response.json();
@@ -90,8 +91,21 @@ export function PublishButton({ testo }: { testo: string }) {
         className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50 sm:h-8"
       >
         {inCorso ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-        Pubblica su Facebook/Instagram
+        {media.length > 0 ? "Pubblica su Facebook/Instagram" : "Pubblica su Facebook"}
       </button>
+
+      {/* L'avviso invece del silenzio.
+
+          Senza foto il post parte lo stesso, ma solo su Facebook: dirlo prima
+          evita che l'agente scopra dopo che su Instagram non e' comparso
+          niente e pensi a un guasto. */}
+      {media.length === 0 && (
+        <p className="mt-1.5 flex items-start gap-1.5 text-xs text-muted-foreground">
+          <Instagram className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          Allega almeno una foto per pubblicare anche su Instagram: l&apos;API non accetta post di
+          solo testo.
+        </p>
+      )}
 
       {esiti && (
         <div className="mt-2 w-full space-y-1">

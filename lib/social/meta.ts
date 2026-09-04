@@ -258,11 +258,27 @@ export interface PublishResult {
 export async function publishToMeta(params: {
   organizationId: string;
   message: string;
-  /** URL pubblico dell'immagine. Obbligatorio per Instagram. */
-  imageUrl?: string | null;
+  /**
+   * URL pubblici delle foto, in ordine: la prima e' la copertina.
+   *
+   * Vuoto e' ammesso solo per Facebook. Instagram rifiuta un post senza media,
+   * e la ragione la spiega `pubblicaSuInstagram`.
+   */
+  mediaUrls?: string[];
   targets: PublishTarget[];
 }): Promise<PublishResult[]> {
-  const { organizationId, message, imageUrl, targets } = params;
+  const { organizationId, message, targets } = params;
+
+  /*
+   * Indirizzi resi assoluti prima di consegnarli a Meta.
+   *
+   * Senza object storage un allegato vive su `/api/social/media/<id>`, che e'
+   * un percorso relativo: a noi basta, ma a scaricarlo sono i server di Meta,
+   * che partono da fuori e non hanno un'origine da cui risolverlo.
+   */
+  const mediaUrls = (params.mediaUrls ?? []).map((url) =>
+    url.startsWith("http") ? url : new URL(url, SITE_URL).toString()
+  );
 
   const connection = await prisma.socialConnection.findUnique({ where: { organizationId } });
   if (!connection) {
@@ -289,9 +305,9 @@ export async function publishToMeta(params: {
   for (const target of targets) {
     try {
       if (target === "facebook") {
-        esiti.push(await pubblicaSuFacebook(connection.facebookPageId, token, message, imageUrl));
+        esiti.push(await pubblicaSuFacebook(connection.facebookPageId, token, message, mediaUrls));
       } else {
-        esiti.push(await pubblicaSuInstagram(connection.instagramUserId, token, message, imageUrl));
+        esiti.push(await pubblicaSuInstagram(connection.instagramUserId, token, message, mediaUrls));
       }
     } catch (error) {
       console.error("[social/meta] Pubblicazione non riuscita", { target, error });
@@ -306,24 +322,79 @@ async function pubblicaSuFacebook(
   pageId: string,
   token: string,
   message: string,
-  imageUrl: string | null | undefined
+  mediaUrls: string[]
 ): Promise<PublishResult> {
-  // Con immagine si usa /photos, senza /feed: sono due endpoint diversi, e
-  // passare `url` a /feed pubblica un link, non una foto.
-  const endpoint = imageUrl ? `${GRAPH}/${pageId}/photos` : `${GRAPH}/${pageId}/feed`;
-  const body = new URLSearchParams({ access_token: token });
-  if (imageUrl) {
-    body.set("url", imageUrl);
-    body.set("caption", message);
-  } else {
-    body.set("message", message);
+  // Solo testo: /feed. E' l'unico canale dei due che lo consente.
+  if (mediaUrls.length === 0) {
+    return chiamataFacebook(`${GRAPH}/${pageId}/feed`, { access_token: token, message });
   }
 
-  const response = await fetch(endpoint, { method: "POST", body, signal: AbortSignal.timeout(20_000) });
-  const dati = (await response.json()) as { id?: string; post_id?: string; error?: { message?: string } };
+  // Una foto sola: /photos con `url`. Non serve il giro in due tempi.
+  const primaFoto = mediaUrls[0];
+  if (mediaUrls.length === 1 && primaFoto) {
+    return chiamataFacebook(`${GRAPH}/${pageId}/photos`, {
+      access_token: token,
+      url: primaFoto,
+      caption: message,
+    });
+  }
+
+  /*
+   * Piu' foto: si caricano NON pubblicate, poi si compone un post solo.
+   *
+   * Mandarle a /photos una per una produrrebbe cinque post distinti sulla
+   * Pagina invece di un album, che e' esattamente il contrario di quello che
+   * l'agente si aspetta dopo aver messo in fila le foto di un appartamento.
+   */
+  const fbids: string[] = [];
+  for (const url of mediaUrls) {
+    const risposta = await fetch(`${GRAPH}/${pageId}/photos`, {
+      method: "POST",
+      body: new URLSearchParams({ access_token: token, url, published: "false" }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    const dati = (await risposta.json()) as { id?: string; error?: { message?: string } };
+
+    if (!risposta.ok || !dati.id) {
+      return {
+        target: "facebook",
+        ok: false,
+        error: dati.error?.message ?? `Meta ha risposto ${risposta.status} caricando una foto.`,
+      };
+    }
+    fbids.push(dati.id);
+  }
+
+  const body = new URLSearchParams({ access_token: token, message });
+  fbids.forEach((fbid, indice) => {
+    body.set(`attached_media[${indice}]`, JSON.stringify({ media_fbid: fbid }));
+  });
+
+  return chiamataFacebook(`${GRAPH}/${pageId}/feed`, body);
+}
+
+/** Una POST alla Graph API con l'esito gia' tradotto in `PublishResult`. */
+async function chiamataFacebook(
+  endpoint: string,
+  parametri: Record<string, string> | URLSearchParams
+): Promise<PublishResult> {
+  const response = await fetch(endpoint, {
+    method: "POST",
+    body: parametri instanceof URLSearchParams ? parametri : new URLSearchParams(parametri),
+    signal: AbortSignal.timeout(20_000),
+  });
+  const dati = (await response.json()) as {
+    id?: string;
+    post_id?: string;
+    error?: { message?: string };
+  };
 
   if (!response.ok) {
-    return { target: "facebook", ok: false, error: dati.error?.message ?? `Meta ha risposto ${response.status}.` };
+    return {
+      target: "facebook",
+      ok: false,
+      error: dati.error?.message ?? `Meta ha risposto ${response.status}.`,
+    };
   }
 
   return { target: "facebook", ok: true, postId: dati.post_id ?? dati.id };
@@ -333,7 +404,7 @@ async function pubblicaSuInstagram(
   igUserId: string | null,
   token: string,
   caption: string,
-  imageUrl: string | null | undefined
+  mediaUrls: string[]
 ): Promise<PublishResult> {
   if (!igUserId) {
     return {
@@ -343,36 +414,67 @@ async function pubblicaSuInstagram(
     };
   }
 
-  if (!imageUrl) {
+  if (mediaUrls.length === 0) {
     // Detto come limite dell'API e non come nostro difetto: chi legge deve
     // sapere che aggiungendo una foto funziona.
     return {
       target: "instagram",
       ok: false,
-      error: "Instagram richiede un'immagine: un post di solo testo non è pubblicabile.",
+      error: "Instagram richiede almeno una foto: un post di solo testo non è pubblicabile.",
     };
   }
 
-  // Due passaggi obbligatori: si crea un contenitore, poi lo si pubblica.
-  // Instagram non ha una chiamata unica.
-  const creazione = await fetch(`${GRAPH}/${igUserId}/media`, {
-    method: "POST",
-    body: new URLSearchParams({ image_url: imageUrl, caption, access_token: token }),
-    signal: AbortSignal.timeout(20_000),
-  });
-  const contenitore = (await creazione.json()) as { id?: string; error?: { message?: string } };
+  let creationId: string | null;
 
-  if (!creazione.ok || !contenitore.id) {
+  if (mediaUrls.length === 1) {
+    // Due passaggi obbligatori: si crea un contenitore, poi lo si pubblica.
+    // Instagram non ha una chiamata unica.
+    creationId = await creaContenitore(igUserId, token, {
+      image_url: mediaUrls[0]!,
+      caption,
+    });
+  } else {
+    /*
+     * Carosello: un contenitore per foto, poi uno che li raccoglie.
+     *
+     * I figli si creano con `is_carousel_item`, e la didascalia sta solo sul
+     * contenitore padre: metterla anche sui figli la farebbe comparire
+     * ripetuta o rifiutare la chiamata.
+     */
+    const figli: string[] = [];
+    for (const url of mediaUrls) {
+      const figlio = await creaContenitore(igUserId, token, {
+        image_url: url,
+        is_carousel_item: "true",
+      });
+      if (!figlio) {
+        return {
+          target: "instagram",
+          ok: false,
+          error: "Instagram non ha accettato una delle foto del carosello.",
+        };
+      }
+      figli.push(figlio);
+    }
+
+    creationId = await creaContenitore(igUserId, token, {
+      media_type: "CAROUSEL",
+      children: figli.join(","),
+      caption,
+    });
+  }
+
+  if (!creationId) {
     return {
       target: "instagram",
       ok: false,
-      error: contenitore.error?.message ?? `Meta ha risposto ${creazione.status}.`,
+      error: "Instagram non ha accettato il contenuto da pubblicare.",
     };
   }
 
   const pubblicazione = await fetch(`${GRAPH}/${igUserId}/media_publish`, {
     method: "POST",
-    body: new URLSearchParams({ creation_id: contenitore.id, access_token: token }),
+    body: new URLSearchParams({ creation_id: creationId, access_token: token }),
     signal: AbortSignal.timeout(20_000),
   });
   const risultato = (await pubblicazione.json()) as { id?: string; error?: { message?: string } };
@@ -386,4 +488,28 @@ async function pubblicaSuInstagram(
   }
 
   return { target: "instagram", ok: true, postId: risultato.id };
+}
+
+/** Crea un contenitore Instagram e ne restituisce l'id, o `null` se rifiutato. */
+async function creaContenitore(
+  igUserId: string,
+  token: string,
+  campi: Record<string, string>
+): Promise<string | null> {
+  const risposta = await fetch(`${GRAPH}/${igUserId}/media`, {
+    method: "POST",
+    body: new URLSearchParams({ ...campi, access_token: token }),
+    signal: AbortSignal.timeout(20_000),
+  });
+  const dati = (await risposta.json()) as { id?: string; error?: { message?: string } };
+
+  if (!risposta.ok || !dati.id) {
+    console.error("[social/meta] Contenitore Instagram rifiutato", {
+      stato: risposta.status,
+      messaggio: dati.error?.message,
+    });
+    return null;
+  }
+
+  return dati.id;
 }

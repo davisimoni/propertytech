@@ -7,6 +7,7 @@ import { ShareActions } from "@/components/shared/share-actions";
 import { ListingImport, type ImportedListingView } from "@/components/social/listing-import";
 import { PropertyExportPanel } from "@/components/social/property-export-panel";
 import { PublishButton } from "@/components/social/publish-button";
+import { MediaAttachments } from "@/components/social/media-attachments";
 import { AiDisclaimer } from "@/components/shared/ai-disclaimer";
 import { AI_DISCLAIMER_SHORT } from "@/lib/compliance";
 import { TONE_LABELS, TONE_OPTIONS, type SocialContent, type ToneOfVoice } from "@/lib/ai/social-schema";
@@ -36,6 +37,14 @@ function withDisclaimer(text: string): string {
 
 export function SocialGenerator() {
   const [propertyTitle, setPropertyTitle] = useState("");
+  /**
+   * Foto allegate al post, in ordine: la prima e' la copertina.
+   *
+   * Vivono qui e non dentro il pannello perche' servono anche al pulsante di
+   * pubblicazione, che sta in un altro ramo dell'albero: tenerle nel pannello
+   * vorrebbe dire farle risalire comunque.
+   */
+  const [media, setMedia] = useState<string[]>([]);
   const [keyPoints, setKeyPoints] = useState("");
   /**
    * Il testo incollato vive qui e non dentro `ListingImport` perché serve a
@@ -288,6 +297,11 @@ export function SocialGenerator() {
 
             {activeTab === "social" && (
               <div className="space-y-3">
+                {/* Gli allegati sopra i comandi: si scelgono prima di
+                    pubblicare, e vederli dopo il pulsante farebbe premere
+                    "Pubblica" a chi non si e' accorto di poterle aggiungere. */}
+                <MediaAttachments media={media} onChange={setMedia} />
+
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   {/* Pubblicare e copiare stanno insieme: sono le due cose che si
                       fanno con un post pronto, e chi non ha collegato i social deve
@@ -296,6 +310,7 @@ export function SocialGenerator() {
                     testo={`${content.socialPost.caption}\n\n${content.socialPost.hashtags
                       .map((tag) => `#${tag}`)
                       .join(" ")}`}
+                    media={media}
                   />
                   <ShareActions
                     text={withDisclaimer(

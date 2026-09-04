@@ -463,6 +463,7 @@ model Organization {
   portfolioMatches     PortfolioMatch[]
   properties           Property[]
   propertyImages       PropertyImage[]
+  socialMediaAssets    SocialMediaAsset[]
   propertyMatches      PropertyLeadMatch[]
   agencyDocuments      AgencyDocument[]
   aiGenerations        AiGeneration[]
@@ -1413,6 +1414,37 @@ model VoiceReport {
 /// arrivano insieme dallo stesso consenso Meta, e gestire piu' pagine per la
 /// stessa agenzia e' un problema che nessuna agenzia ha finche' non ha almeno
 /// due sedi con due pagine distinte.
+/// Byte di una foto allegata a un post social, quando non c'e' object storage.
+///
+/// Tabella separata da `PropertyImage` per una ragione precisa: una foto
+/// caricata qui NON deve finire nel feed XML verso i portali. Sono due
+/// destinazioni diverse — la vetrina dell'annuncio e il post su Facebook — e
+/// riusare la tabella dell'immobile pubblicherebbe su Immobiliare.it una
+/// grafica pensata per Instagram.
+///
+/// Esiste solo nel ripiego senza storage: con `STORAGE_BUCKET_URL`
+/// configurato i byte vanno nel bucket e qui non si scrive nulla, perche'
+/// l'unica cosa che serve alla pubblicazione e' un URL pubblico.
+///
+/// **Perche' pubblica**: i server di Meta scaricano il media dall'URL che
+/// diamo loro. Instagram non accetta byte caricati da noi, solo un indirizzo
+/// che possa raggiungere. Stessa necessita' di `PropertyImage`, stessi limiti.
+model SocialMediaAsset {
+  id String @id @default(cuid())
+
+  /// Data URI completo, stesso formato di `PropertyImage.dataUrl`.
+  dataUrl  String
+  mimeType String
+  byteSize Int
+
+  createdAt DateTime @default(now())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
 model SocialConnection {
   id String @id @default(cuid())
 

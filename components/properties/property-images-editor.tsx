@@ -2,44 +2,10 @@
 
 import { useRef, useState } from "react";
 import { ImagePlus, Loader2, Star, Trash2 } from "lucide-react";
-import {
-  ALLOWED_IMAGE_MIME_TYPES,
-  IMAGE_TARGET_LONG_EDGE,
-  MAX_IMAGES_PER_PROPERTY,
-} from "@/lib/listings/property-images";
+import { ALLOWED_IMAGE_MIME_TYPES, MAX_IMAGES_PER_PROPERTY } from "@/lib/listings/property-images";
+import { downscaleToDataUrl } from "@/lib/listings/downscale";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useToast } from "@/components/shared/toast-provider";
-
-/**
- * Riduce la foto **prima** di spedirla.
- *
- * Una foto da telefono pesa 6-10 MB: caricarla intera vorrebbe dire far
- * aspettare l'agente sulla rete mobile, che è esattamente dove si trova quando
- * esce da un sopralluogo. A 1920px di lato lungo la qualità resta quella che i
- * portali pubblicano, e il file scende sotto il mezzo megabyte.
- *
- * L'uscita è sempre JPEG: le foto di un immobile non hanno trasparenza da
- * preservare, e la conversione taglia ulteriormente il peso.
- */
-async function downscaleToDataUrl(file: File): Promise<string> {
-  const bitmap = await createImageBitmap(file);
-  try {
-    const longEdge = Math.max(bitmap.width, bitmap.height);
-    const scale = Math.min(1, IMAGE_TARGET_LONG_EDGE / longEdge);
-
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("canvas non disponibile");
-    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-
-    return canvas.toDataURL("image/jpeg", 0.82);
-  } finally {
-    bitmap.close();
-  }
-}
 
 export function PropertyImagesEditor({
   propertyId,
