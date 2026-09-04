@@ -11,7 +11,9 @@ import {
   Mail,
   Smartphone,
   Unplug,
+  HelpCircle,
 } from "lucide-react";
+import { PortalSetupDialog } from "@/components/whatsapp/portal-setup-dialog";
 import type { WhatsAppConfigView } from "@/lib/whatsapp/view-types";
 import {
   WHATSAPP_PROVIDER_IDS,
@@ -80,6 +82,9 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
    * clienti restano senza risposta finche' qualcuno non se ne accorge.
    */
   const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
+  /** Istruzioni per i portali, aperte su richiesta. */
+  const [showPortalSetup, setShowPortalSetup] = useState(false);
+  const [portalCopied, setPortalCopied] = useState(false);
   const { showToast } = useToast();
 
   // --- Meta ---
@@ -224,6 +229,23 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
   }
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
+
+  /**
+   * Il link che l'agenzia consegna al portale.
+   *
+   * Composto una volta sola qui: serve al campo, al pulsante di copia e
+   * alla modale delle istruzioni, e tre costruzioni separate della stessa
+   * stringa divergono al primo ritocco del percorso.
+   */
+  const portalWebhookUrl = config
+    ? `${origin}/api/whatsapp/inbound-lead?token=${config.inboundToken}`
+    : "";
+
+  async function copyPortalWebhook() {
+    await navigator.clipboard.writeText(portalWebhookUrl);
+    setPortalCopied(true);
+    setTimeout(() => setPortalCopied(false), 2000);
+  }
   const canSave =
     provider === "twilio"
       ? Boolean(twilioAccountSid && twilioAuthToken && twilioWhatsAppNumber)
@@ -550,35 +572,75 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
         <div>
           <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <Link2 className="h-3.5 w-3.5" />
-            Ingaggio istantaneo dai portali
+            Collegamento Portali (Immobiliare.it, Idealista, Casa.it)
           </h3>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Inserisci questi riferimenti nel pannello di Immobiliare.it, Idealista o Casa.it per
-            ricevere i lead in tempo reale.
-            {!config.inboundEmail && (
-              <>
-                {" "}
-                L&apos;inoltro via email non è attivo su questo ambiente: usa l&apos;URL webhook qui
-                sotto, che è il canale operativo.
-              </>
-            )}
+
+          {/* La spiegazione prima del link, e in evidenza.
+
+              Il box mostrava un URL con un token dentro e nient'altro: chi non
+              sa gia' cos'e' un webhook legge una stringa incomprensibile e
+              chiude la pagina. Prima si dice COSA succede quando il
+              collegamento c'e', poi si da' la cosa da incollare. */}
+          <p className="mt-2 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2.5 text-sm leading-relaxed text-foreground">
+            Quando un cliente ti invia una richiesta su un portale immobiliare, il sistema gli
+            scrive su WhatsApp in pochi secondi e comincia a qualificarlo, senza che tu debba
+            fare niente.
           </p>
 
           <div className="mt-3 space-y-3">
-            {/* Mostrata solo se esiste davvero un dominio di ricezione: un
-                recapito che non riceve farebbe perdere i lead in silenzio. */}
+            {/* Il link dei portali con il suo pulsante nominato.
+
+                Prima era una `CopyableField` come le altre, con un'iconcina
+                senza etichetta: identica ai due campi tecnici sotto, che
+                servono a tutt'altro e a un'altra persona. Qui l'azione ha un
+                nome, ed e' la sola cosa che l'agente deve consegnare. */}
+            <div>
+              <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <Link2 className="h-3.5 w-3.5" />
+                Link da consegnare al portale
+              </label>
+              <code className="mt-1 block truncate rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                {portalWebhookUrl}
+              </code>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button type="button" onClick={copyPortalWebhook} className="btn-brand text-xs">
+                  {portalCopied ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <Clipboard className="h-4 w-4" />
+                  )}
+                  {portalCopied ? "Copiato!" : "Copia Link Webhook Portali"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPortalSetup(true)}
+                  className="btn-outline text-xs"
+                >
+                  <HelpCircle className="h-3.5 w-3.5" />
+                  Istruzioni di collegamento
+                </button>
+              </div>
+            </div>
+            {/* L'email dopo il link, non prima: e' la strada alternativa per
+                i portali che non fanno webhook, e messa sopra rubava
+                l'attenzione all'unica azione che conta. */}
             {config.inboundEmail && (
               <CopyableField
-                label="Email dedicata per l'inoltro lead"
+                label="Oppure: email dedicata, per i portali che inoltrano via posta"
                 value={config.inboundEmail}
                 icon={Mail}
               />
             )}
-            <CopyableField
-              label="URL Webhook portali"
-              value={`${origin}/api/whatsapp/inbound-lead?token=${config.inboundToken}`}
-              icon={Link2}
-            />
+
+            {/* Da qui in giu' e' roba del canale WhatsApp, non dei portali:
+                serve a chi collega il numero, una volta sola, e mescolarla col
+                link da consegnare a Immobiliare.it era meta' del problema. */}
+            {((provider === "meta" && config.webhookVerifyToken) || provider === "generic") && (
+              <p className="border-t border-border pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Configurazione tecnica del canale WhatsApp
+              </p>
+            )}
+
             {provider === "meta" && config.webhookVerifyToken && (
               <CopyableField
                 label="Verify Token (Meta Cloud API)"
@@ -605,7 +667,7 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                 </code>
               </>
             ) : provider === "generic" ? (
-              "Il tuo relay deve inoltrare i messaggi in arrivo all'URL webhook qui sopra, con il token come Bearer o `?token=`."
+              "Il tuo relay deve inoltrare i messaggi in arrivo all'URL dei messaggi qui sopra, con il token come Bearer o `?token=`."
             ) : (
               <>
                 Nel pannello Meta imposta come Callback URL{" "}
@@ -619,6 +681,13 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
         </div>
       </div>
       </section>
+
+      {showPortalSetup && (
+        <PortalSetupDialog
+          webhookUrl={portalWebhookUrl}
+          onClose={() => setShowPortalSetup(false)}
+        />
+      )}
 
       {confirmingDisconnect && (
         <ConfirmDialog
