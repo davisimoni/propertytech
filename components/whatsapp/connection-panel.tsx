@@ -85,6 +85,7 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
   /** Istruzioni per i portali, aperte su richiesta. */
   const [showPortalSetup, setShowPortalSetup] = useState(false);
   const [portalCopied, setPortalCopied] = useState(false);
+  const [emailCopied, setEmailCopied] = useState(false);
   const { showToast } = useToast();
 
   // --- Meta ---
@@ -245,6 +246,13 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
     await navigator.clipboard.writeText(portalWebhookUrl);
     setPortalCopied(true);
     setTimeout(() => setPortalCopied(false), 2000);
+  }
+
+  async function copyInboundEmail() {
+    if (!config?.inboundEmail) return;
+    await navigator.clipboard.writeText(config.inboundEmail);
+    setEmailCopied(true);
+    setTimeout(() => setEmailCopied(false), 2000);
   }
   const canSave =
     provider === "twilio"
@@ -588,18 +596,83 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
           </p>
 
           <div className="mt-3 space-y-3">
-            {/* Il link dei portali con il suo pulsante nominato.
+            {/* Due strade, dichiarate come tali.
 
-                Prima era una `CopyableField` come le altre, con un'iconcina
-                senza etichetta: identica ai due campi tecnici sotto, che
-                servono a tutt'altro e a un'altra persona. Qui l'azione ha un
-                nome, ed e' la sola cosa che l'agente deve consegnare. */}
-            <div>
-              <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                <Link2 className="h-3.5 w-3.5" />
-                Link da consegnare al portale
-              </label>
-              <code className="mt-1 block truncate rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                Prima ce n'era una sola in evidenza — il link webhook — e
+                l'email compariva sotto come ripiego senza nome. Ma i portali
+                italiani non hanno un pulsante "aggiungi webhook" che l'agenzia
+                possa premere da sola: su Immobiliare.it, Idealista e Casa.it
+                l'inoltro lo attiva il portale su richiesta. L'inoltro email
+                invece l'agenzia lo configura da sola, nella propria casella,
+                senza chiedere niente a nessuno: per questo viene prima. */}
+
+            {/* --- Opzione 1: inoltro email --- */}
+            <div className="rounded-lg border border-border p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                  <Mail className="h-3.5 w-3.5 text-primary" />
+                  Opzione 1 — Inoltro email
+                </span>
+                {config.inboundEmail ? (
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                    Consigliata
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-status-pending/15 px-2 py-0.5 text-[11px] font-medium text-status-pending">
+                    In attivazione
+                  </span>
+                )}
+              </div>
+
+              {config.inboundEmail ? (
+                <>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    Crea una regola di inoltro automatico nella casella email dell&apos;agenzia,
+                    per mandare a questo indirizzo le notifiche di Immobiliare.it, Idealista e
+                    Casa.it. L&apos;assistente legge il lead e invia subito il messaggio WhatsApp.
+                  </p>
+                  <code className="mt-2 block truncate rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                    {config.inboundEmail}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={copyInboundEmail}
+                    className="btn-brand mt-2 text-xs"
+                  >
+                    {emailCopied ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Clipboard className="h-4 w-4" />
+                    )}
+                    {emailCopied ? "Copiato!" : "Copia indirizzo di inoltro"}
+                  </button>
+                </>
+              ) : (
+                /* Nessun indirizzo inventato quando il dominio di ricezione non
+                   c'e'. E' gia' successo: un segnaposto mai registrato fece
+                   perdere in silenzio ogni lead inoltrato, senza un rimbalzo ne'
+                   un errore in dashboard. Meglio dire che non e' pronta. */
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  Stiamo attivando l&apos;indirizzo di inoltro dedicato alla tua agenzia. Finche&apos;
+                  non compare qui, usa l&apos;Opzione 2 qui sotto: non mostriamo un recapito prima
+                  che sappia ricevere, perche&apos; i lead inoltrati andrebbero persi senza che tu
+                  te ne accorga.
+                </p>
+              )}
+            </div>
+
+            {/* --- Opzione 2: webhook / gestionale --- */}
+            <div className="rounded-lg border border-border p-3">
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                <Link2 className="h-3.5 w-3.5 text-primary" />
+                Opzione 2 — Webhook o gestionale
+              </span>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Invia questo link al tuo referente commerciale del portale, oppure incollalo nella
+                sezione &laquo;Webhook notifiche in uscita&raquo; del tuo gestionale immobiliare
+                (Miogest, Gestim, Realigro e simili).
+              </p>
+              <code className="mt-2 block truncate rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
                 {portalWebhookUrl}
               </code>
               <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -621,16 +694,6 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                 </button>
               </div>
             </div>
-            {/* L'email dopo il link, non prima: e' la strada alternativa per
-                i portali che non fanno webhook, e messa sopra rubava
-                l'attenzione all'unica azione che conta. */}
-            {config.inboundEmail && (
-              <CopyableField
-                label="Oppure: email dedicata, per i portali che inoltrano via posta"
-                value={config.inboundEmail}
-                icon={Mail}
-              />
-            )}
 
             {/* Da qui in giu' e' roba del canale WhatsApp, non dei portali:
                 serve a chi collega il numero, una volta sola, e mescolarla col
@@ -685,6 +748,7 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
       {showPortalSetup && (
         <PortalSetupDialog
           webhookUrl={portalWebhookUrl}
+          inboundEmail={config?.inboundEmail ?? null}
           onClose={() => setShowPortalSetup(false)}
         />
       )}
