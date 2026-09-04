@@ -6,7 +6,7 @@ import { AlertTriangle, Lock } from "lucide-react";
 import type { UsageFeature } from "@/lib/usage-types";
 
 /** Funzionalità sbloccate dal piano, senza contatore crediti. */
-export type LockedFeature = "social" | "voice-reports" | "agendas" | "document-vault";
+export type LockedFeature = "social" | "voice-reports" | "agendas" | "document-vault" | "seats";
 
 export type PaywallFeature = UsageFeature | LockedFeature;
 
@@ -18,6 +18,7 @@ const FEATURE_LABEL: Record<PaywallFeature, string> = {
   "voice-reports": "Report Venditori",
   agendas: "Agende",
   "document-vault": "Fascicolo documentale",
+  seats: "Postazioni",
 };
 
 /** Testo specifico per funzionalità che scalano col piano anziché essere binarie. */
@@ -34,6 +35,15 @@ interface UpgradeLimitModalProps {
    */
   reason?: "limit_reached" | "not_in_plan";
   requiredPlan?: string;
+  /**
+   * Testo già pronto da mostrare al posto della copy generica.
+   *
+   * Serve per le postazioni: il piano a cui conviene salire dipende da
+   * quante ne servono in più, ed è un conto che il server ha già fatto (la
+   * stessa funzione che genera il 402) — ricalcolarlo qui vorrebbe dire
+   * tenere due copie della stessa regola sincronizzate a mano.
+   */
+  detail?: string;
   onNavigateAway?: () => void;
 }
 
@@ -45,6 +55,7 @@ export function UpgradeLimitModal({
   feature,
   reason = "limit_reached",
   requiredPlan,
+  detail,
   onNavigateAway,
 }: UpgradeLimitModalProps) {
   const router = useRouter();
@@ -84,19 +95,20 @@ export function UpgradeLimitModal({
           {isLocked ? "Funzione non disponibile" : "Limite Raggiunto"}
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          {isLocked ? (
-            LOCKED_COPY[feature] ?? (
+          {detail ??
+            (isLocked ? (
+              LOCKED_COPY[feature] ?? (
+                <>
+                  Il modulo {FEATURE_LABEL[feature]} è incluso esclusivamente nel piano{" "}
+                  {requiredPlan ?? "Enterprise"}. Esegui l&apos;upgrade per sbloccarlo.
+                </>
+              )
+            ) : (
               <>
-                Il modulo {FEATURE_LABEL[feature]} è incluso esclusivamente nel piano{" "}
-                {requiredPlan ?? "Enterprise"}. Esegui l&apos;upgrade per sbloccarlo.
+                Hai esaurito i crediti di {FEATURE_LABEL[feature]} del tuo piano attuale. Esegui
+                l&apos;upgrade per continuare a usare questa funzione.
               </>
-            )
-          ) : (
-            <>
-              Hai esaurito i crediti di {FEATURE_LABEL[feature]} del tuo piano attuale. Esegui
-              l&apos;upgrade per continuare a usare questa funzione.
-            </>
-          )}
+            ))}
         </p>
         <button
           ref={ctaRef}

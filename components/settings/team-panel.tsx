@@ -2,18 +2,10 @@
 
 import { useEffect, useState } from "react";
 import type { UserRole } from "@prisma/client";
-import {
-  Check,
-  Clipboard,
-  Crown,
-  Loader2,
-  Plus,
-  Trash2,
-  UserPlus,
-  Users,
-  Send,
-} from "lucide-react";
+import Link from "next/link";
+import { Check, Clipboard, Crown, Loader2, Trash2, UserPlus, Users, Send } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { UpgradeLimitModal } from "@/components/billing/upgrade-limit-modal";
 import { useToast } from "@/components/shared/toast-provider";
 import { cn } from "@/lib/utils";
 
@@ -63,14 +55,18 @@ interface SeatsView {
   canBuyMore: boolean;
   extraSeatPriceEur: number;
   planName: string;
+  /** Pronto per la CTA di upgrade: `null` finche' le postazioni non sono esaurite. */
+  upgradeMessage: string | null;
+  requiredPlanName: string | null;
 }
 
 export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [seats, setSeats] = useState<SeatsView | null>(null);
-  const [isBuyingSeat, setIsBuyingSeat] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  /** Testo pronto per la modale di upgrade, quando l'invito viene rifiutato per postazioni esaurite. */
+  const [seatsUpgradeDetail, setSeatsUpgradeDetail] = useState<string | null>(null);
 
   const [email, setEmail] = useState("");
   const [isInviting, setIsInviting] = useState(false);
@@ -99,41 +95,6 @@ export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
     load().finally(() => setIsLoading(false));
   }, []);
 
-  /**
-   * Compra una postazione in piu'.
-   *
-   * Manda il TOTALE desiderato, non "+1": due clic ravvicinati su un
-   * incremento comprerebbero due postazioni, mentre due clic sullo stesso
-   * totale sono la stessa richiesta fatta due volte, che il server riconosce
-   * e non addebita di nuovo.
-   */
-  async function acquistaPostazione() {
-    if (!seats) return;
-    setIsBuyingSeat(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/team/seats", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ extraSeats: seats.extra + 1 }),
-      });
-      const body = await response.json();
-
-      if (!response.ok) {
-        setError(body.message ?? "Non e' stato possibile aggiungere la postazione.");
-        return;
-      }
-
-      await load();
-      showToast("Postazione aggiunta. Puoi invitare un altro collaboratore.", "success");
-    } catch {
-      setError("Errore di rete. La postazione non e' stata aggiunta.");
-    } finally {
-      setIsBuyingSeat(false);
-    }
-  }
-
   async function sendInvite() {
     setIsInviting(true);
     setError(null);
@@ -149,6 +110,10 @@ export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
       const body = await response.json();
 
       if (!response.ok) {
+        if (response.status === 402 && body.error === "seats_limit_reached") {
+          setSeatsUpgradeDetail(body.dettaglio ?? body.message ?? null);
+          return;
+        }
         setError(body.message ?? "Invito non riuscito.");
         return;
       }
@@ -282,20 +247,18 @@ export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
                 }`}
           </p>
 
-          {isOwner && seats.canBuyMore && (
-            <button
-              type="button"
-              onClick={acquistaPostazione}
-              disabled={isBuyingSeat}
-              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 disabled:opacity-50 sm:h-8"
+          {/* Non piu' un acquisto diretto: STRIPE_PRICE_ID_EXTRA_SEAT non e'
+              configurata in produzione, e il vecchio pulsante finiva sempre
+              in un 503. Qui sotto solo un rimando ai piani, che esiste
+              davvero e non fa promesse che il server non mantiene. */}
+          {isOwner && seats.isFull && seats.upgradeMessage && (
+            <Link
+              href="/settings?tab=billing"
+              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-2.5 text-xs font-medium text-primary transition-all duration-200 hover:bg-primary/10 sm:h-8"
             >
-              {isBuyingSeat ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Plus className="h-3.5 w-3.5" />
-              )}
-              Aggiungi postazione · {seats.extraSeatPriceEur}&euro;/mese
-            </button>
+              <Crown className="h-3.5 w-3.5" />
+              {seats.requiredPlanName ? `Passa a ${seats.requiredPlanName}` : "Passa a un piano superiore"}
+            </Link>
           )}
         </div>
       )}
@@ -493,6 +456,15 @@ export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
         <p role="alert" className="mt-3 text-sm text-status-blocked">
           {error}
         </p>
+      )}
+
+      {seatsUpgradeDetail && (
+        <UpgradeLimitModal
+          feature="seats"
+          reason="limit_reached"
+          detail={seatsUpgradeDetail}
+          onNavigateAway={() => setSeatsUpgradeDetail(null)}
+        />
       )}
     </section>
   );

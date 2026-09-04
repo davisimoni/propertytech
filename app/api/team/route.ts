@@ -114,6 +114,17 @@ export async function GET() {
       canBuyMore: seats.canBuyMore,
       extraSeatPriceEur: EXTRA_SEAT_PRICE_EUR,
       planName: seats.plan.name,
+      /*
+       * Messaggio pronto per il pulsante di upgrade nel pannello, calcolato
+       * qui e non nel componente: e' la stessa funzione che genera il
+       * `dettaglio` del 402 quando un invito viene rifiutato, e le due
+       * scritte non devono poter divergere. `null` quando le postazioni non
+       * sono ancora esaurite, cosi' il pannello sa quando non mostrare nulla.
+       */
+      upgradeMessage: seats.isFull ? seatsLimitMessage(seats.plan, seats.extraSeats) : null,
+      requiredPlanName: seats.isFull
+        ? nextPlanWithMoreSeats(seats.maxSeats ?? 0)?.name ?? null
+        : null,
     },
   });
 }
