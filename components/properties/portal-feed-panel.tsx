@@ -115,10 +115,16 @@ export function PortalFeedPanel({
           <h2 className="text-sm font-semibold text-foreground">
             Sincronizzazione Automatica Portali (XML)
           </h2>
+          {/* Non piu' "incolla nelle impostazioni del tuo portale".
+
+              Quel pannello non esiste: su Immobiliare.it, Idealista e Casa.it
+              l'URL del feed lo registra il portale nei propri sistemi, su
+              richiesta. L'agente che andava a cercare la voce non la trovava e
+              concludeva che il feed fosse rotto. */}
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Incolla questo link una sola volta nelle impostazioni del tuo portale
-            (Immobiliare.it, Idealista, Casa.it) o nel tuo gestionale per sincronizzare
-            automaticamente tutti gli immobili marcati come &laquo;In vendita&raquo;.
+            I portali immobiliari importano i dati registrando l&apos;URL del feed nei loro
+            sistemi centrali. Copia questo link e invialo all&apos;assistenza del portale o al tuo
+            referente commerciale.
           </p>
         </div>
       </div>
@@ -248,7 +254,9 @@ export function PortalFeedPanel({
         />
       )}
 
-      {showSetup && <FeedSetupDialog onClose={() => setShowSetup(false)} />}
+      {showSetup && (
+        <FeedSetupDialog feedUrl={feedUrl} onClose={() => setShowSetup(false)} />
+      )}
 
       {missingPhotos > 0 ? (
         <p className="mt-4 flex items-start gap-2 rounded-lg border border-status-pending/40 bg-status-pending/10 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
