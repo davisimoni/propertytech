@@ -1302,6 +1302,23 @@ model CalendarSlot {
   /// qualsiasi agente dell'agenzia può coprire.
   assignedToId String?
 
+  /// Id dell'evento sul calendario esterno, quando la visita ci e' arrivata.
+  ///
+  /// `null` significa "non ancora sincronizzata", ed e' cio' che
+  /// `/api/calendar/sync-pending` cerca per recuperare gli appuntamenti
+  /// rimasti indietro. Prima non c'era modo di distinguere una visita finita
+  /// su Google da una che non ci era mai arrivata: la scrittura falliva in
+  /// silenzio e l'unica traccia era un log.
+  externalEventId String?
+
+  /// Su quale calendario e' finita, e di chi.
+  ///
+  /// Serve a spiegarlo in interfaccia: con il ripiego sul titolare, la visita
+  /// di un collaboratore compare sull'agenda del titolare, e senza dirlo
+  /// sembrerebbe finita nel posto sbagliato.
+  externalCalendarEmail String?
+  externalSyncedAt      DateTime?
+
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   assignedTo     User?        @relation(fields: [assignedToId], references: [id], onDelete: SetNull)

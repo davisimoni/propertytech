@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { CalendarClock, Phone } from "lucide-react";
+import { CalendarCheck, CalendarClock, CalendarX, Phone } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { ResyncCalendarButton } from "@/components/dashboard/resync-calendar-button";
 
 /**
  * Le visite già fissate, in dashboard.
@@ -38,7 +39,15 @@ export async function UpcomingAppointments({ organizationId }: { organizationId:
       propertyRef: true,
       appointmentSlot: true,
       intent: true,
-      calendarSlot: { select: { agentName: true } },
+      calendarSlot: {
+        select: {
+          agentName: true,
+          // Serve al badge: distingue una visita finita sul calendario da una
+          // che non ci e' mai arrivata.
+          externalEventId: true,
+          externalCalendarEmail: true,
+        },
+      },
     },
   });
 
@@ -46,6 +55,10 @@ export async function UpcomingAppointments({ organizationId }: { organizationId:
   // riquadro vuoto. Un'agenzia che non ha ancora appuntamenti non ha bisogno
   // che glielo si ricordi ogni volta che apre la dashboard.
   if (appuntamenti.length === 0) return null;
+
+  const nonSincronizzate = appuntamenti.filter(
+    (lead) => lead.calendarSlot && !lead.calendarSlot.externalEventId
+  ).length;
 
   const quando = (data: Date) =>
     new Intl.DateTimeFormat("it-IT", {
@@ -63,9 +76,15 @@ export async function UpcomingAppointments({ organizationId }: { organizationId:
         <CalendarClock className="h-4 w-4 text-primary" />
         Prossime visite in programma
       </h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Fissate dall&apos;assistente su WhatsApp e già a calendario.
-      </p>
+      {/* Il sottotitolo diceva "e gia' a calendario" di tutte: per quelle non
+          sincronizzate era falso, ed e' proprio la frase che impediva di
+          accorgersi del problema. */}
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          Fissate dall&apos;assistente su WhatsApp.
+        </p>
+        {nonSincronizzate > 0 && <ResyncCalendarButton quante={nonSincronizzate} />}
+      </div>
 
       <ul className="mt-3 divide-y divide-border">
         {appuntamenti.map((lead) => (
@@ -86,6 +105,28 @@ export async function UpcomingAppointments({ organizationId }: { organizationId:
                 {lead.calendarSlot?.agentName ? ` · ${lead.calendarSlot.agentName}` : ""}
                 {lead.propertyRef ? ` · ${lead.propertyRef}` : ""}
               </p>
+
+              {/* Lo stato della sincronizzazione, per visita.
+
+                  Un conteggio complessivo non basterebbe: con cinque
+                  appuntamenti in elenco serve sapere QUALE non e' in agenda,
+                  perche' e' quello per cui nessuno ricevera' la notifica del
+                  calendario la mattina della visita. */}
+              {lead.calendarSlot &&
+                (lead.calendarSlot.externalEventId ? (
+                  <p className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-status-qualified">
+                    <CalendarCheck className="h-3 w-3" />
+                    Sul calendario
+                    {lead.calendarSlot.externalCalendarEmail
+                      ? ` di ${lead.calendarSlot.externalCalendarEmail}`
+                      : ""}
+                  </p>
+                ) : (
+                  <p className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-status-pending">
+                    <CalendarX className="h-3 w-3" />
+                    Non sincronizzata sul calendario
+                  </p>
+                ))}
             </div>
 
             <div className="flex shrink-0 items-center gap-2">

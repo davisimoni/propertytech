@@ -55,60 +55,28 @@ function nowIso(): string {
  * visita fissata in un messaggio di errore al lead — stesso principio di
  * `deliverLeadToCrm`.
  *
- * Salta in silenzio gli slot generici (`assignedToId: null`): senza un agente
- * non c'è un calendario personale su cui scrivere, e scegliere d'ufficio quello
- * di un collaboratore qualsiasi riempirebbe l'agenda della persona sbagliata.
+ * Gli slot generici (`assignedToId: null`) NON vengono piu' saltati: erano il
+ * caso piu' frequente — le agende si compilano scrivendo il nome dell'agente a
+ * mano, senza collegarlo a un account — e finivano scartati in silenzio, con
+ * l'appuntamento fissato ovunque nell'app e niente su Google. Ora si ripiega
+ * sul calendario del titolare, con il nome dell'agente nel titolo dell'evento.
+ *
+ * La logica sta tutta in `syncSlotToExternalCalendar`, condivisa con la
+ * resincronizzazione: due copie divergerebbero sulla regola piu' delicata,
+ * cioe' su quale calendario scrivere.
  */
 async function mirrorAppointmentToExternalCalendar(lead: Lead, slotId: string): Promise<void> {
-  try {
-    const slot = await prisma.calendarSlot.findFirst({
-      where: { id: slotId, organizationId: lead.organizationId },
-      select: { assignedToId: true, startTime: true, endTime: true },
-    });
+  const { syncSlotToExternalCalendar } = await import("@/lib/calendar/sync");
+  const esito = await syncSlotToExternalCalendar(slotId);
 
-    /*
-     * Perche' si logga invece di uscire in silenzio.
-     *
-     * Questo era il ramo che faceva sembrare rotta l'integrazione: una fascia
-     * senza agente assegnato non finisce su nessun calendario personale, ma
-     * l'appuntamento risultava fissato ovunque nell'app e su Google non
-     * compariva niente — senza una riga da nessuna parte che dicesse perche'.
-     * Ora la ragione e' scritta, e l'agenzia sa che le basta assegnare le
-     * fasce a una persona in Impostazioni -> Agende.
-     */
-    if (!slot?.assignedToId) {
-      console.info("[WA-CALENDAR-SKIPPED]", {
-        leadId: lead.id,
-        organizationId: lead.organizationId,
-        motivo: "fascia senza agente assegnato: nessun calendario personale su cui scrivere",
-      });
-      return;
-    }
-
-    const { createCalendarEvent } = await import("@/lib/calendar/sync");
-
-    const scritto = await createCalendarEvent(slot.assignedToId, {
-      leadName: lead.clientName,
-      leadPhone: lead.clientPhone,
-      startTime: slot.startTime,
-      endTime: slot.endTime,
-      propertyRef: lead.propertyRef,
-      notes: `Telefono lead: ${lead.clientPhone}`,
-    });
-
-    // `false` significa "nessun calendario collegato, oppure la scrittura non
-    // e' riuscita". Non cambia nulla per il cliente, ma e' la differenza fra
-    // un'integrazione da configurare e una rotta.
-    console.info(scritto ? "[WA-CALENDAR-EVENT-CREATED]" : "[WA-CALENDAR-NOT-WRITTEN]", {
+  if (!esito.ok) {
+    // Non cambia nulla per il cliente: la visita e' fissata. Ma la ragione
+    // resta scritta, perche' "su Google non c'e'" senza un perche' e' il
+    // difetto che ha reso questo caso invisibile per settimane.
+    console.info("[WA-CALENDAR-NOT-WRITTEN]", {
       leadId: lead.id,
       organizationId: lead.organizationId,
-      agentId: slot.assignedToId,
-      quando: slot.startTime.toISOString(),
-    });
-  } catch (error) {
-    console.error("[whatsapp/conversation] Sincronizzazione calendario esterno fallita", {
-      leadId: lead.id,
-      error,
+      motivo: esito.motivo,
     });
   }
 }

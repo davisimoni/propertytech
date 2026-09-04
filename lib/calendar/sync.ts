@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { getUsableConnection } from "./connections";
+import { getUsableConnection, type UsableCalendarConnection } from "./connections";
 import type { AvailableSlot } from "./provider";
 
 /**
@@ -214,6 +214,70 @@ export interface CalendarEventData {
   location?: string | null;
   /** Telefono del lead e altre note operative per l'agente. */
   notes?: string | null;
+  /**
+   * Chi fa la visita, come compare in agenda.
+   *
+   * Va nel titolo perche' con il ripiego sul titolare l'evento finisce sul
+   * calendario di una persona diversa da quella che si presentera'
+   * all'appuntamento: senza il nome, il titolare leggerebbe "Sopralluogo con
+   * Sasa'" sulla propria agenda e crederebbe di doverci andare lui.
+   */
+  agentName?: string | null;
+}
+
+/**
+ * Su quale calendario scrivere la visita, e a chi appartiene.
+ *
+ * # Perche' esiste un ripiego
+ *
+ * Perche' la connessione e' per persona, ma le fasce spesso non lo sono. Uno
+ * slot generico (`assignedToId` null) non ha un agente a cui chiedere il
+ * token, e finora finiva scartato in silenzio: l'appuntamento risultava
+ * fissato dappertutto nell'app e su Google non compariva niente. E' il caso
+ * piu' frequente, non un'eccezione — le agende si compilano scrivendo il nome
+ * dell'agente a mano, senza collegarlo a un account.
+ *
+ * Lo stesso vale per un collaboratore che semplicemente non ha collegato il
+ * proprio calendario.
+ *
+ * # Perche' il titolare e non un collaboratore qualsiasi
+ *
+ * Perche' e' l'unico che si puo' scegliere senza sbagliare: e' uno solo per
+ * agenzia, ed e' chi risponde dell'organizzazione. Prendere il calendario del
+ * primo collaboratore con un token valido riempirebbe l'agenda di una persona
+ * scelta a caso.
+ */
+export interface ResolvedCalendarTarget {
+  connection: UsableCalendarConnection;
+  /** Vero quando si e' ripiegato sul calendario del titolare. */
+  viaOwner: boolean;
+}
+
+export async function resolveCalendarTarget(
+  organizationId: string,
+  assignedToId: string | null
+): Promise<ResolvedCalendarTarget | null> {
+  // STEP 1 — l'agente assegnato, quando c'e' e ha collegato il calendario.
+  if (assignedToId) {
+    const propria = await getUsableConnection(assignedToId);
+    if (propria) return { connection: propria, viaOwner: false };
+  }
+
+  // STEP 2 — ripiego sul titolare DELLA STESSA agenzia.
+  //
+  // `organizationId` nel filtro non e' pignoleria: senza, un giorno questa
+  // query restituirebbe il titolare di un'altra agenzia e scriveremmo
+  // l'appuntamento di un cliente sul calendario di un estraneo.
+  const owner = await prisma.user.findFirst({
+    where: { organizationId, role: "OWNER" },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+
+  if (!owner) return null;
+
+  const delTitolare = await getUsableConnection(owner.id);
+  return delTitolare ? { connection: delTitolare, viaOwner: true } : null;
 }
 
 /**
@@ -224,12 +288,20 @@ export interface CalendarEventData {
  * scrittura non riesce: l'appuntamento resta comunque registrato nell'agenda
  * interna, che è la fonte di verità dell'agenzia.
  */
+export interface CalendarWriteOutcome {
+  ok: boolean;
+  /** Id dell'evento creato: distingue "sincronizzato" da "mai arrivato". */
+  eventId?: string;
+  /** Su quale account e' finito, per poterlo dire in interfaccia. */
+  accountEmail?: string;
+  viaOwner?: boolean;
+}
+
 export async function createCalendarEvent(
-  agentId: string,
+  target: ResolvedCalendarTarget,
   eventData: CalendarEventData
-): Promise<boolean> {
-  const connection = await getUsableConnection(agentId);
-  if (!connection) return false;
+): Promise<CalendarWriteOutcome> {
+  const { connection, viaOwner } = target;
 
   const startTime = eventData.startTime;
   const endTime =
@@ -238,14 +310,21 @@ export async function createCalendarEvent(
   // "Sopralluogo / Visita": l'assistente fissa entrambe le cose, e chi legge
   // l'agenda deve capire di cosa si tratta senza aprire l'evento.
   const title = [
+    // Il nome dell'agente per primo quando l'evento non e' sul suo calendario:
+    // e' la prima cosa che serve sapere leggendo l'agenda del titolare.
+    eventData.agentName ? `[Agente: ${eventData.agentName}]` : null,
     `Sopralluogo / Visita - ${eventData.leadName}`,
     eventData.leadPhone,
   ]
     .filter(Boolean)
     .join(" - ");
   const description = [
+    eventData.agentName ? `Agente di riferimento: ${eventData.agentName}` : null,
     eventData.propertyRef ? `Immobile: ${eventData.propertyRef}` : null,
     eventData.notes,
+    viaOwner
+      ? "Evento sul calendario del titolare: l'agente assegnato non ha un calendario collegato."
+      : null,
     "Appuntamento fissato automaticamente dall'assistente WhatsApp di PropertyTech.",
   ]
     .filter(Boolean)
@@ -277,7 +356,13 @@ export async function createCalendarEvent(
       );
 
       if (!response.ok) throw new Error(`Google ha risposto ${response.status}`);
-      return true;
+      const creato = (await response.json().catch(() => ({}))) as { id?: string };
+      return {
+        ok: true,
+        eventId: creato.id,
+        accountEmail: connection.accountEmail,
+        viaOwner,
+      };
     }
 
     const response = await fetch("https://graph.microsoft.com/v1.0/me/events", {
@@ -297,13 +382,110 @@ export async function createCalendarEvent(
     });
 
     if (!response.ok) throw new Error(`Graph ha risposto ${response.status}`);
-    return true;
+    const creato = (await response.json().catch(() => ({}))) as { id?: string };
+    return { ok: true, eventId: creato.id, accountEmail: connection.accountEmail, viaOwner };
   } catch (error) {
     console.error("[calendar/sync] Creazione evento fallita", {
-      agentId,
+      account: connection.accountEmail,
       provider: connection.provider,
       error,
     });
-    return false;
+    return { ok: false };
+  }
+}
+
+/**
+ * Porta una visita gia' fissata sul calendario esterno, e lo registra.
+ *
+ * # Perche' una funzione sola
+ *
+ * Perche' i chiamanti sono due — l'assistente WhatsApp quando fissa
+ * l'appuntamento, e la resincronizzazione che recupera quelli rimasti
+ * indietro — e devono comportarsi in modo identico. Due copie divergono, e a
+ * divergere sarebbe proprio la regola su quale calendario scrivere.
+ *
+ * # Non lancia mai
+ *
+ * L'appuntamento e' gia' registrato nell'agenda interna, che resta la fonte
+ * di verita' dell'agenzia. Un token revocato o Google irraggiungibile non
+ * devono trasformare una visita fissata in un errore al cliente.
+ */
+export async function syncSlotToExternalCalendar(
+  slotId: string
+): Promise<{ ok: boolean; motivo?: string }> {
+  try {
+    const slot = await prisma.calendarSlot.findUnique({
+      where: { id: slotId },
+      select: {
+        id: true,
+        organizationId: true,
+        assignedToId: true,
+        agentName: true,
+        startTime: true,
+        endTime: true,
+        externalEventId: true,
+        lead: {
+          select: { clientName: true, clientPhone: true, propertyRef: true },
+        },
+      },
+    });
+
+    if (!slot) return { ok: false, motivo: "slot_inesistente" };
+
+    // Gia' sincronizzata: non si riscrive, o una seconda esecuzione della
+    // resincronizzazione creerebbe eventi doppi in agenda.
+    if (slot.externalEventId) return { ok: true, motivo: "gia_sincronizzata" };
+
+    if (!slot.lead) return { ok: false, motivo: "nessun_lead_collegato" };
+
+    const target = await resolveCalendarTarget(slot.organizationId, slot.assignedToId);
+    if (!target) {
+      console.info("[CALENDAR-NO-CONNECTION]", {
+        slotId: slot.id,
+        organizationId: slot.organizationId,
+        motivo: "ne' l'agente assegnato ne' il titolare hanno un calendario collegato",
+      });
+      return { ok: false, motivo: "nessun_calendario_collegato" };
+    }
+
+    const esito = await createCalendarEvent(target, {
+      leadName: slot.lead.clientName,
+      leadPhone: slot.lead.clientPhone,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      propertyRef: slot.lead.propertyRef,
+      agentName: slot.agentName,
+      notes: `Telefono lead: ${slot.lead.clientPhone}`,
+    });
+
+    if (!esito.ok) return { ok: false, motivo: "scrittura_fallita" };
+
+    /*
+     * Si registra DOPO la scrittura riuscita, non prima.
+     *
+     * Segnare la sincronizzazione in anticipo farebbe saltare per sempre uno
+     * slot il cui evento non e' mai stato creato: la resincronizzazione lo
+     * vedrebbe gia' a posto e non riproverebbe.
+     */
+    await prisma.calendarSlot.update({
+      where: { id: slot.id },
+      data: {
+        externalEventId: esito.eventId ?? "sconosciuto",
+        externalCalendarEmail: esito.accountEmail ?? null,
+        externalSyncedAt: new Date(),
+      },
+    });
+
+    console.info("[CALENDAR-EVENT-CREATED]", {
+      slotId: slot.id,
+      organizationId: slot.organizationId,
+      account: esito.accountEmail,
+      viaOwner: esito.viaOwner === true,
+    });
+
+    return { ok: true };
+  } catch (error) {
+    console.error("[calendar/sync] Sincronizzazione slot fallita", { slotId, error });
+    return { ok: false, motivo: "errore_imprevisto" };
   }
 }
