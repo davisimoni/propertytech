@@ -172,7 +172,7 @@ export function RadarMatchesCard({
           type="button"
           onClick={scan}
           disabled={isScanning}
-          className="inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50"
+          className="inline-flex h-11 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50"
         >
           {isScanning ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -259,7 +259,7 @@ export function RadarMatchesCard({
               <button
                 type="button"
                 onClick={() => openPreview(match, "proposta")}
-                className="inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+                className="inline-flex h-11 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
               >
                 <Send className="h-3.5 w-3.5" />
                 {match.notifiedAt ? "Invia di nuovo" : "Invia proposta"}
@@ -272,7 +272,7 @@ export function RadarMatchesCard({
                 <button
                   type="button"
                   onClick={() => openPreview(match, "prospetto")}
-                  className="inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+                  className="inline-flex h-11 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
                 >
                   <Percent className="h-3.5 w-3.5" />
                   Prospetto ROI
@@ -326,7 +326,7 @@ export function RadarMatchesCard({
               <button
                 type="button"
                 onClick={() => setPreview(null)}
-                className="h-9 rounded-lg border border-border px-3 text-xs font-medium text-muted-foreground transition-colors duration-200 hover:bg-muted"
+                className="h-11 sm:h-9 rounded-lg border border-border px-3 text-xs font-medium text-muted-foreground transition-colors duration-200 hover:bg-muted"
               >
                 Annulla
               </button>
@@ -334,7 +334,7 @@ export function RadarMatchesCard({
                 type="button"
                 onClick={confirmSend}
                 disabled={isSending || preview.data.optedOut}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-gradient px-3 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 disabled:opacity-50"
+                className="inline-flex h-11 items-center sm:h-9 gap-1.5 rounded-lg bg-brand-gradient px-3 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 disabled:opacity-50"
               >
                 {isSending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Conferma e invia

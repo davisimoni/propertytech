@@ -223,7 +223,7 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
         <button
           type="button"
           onClick={() => setDrawer("nuovo")}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-gradient px-3 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110"
+          className="inline-flex h-11 items-center sm:h-9 gap-1.5 rounded-lg bg-brand-gradient px-3 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110"
         >
           <Plus className="h-3.5 w-3.5" />
           Nuova opportunità
@@ -232,14 +232,21 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
       </div>
 
       {/* Filtri: valgono per entrambe le viste, così passando da tabella a
-          mappa si continua a guardare lo stesso insieme. */}
+          mappa si continua a guardare lo stesso insieme.
+
+          In griglia e non in flex-wrap: sette filtri con larghezze fisse
+          (w-36, w-44) su uno schermo da 375px si disponevano a gradini, con
+          l'ultimo da solo su una riga mezza vuota. Due per riga sul telefono,
+          quattro sul desktop — la stessa disposizione del portafoglio, perche'
+          due elenchi che si filtrano allo stesso modo non devono avere due
+          barre diverse. */}
       {items.length > 0 && (
-        <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-muted/30 p-3">
+        <div className="grid grid-cols-2 gap-3 rounded-xl border border-border bg-muted/30 p-3 sm:grid-cols-3 lg:grid-cols-4">
           <Filtro label="Tipo">
             <select
               value={filtroTipo}
               onChange={(e) => setFiltroTipo(e.target.value as typeof filtroTipo)}
-              className="input-field h-11 sm:h-9 text-base sm:text-sm"
+              className="input-field h-11 sm:h-9 w-full text-base sm:text-sm"
             >
               <option value="TUTTI">Tutte</option>
               <option value="ASTA">Aste</option>
@@ -251,7 +258,7 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
             <select
               value={filtroRischio}
               onChange={(e) => setFiltroRischio(e.target.value as typeof filtroRischio)}
-              className="input-field h-11 sm:h-9 text-base sm:text-sm"
+              className="input-field h-11 sm:h-9 w-full text-base sm:text-sm"
             >
               <option value="TUTTI">Tutti</option>
               <option value="VERDE">Rischio basso</option>
@@ -267,7 +274,7 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
               onChange={(e) => setBudgetMax(e.target.value)}
               inputMode="numeric"
               placeholder="Es. 250.000"
-              className="input-field h-11 sm:h-9 w-36 text-base sm:text-sm"
+              className="input-field h-11 sm:h-9 w-full text-base sm:text-sm"
             />
           </Filtro>
 
@@ -275,7 +282,7 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
             <select
               value={filtroTag}
               onChange={(e) => setFiltroTag(e.target.value)}
-              className="input-field h-11 sm:h-9 text-base sm:text-sm"
+              className="input-field h-11 sm:h-9 w-full text-base sm:text-sm"
             >
               <option value="TUTTI">Tutte</option>
               {RADAR_TAGS.map((t) => (
@@ -290,7 +297,7 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
             <select
               value={filtroFase}
               onChange={(e) => setFiltroFase(e.target.value)}
-              className="input-field h-11 sm:h-9 text-base sm:text-sm"
+              className="input-field h-11 sm:h-9 w-full text-base sm:text-sm"
             >
               <option value="TUTTE">Tutte</option>
               {(Object.keys(AUCTION_STATUS_LABELS) as AuctionStatus[]).map((v) => (
@@ -305,7 +312,7 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
             <select
               value={mostraArchiviati ? "SI" : "NO"}
               onChange={(e) => setMostraArchiviati(e.target.value === "SI")}
-              className="input-field h-11 sm:h-9 text-base sm:text-sm"
+              className="input-field h-11 sm:h-9 w-full text-base sm:text-sm"
             >
               <option value="NO">Nascondi</option>
               <option value="SI">Mostra anche</option>
@@ -317,7 +324,7 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
               value={zona}
               onChange={(e) => setZona(e.target.value)}
               placeholder="Es. Vignola"
-              className="input-field h-11 sm:h-9 w-44 text-base sm:text-sm"
+              className="input-field h-11 sm:h-9 w-full text-base sm:text-sm"
             />
           </Filtro>
 
@@ -337,7 +344,7 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
                 setBudgetMax("");
                 setZona("");
               }}
-              className="h-9 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-colors duration-200 hover:bg-muted"
+              className="h-11 sm:h-9 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-colors duration-200 hover:bg-muted"
             >
               Azzera filtri
             </button>

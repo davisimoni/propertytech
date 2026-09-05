@@ -29,6 +29,11 @@ import {
 } from "./seller-lead-card";
 import { STATUS_BADGE_CLASSES, type LeadView } from "@/lib/whatsapp/view-types";
 import {
+  LeadSearchBar,
+  passaRicercaLead,
+  type FiltroIntento,
+} from "@/components/whatsapp/lead-search";
+import {
   deriveSellerCategory,
   isGoldLead,
   portfolioBadgeLabel,
@@ -125,6 +130,15 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
    */
   const [onlyMine, setOnlyMine] = useState(false);
   const [view, setView] = useState<"table" | "kanban">("table");
+  /*
+   * Ricerca e intento filtrano nel browser.
+   *
+   * A differenza del filtro di stato, che ricarica dal server: qui si lavora
+   * su cio' che e' gia' a schermo, e una chiamata a ogni tasto premuto
+   * renderebbe la ricerca piu' lenta dello scorrere che sostituisce.
+   */
+  const [ricerca, setRicerca] = useState("");
+  const [intento, setIntento] = useState<FiltroIntento>("");
   const [isLoading, setIsLoading] = useState(true);
   /**
    * Errore dell'ultimo caricamento.
@@ -282,6 +296,8 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
     };
   }, [filter, sortByPortfolio, onlyMine, fetchLeads]);
 
+  const visibili = leads.filter((lead) => passaRicercaLead(lead, ricerca, intento));
+
   return (
     <section className="rounded-xl border border-border bg-card p-4 md:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -384,6 +400,20 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
         </p>
       ) : null}
 
+      {/* La barra sopra l'elenco, e solo quando c'e' qualcosa da cercare:
+          su una pipeline vuota sarebbe un campo che non filtra niente sopra
+          un invito a cominciare. */}
+      {!isLoading && leads.length > 0 && (
+        <LeadSearchBar
+          testo={ricerca}
+          intento={intento}
+          onTesto={setRicerca}
+          onIntento={setIntento}
+          risultati={visibili.length}
+          totale={leads.length}
+        />
+      )}
+
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -416,8 +446,14 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
             La prova non consuma crediti e non scrive a nessuno.
           </p>
         </div>
+      ) : visibili.length === 0 ? (
+        // La pipeline non e' vuota: e' la ricerca a non trovare. Dirlo evita
+        // che sembri che i contatti siano spariti.
+        <p className="rounded-xl border border-border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
+          Nessun contatto corrisponde alla ricerca.
+        </p>
       ) : view === "kanban" ? (
-        <LeadKanban leads={leads} onOpenLead={setSelectedLead} onStageChanged={applyStageChange} />
+        <LeadKanban leads={visibili} onOpenLead={setSelectedLead} onStageChanged={applyStageChange} />
       ) : (
           <>
           {/* Tabella solo da tablet in su: a 720px minimi su un telefono
@@ -435,7 +471,7 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
               </tr>
             </thead>
             <tbody>
-              {leads.map((lead) => (
+              {visibili.map((lead) => (
                 <tr
                   key={lead.id}
                   className={cn(
@@ -507,7 +543,7 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
           {/* Stessa informazione, impilata: su mobile una scheda per contatto
               si legge con il pollice, una tabella no. */}
           <ul className="mt-4 space-y-2 md:hidden">
-            {leads.map((lead) => (
+            {visibili.map((lead) => (
               <li key={lead.id} className="rounded-xl border border-border p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">

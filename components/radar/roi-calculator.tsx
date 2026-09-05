@@ -166,7 +166,7 @@ export function RoiCalculator({
           type="button"
           onClick={salva}
           disabled={isSaving}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50"
+          className="inline-flex h-11 items-center sm:h-9 gap-1.5 rounded-lg border border-border px-3 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50"
         >
           {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
           {salvato ? "Salvato" : "Salva parametri"}

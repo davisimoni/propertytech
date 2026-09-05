@@ -125,7 +125,7 @@ export function AppraisalPanel({
 
             <label
               className={cn(
-                "inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-brand-gradient px-3 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110",
+                "inline-flex h-11 cursor-pointer items-center sm:h-9 gap-1.5 rounded-lg bg-brand-gradient px-3 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110",
                 (isUploading || inAnalisi) && "pointer-events-none opacity-50"
               )}
             >

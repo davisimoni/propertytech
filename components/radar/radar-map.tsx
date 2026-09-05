@@ -365,7 +365,7 @@ export function RadarMap({
           type="button"
           onClick={() => setMostraDomanda((v) => !v)}
           aria-pressed={mostraDomanda}
-          className={`inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-all duration-200 ${
+          className={`inline-flex h-11 items-center sm:h-8 gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-all duration-200 ${
             mostraDomanda
               ? "bg-primary/10 text-primary"
               : "border border-border text-muted-foreground hover:border-primary/40 hover:bg-muted"

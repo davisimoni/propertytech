@@ -296,7 +296,7 @@ export function RadarDetail({
             type="button"
             onClick={scaricaReport}
             disabled={inStampa}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 disabled:opacity-50"
+            className="inline-flex h-11 items-center sm:h-9 gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 disabled:opacity-50"
           >
             {inStampa ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
             Scarica report PDF
@@ -308,7 +308,7 @@ export function RadarDetail({
           <button
             type="button"
             onClick={() => setScheda("lead")}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-gradient px-3 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110"
+            className="inline-flex h-11 items-center sm:h-9 gap-1.5 rounded-lg bg-brand-gradient px-3 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110"
           >
             <Send className="h-3.5 w-3.5" />
             Invia prospetto WA
@@ -346,7 +346,7 @@ export function RadarDetail({
               <button
                 type="button"
                 onClick={() => setScheda("lead")}
-                className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-status-qualified/40 px-2.5 text-xs font-medium text-status-qualified transition-all duration-200 hover:bg-status-qualified/10 sm:h-8"
+                className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-status-qualified/40 px-2.5 text-xs font-medium text-status-qualified transition-all duration-200 hover:bg-status-qualified/10 sm:h-8"
               >
                 <Users className="h-3.5 w-3.5" />
                 Vedi i lead
@@ -357,7 +357,7 @@ export function RadarDetail({
               onClick={() => patch({ dismissPriceDrop: true }, "Avviso archiviato.")}
               disabled={inCorso}
               aria-label="Ho visto il ribasso, nascondi l'avviso"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground disabled:opacity-50 sm:h-8 sm:w-8"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground disabled:opacity-50 sm:h-8 sm:w-8"
             >
               <X className="h-4 w-4" />
             </button>
@@ -420,7 +420,7 @@ export function RadarDetail({
         <button
           type="button"
           onClick={onEdit}
-          className="inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+          className="inline-flex h-11 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
         >
           <Pencil className="h-3.5 w-3.5" />
           Modifica dati
@@ -437,7 +437,7 @@ export function RadarDetail({
                 : "Ripristinata in elenco."
             )
           }
-          className="inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50"
+          className="inline-flex h-11 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50"
         >
           {item.archivedAt === null ? (
             <>
@@ -462,7 +462,7 @@ export function RadarDetail({
             key={variant}
             type="button"
             onClick={() => copiaCopy(variant)}
-            className="inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+            className="inline-flex h-11 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
           >
             {copiato === variant ? (
               <ClipboardCheck className="h-3.5 w-3.5 text-status-qualified" />
@@ -476,7 +476,7 @@ export function RadarDetail({
         <button
           type="button"
           onClick={() => setConferma(true)}
-          className="inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-status-blocked transition-all duration-200 hover:border-status-blocked/40 hover:bg-status-blocked/5"
+          className="inline-flex h-11 items-center sm:h-8 gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-status-blocked transition-all duration-200 hover:border-status-blocked/40 hover:bg-status-blocked/5"
         >
           <Trash2 className="h-3.5 w-3.5" />
           Elimina
@@ -501,10 +501,10 @@ export function RadarDetail({
             <div className="mt-4 flex justify-end gap-2">
               {/* Il fuoco iniziale su Annulla: il primo tasto raggiunto da
                   tastiera non deve essere quello che cancella. */}
-              <button type="button" autoFocus onClick={() => setConferma(false)} className="h-9 rounded-lg border border-border px-3 text-xs font-medium text-foreground transition-colors duration-200 hover:bg-muted">
+              <button type="button" autoFocus onClick={() => setConferma(false)} className="h-11 sm:h-9 rounded-lg border border-border px-3 text-xs font-medium text-foreground transition-colors duration-200 hover:bg-muted">
                 Annulla
               </button>
-              <button type="button" onClick={elimina} disabled={inCorso} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-status-blocked px-3 text-xs font-medium text-white transition-all duration-200 hover:brightness-110 disabled:opacity-50">
+              <button type="button" onClick={elimina} disabled={inCorso} className="inline-flex h-11 items-center sm:h-9 gap-1.5 rounded-lg bg-status-blocked px-3 text-xs font-medium text-white transition-all duration-200 hover:brightness-110 disabled:opacity-50">
                 {inCorso && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Elimina definitivamente
               </button>

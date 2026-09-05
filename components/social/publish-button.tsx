@@ -88,7 +88,7 @@ export function PublishButton({ testo, media = [] }: { testo: string; media?: st
         type="button"
         onClick={pubblica}
         disabled={inCorso}
-        className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50 sm:h-8"
+        className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50 sm:h-8"
       >
         {inCorso ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
         {media.length > 0 ? "Pubblica su Facebook/Instagram" : "Pubblica su Facebook"}
@@ -148,7 +148,7 @@ export function PublishButton({ testo, media = [] }: { testo: string; media?: st
                 type="button"
                 onClick={() => setMostraGuida(false)}
                 aria-label="Chiudi"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:h-8 sm:w-8"
               >
                 <X className="h-4 w-4" />
               </button>

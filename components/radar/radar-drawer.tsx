@@ -229,7 +229,7 @@ export function RadarDrawer({
             type="button"
             onClick={onClose}
             aria-label="Chiudi"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground sm:h-8 sm:w-8 transition-colors hover:bg-muted hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -286,7 +286,7 @@ export function RadarDrawer({
                       const form = e.currentTarget.closest("form");
                       if (form) void cerca(form);
                     }}
-                    className="inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 disabled:opacity-50"
+                    className="inline-flex h-11 items-center sm:h-8 gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 disabled:opacity-50"
                   >
                     {isLocating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MapPin className="h-3.5 w-3.5" />}
                     Trova sulla mappa
@@ -436,7 +436,7 @@ export function RadarDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="h-9 rounded-lg border border-border px-3 text-xs font-medium text-muted-foreground transition-colors duration-200 hover:bg-muted"
+            className="h-11 sm:h-9 rounded-lg border border-border px-3 text-xs font-medium text-muted-foreground transition-colors duration-200 hover:bg-muted"
           >
             {step === 2 ? "Chiudi" : "Annulla"}
           </button>
@@ -445,7 +445,7 @@ export function RadarDrawer({
               type="submit"
               form="radar-form"
               disabled={isSaving}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-gradient px-3 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 disabled:opacity-50"
+              className="inline-flex h-11 items-center sm:h-9 gap-1.5 rounded-lg bg-brand-gradient px-3 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 disabled:opacity-50"
             >
               {isSaving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               {modifica ? "Salva modifiche" : "Salva e continua"}
