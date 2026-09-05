@@ -27,8 +27,24 @@ export async function GET(request: Request) {
   // Il filtro sull'agenzia non dipende mai da un parametro (CLAUDE.md §5).
   const where: Prisma.RadarPropertyWhereInput = {
     organizationId: session.user.organizationId,
-    // Gli archiviati restano a database ma fuori dall'elenco, salvo richiesta.
-    ...(params.get("archived") === "true" ? {} : { archivedAt: null }),
+    /*
+     * Tre insiemi, non due.
+     *
+     * `archived=only` restituisce SOLO le archiviate: e' cio' che serve alla
+     * vista dedicata. Prima l'unica alternativa era `archived=true`, che
+     * toglieva il filtro del tutto e quindi mescolava archiviate e attive —
+     * chi chiedeva "mostrami le archiviate" si ritrovava l'elenco intero e
+     * doveva riconoscerle a occhio.
+     *
+     * `archived=true` resta e continua a significare "tutte": non lo usa piu'
+     * nessuno, ma cambiargli significato sotto i piedi a un chiamante che
+     * riemergesse sarebbe peggio che tenerlo.
+     */
+    ...(params.get("archived") === "only"
+      ? { archivedAt: { not: null } }
+      : params.get("archived") === "true"
+        ? {}
+        : { archivedAt: null }),
   };
 
   const kind = params.get("kind");
@@ -56,7 +72,19 @@ export async function GET(request: Request) {
     },
   });
 
-  return NextResponse.json({ items });
+  /*
+   * Il conteggio delle archiviate viaggia con l'elenco.
+   *
+   * Serve alla scheda "Archiviate (N)", che deve poter dire quante ce ne sono
+   * mentre si guardano le attive: senza, l'unico modo di saperlo sarebbe
+   * aprire quella vista, cioe' proprio l'informazione che il numero
+   * dovrebbe evitare di dover andare a cercare.
+   */
+  const archivedCount = await prisma.radarProperty.count({
+    where: { organizationId: session.user.organizationId, archivedAt: { not: null } },
+  });
+
+  return NextResponse.json({ items, archivedCount });
 }
 
 export async function POST(request: Request) {

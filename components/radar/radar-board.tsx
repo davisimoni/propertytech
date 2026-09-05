@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { ArrowDown, Gavel, Loader2, Map as MapIcon, Plus, Table2, TrendingDown, Users } from "lucide-react";
+import { ArchiveRestore, ArrowDown, Gavel, Loader2, Map as MapIcon, Plus, Radar, Table2, TrendingDown, Users } from "lucide-react";
 import { PROPERTY_TYPE_LABELS } from "@/lib/listings/property-fields";
 import { RISK_CLASSES, RISK_LABELS, OCCUPANCY_LABELS } from "@/lib/radar/risk";
 import { RadarDrawer } from "./radar-drawer";
@@ -98,30 +98,72 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
   const [filtroRischio, setFiltroRischio] = useState<"TUTTI" | RiskLevel | "IGNOTO">("TUTTI");
   const [budgetMax, setBudgetMax] = useState("");
   const [zona, setZona] = useState("");
-  /** Gli archiviati restano fuori salvo richiesta: sono pratiche chiuse. */
-  const [mostraArchiviati, setMostraArchiviati] = useState(false);
+  /*
+   * Attive o archiviate: e' una VISTA, non un filtro.
+   *
+   * Stava fra i filtri, sesta tendina di sette, con un SI/NO. Nessuno cerca
+   * "dove sono le archiviate" dentro un menu a tendina in mezzo a budget e
+   * zona: la funzione c'era e risultava assente. Ora e' una scheda accanto a
+   * Tabella/Mappa, col numero di quelle archiviate scritto sopra.
+   */
+  const [vistaArchivio, setVistaArchivio] = useState(false);
+  const [archivedCount, setArchivedCount] = useState(0);
+  const [ripristinando, setRipristinando] = useState<string | null>(null);
   const [filtroTag, setFiltroTag] = useState<string>("TUTTI");
   const [filtroFase, setFiltroFase] = useState<string>("TUTTE");
 
   const load = useCallback(async () => {
     try {
       const response = await fetch(
-        `/api/radar/properties${mostraArchiviati ? "?archived=true" : ""}`
+        `/api/radar/properties${vistaArchivio ? "?archived=only" : ""}`
       );
       if (!response.ok) throw new Error();
-      const data: { items: RadarItem[] } = await response.json();
+      const data: { items: RadarItem[]; archivedCount?: number } = await response.json();
       setItems(data.items);
+      // Il conteggio arriva con entrambe le viste: la scheda "Archiviate (N)"
+      // deve poter mostrare il numero mentre si guardano le attive.
+      setArchivedCount(data.archivedCount ?? 0);
       setError(null);
     } catch {
       setError("Non è stato possibile caricare le opportunità.");
     } finally {
       setIsLoading(false);
     }
-  }, [mostraArchiviati]);
+  }, [vistaArchivio]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * Riporta un'opportunita' fra le attive.
+   *
+   * Sta qui e non solo dentro la scheda di dettaglio: nella vista archivio
+   * l'unica cosa che si vuole fare e' ripescarne una, e obbligare ad aprirla
+   * per trovare il pulsante e' un passaggio in piu' su ogni riga.
+   *
+   * L'elenco si aggiorna togliendo la riga sul posto, senza ricaricare: la
+   * vista archivio non deve piu' mostrarla, e il contatore scende di uno.
+   */
+  const ripristina = useCallback(async (id: string) => {
+    setRipristinando(id);
+    try {
+      const response = await fetch(`/api/radar/properties/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: false }),
+      });
+      if (!response.ok) throw new Error();
+
+      setItems((correnti) => correnti.filter((i) => i.id !== id));
+      setArchivedCount((n) => Math.max(0, n - 1));
+      setError(null);
+    } catch {
+      setError("Non è stato possibile ripristinare l'opportunità.");
+    } finally {
+      setRipristinando(null);
+    }
+  }, []);
 
   /*
    * Si ricontrolla solo finché c'è qualcosa in analisi.
@@ -194,7 +236,37 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
           )}
         </p>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Attive / Archiviate: la vista, prima del come la si guarda. */}
+          <div className="inline-flex rounded-lg border border-border p-0.5">
+            {(
+              [
+                [false, "Attive"],
+                [true, archivedCount > 0 ? `Archiviate (${archivedCount})` : "Archiviate"],
+              ] as const
+            ).map(([archivio, label]) => (
+              <button
+                key={String(archivio)}
+                type="button"
+                onClick={() => setVistaArchivio(archivio)}
+                aria-pressed={vistaArchivio === archivio}
+                className={cn(
+                  "inline-flex h-11 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors duration-200 sm:h-auto sm:py-1.5",
+                  vistaArchivio === archivio
+                    ? "bg-brand-gradient text-white shadow-sm"
+                    : "text-muted-foreground hover:bg-muted"
+                )}
+              >
+                {archivio ? (
+                  <ArchiveRestore className="h-3.5 w-3.5" />
+                ) : (
+                  <Radar className="h-3.5 w-3.5" />
+                )}
+                {label}
+              </button>
+            ))}
+          </div>
+
           <div className="inline-flex rounded-lg border border-border p-0.5">
             {(
               [
@@ -308,16 +380,6 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
             </select>
           </Filtro>
 
-          <Filtro label="Archiviate">
-            <select
-              value={mostraArchiviati ? "SI" : "NO"}
-              onChange={(e) => setMostraArchiviati(e.target.value === "SI")}
-              className="input-field h-11 sm:h-9 w-full text-base sm:text-sm"
-            >
-              <option value="NO">Nascondi</option>
-              <option value="SI">Mostra anche</option>
-            </select>
-          </Filtro>
 
           <Filtro label="Comune o zona">
             <input
@@ -360,7 +422,34 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
 
       {isLoading && <p className="text-sm text-muted-foreground">Caricamento…</p>}
 
-      {!isLoading && items.length === 0 && (
+      {/* Due vuoti diversi, perche' sono due situazioni diverse.
+
+          L'archivio vuoto non e' un'agenzia che non ha ancora cominciato: e'
+          un'agenzia che non ha archiviato niente. Mostrarle l'invito a
+          "aggiungi il primo lotto" mentre ha venti opportunita' attive
+          suggerirebbe che il Radar si sia svuotato. */}
+      {!isLoading && items.length === 0 && vistaArchivio && (
+        <div className="card-surface p-8 text-center">
+          <ArchiveRestore className="mx-auto h-8 w-8 text-muted-foreground" />
+          <p className="mt-3 text-sm font-medium text-foreground">
+            Nessuna opportunità archiviata presente
+          </p>
+          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+            Qui finiscono le aste aggiudicate e le occasioni che hai chiuso. Le trovi archiviando
+            un&apos;opportunità dalla sua scheda, e da qui puoi sempre riportarla fra le attive.
+          </p>
+          <button
+            type="button"
+            onClick={() => setVistaArchivio(false)}
+            className="btn-outline mt-4 text-xs"
+          >
+            <Radar className="h-3.5 w-3.5" />
+            Torna alle attive
+          </button>
+        </div>
+      )}
+
+      {!isLoading && items.length === 0 && !vistaArchivio && (
         <div className="card-surface p-8 text-center">
           <Gavel className="mx-auto h-8 w-8 text-muted-foreground" />
           <p className="mt-3 text-sm font-medium text-foreground">Nessuna opportunità seguita</p>
@@ -368,6 +457,16 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
             Aggiungi un lotto all&apos;asta o un immobile ribassato, poi carica la perizia: in
             pochi secondi hai stato occupazionale, difformità e costi stimati di sanatoria.
           </p>
+          {archivedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setVistaArchivio(true)}
+              className="btn-outline mt-4 text-xs"
+            >
+              <ArchiveRestore className="h-3.5 w-3.5" />
+              Vedi le {archivedCount} archiviate
+            </button>
+          )}
         </div>
       )}
 
@@ -502,6 +601,37 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
                   )}
                 </div>
               </button>
+
+              {/* Ripristino sulla riga, e solo nella vista archivio: e' l'unica
+                  azione per cui si entra qui, e farla cercare dentro la scheda
+                  aggiungerebbe un passaggio a ogni opportunita'. */}
+              {vistaArchivio && (
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/20 px-4 py-2.5">
+                  <span className="text-xs text-muted-foreground">
+                    Archiviata
+                    {item.archivedAt
+                      ? ` il ${new Date(item.archivedAt).toLocaleDateString("it-IT", {
+                          day: "2-digit",
+                          month: "long",
+                          year: "numeric",
+                        })}`
+                      : ""}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void ripristina(item.id)}
+                    disabled={ripristinando === item.id}
+                    className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-2.5 text-xs font-medium text-primary transition-all duration-200 hover:bg-primary/10 disabled:opacity-50 sm:h-8"
+                  >
+                    {ripristinando === item.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <ArchiveRestore className="h-3.5 w-3.5" />
+                    )}
+                    {ripristinando === item.id ? "Ripristino…" : "Ripristina"}
+                  </button>
+                </div>
+              )}
 
               {aperto && (
                 <div className="border-t border-border p-4">
