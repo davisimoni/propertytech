@@ -25,8 +25,9 @@ export default async function TerminiPage() {
         <p>
           {BRAND.name} mette a disposizione strumenti basati su intelligenza artificiale per la
           qualificazione dei contatti via WhatsApp, l&apos;estrazione di dati da documenti
-          immobiliari, la generazione di contenuti per annunci e social e la redazione di report per
-          i proprietari. Il servizio è offerto in modalità &quot;software come servizio&quot;, senza
+          immobiliari, la generazione di contenuti per annunci e social, la redazione di report per i
+          proprietari e l&apos;analisi di perizie di esecuzione immobiliare con simulazione
+          economica (modulo Radar Immobili &amp; Aste). Il servizio è offerto in modalità &quot;software come servizio&quot;, senza
           cessione di licenze d&apos;uso permanenti.
         </p>
       </LegalSection>
@@ -182,6 +183,34 @@ export default async function TerminiPage() {
           codice QR utilizza un client non ufficiale: Meta può sospendere o limitare i numeri che ne
           fanno uso, e questa eventualità non è imputabile a {LEGAL_ENTITY.name}. Per un impiego
           intensivo e continuativo raccomandiamo WhatsApp Cloud API.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="7-bis. Radar Immobili &amp; Aste: perizie, semaforo e business plan">
+        <p>
+          Il modulo Radar analizza perizie di esecuzione immobiliare caricate dall&apos;Agenzia e ne
+          produce una sintesi, un indicatore di rischio e una simulazione economica. Sono{" "}
+          <strong className="text-foreground">
+            strumenti di lavoro per orientare una valutazione, non una valutazione
+          </strong>
+          , e su questo modulo la distinzione pesa più che altrove: da queste schermate si decide se
+          e quanto offrire a un&apos;asta giudiziaria, e l&apos;offerta non si ritira.
+        </p>
+        <LegalList
+          items={[
+            "La sintesi della perizia riporta ciò che il documento dice, non ciò che il perito ha concluso. Non sostituisce la lettura integrale della perizia, l'esame del fascicolo in cancelleria, la visita al bene né il parere del tecnico di fiducia.",
+            "L'indicatore di rischio (verde, giallo, rosso) è calcolato con criteri dichiarati e mostrati accanto al colore. Nel dubbio resta giallo: segnala un punto da verificare di persona, mai un via libera.",
+            "Il simulatore economico si apre con valori di partenza, e due di questi sono ipotesi nostre dichiarate, non dati della perizia: le imposte di trasferimento sono calcolate al 9% del prezzo (imposta di registro senza agevolazione prima casa, che scende al 2% quando l'agevolazione spetta), e il canone di locazione atteso deriva da un'ipotesi di resa lorda del 5% annua sul valore di mercato — non è una rilevazione dei canoni della zona.",
+            "La stima delle imposte non comprende compenso del delegato alla vendita, spese di custodia, oneri di cancellazione delle formalità pregiudizievoli, imposte ipotecarie e catastali in misura fissa e ogni altro onere che varia per tribunale e per procedura.",
+            "Capitale investito, margine sulla rivendita e rendimento sono il risultato aritmetico dei valori presenti nei campi: cambiano quando l'Agenzia li corregge, e sono corretti solo quanto lo sono quei valori.",
+          ]}
+        />
+        <p>
+          La decisione di partecipare a un&apos;asta, l&apos;importo dell&apos;offerta e ogni
+          conseguenza patrimoniale che ne deriva restano interamente dell&apos;Agenzia e del suo
+          cliente. {LEGAL_ENTITY.name} non presta servizi di stima immobiliare, di consulenza sugli
+          investimenti né di assistenza legale nelle procedure esecutive, e non risponde
+          dell&apos;esito di un&apos;aggiudicazione.
         </p>
       </LegalSection>
 

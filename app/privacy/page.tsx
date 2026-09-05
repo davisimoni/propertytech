@@ -57,6 +57,7 @@ export default async function PrivacyPage() {
             "Dati di contatto dei lead: nome, numero di telefono, portale di provenienza, immobile di interesse e contenuto delle conversazioni WhatsApp.",
             "Dati contenuti nei documenti caricati: nomi, cognomi, codici fiscali, quote di proprietà e riferimenti catastali estratti da visure, atti, planimetrie e APE.",
             "Note vocali post-visita e relative trascrizioni, che possono contenere dati di terzi (venditori e potenziali acquirenti).",
+            "Dati estratti dalle perizie di esecuzione immobiliare caricate nel modulo Radar: esclusivamente caratteristiche del bene, stato occupazionale, difformità, gravami e valori. I dati personali dell'esecutato e di terzi contenuti nel documento NON vengono estratti né conservati (vedi sezione 10-ter).",
             "Dati di utilizzo: crediti consumati, log tecnici necessari alla sicurezza e alla diagnostica.",
           ]}
         />
@@ -272,6 +273,35 @@ export default async function PrivacyPage() {
         <p>
           La valutazione non produce effetti giuridici e non nega alcun servizio: nel dubbio il
           messaggio passa e la conversazione prosegue normalmente.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="10-ter. Perizie d'asta: cosa NON trattiamo">
+        <p>
+          Il modulo Radar Immobili &amp; Aste consente di caricare una perizia di esecuzione
+          immobiliare in PDF. È il documento più delicato che passa dalla piattaforma: oltre alle
+          caratteristiche del bene contiene nome dell&apos;esecutato, situazione patrimoniale e
+          talvolta condizioni familiari o di salute — persone che non sono clienti
+          dell&apos;Agenzia, che non hanno prestato alcun consenso e i cui dati sono in parte di
+          natura giudiziaria ai sensi dell&apos;art. 10 GDPR.
+        </p>
+        <p>
+          Per questo la minimizzazione non è affidata a un&apos;istruzione data al modello, ma alla
+          struttura stessa dei dati:
+        </p>
+        <LegalList
+          items={[
+            "Lo schema di estrazione non prevede alcun campo per l'identità o la situazione personale dell'esecutato o di terzi. Non esiste un posto dove quei dati possano essere scritti, ed è la ragione per cui non vengono conservati.",
+            "Vengono estratti soltanto fatti relativi al bene: stato occupazionale, difformità edilizie e urbanistiche, vincoli e gravami che restano a carico dell'aggiudicatario, costi di sanatoria stimati e valore di stima del perito.",
+            "L'unico dato di ubicazione conservato è l'indirizzo dell'immobile posto in vendita, che compare già nell'avviso pubblicato dal Tribunale. La residenza dell'esecutato, che la perizia riporta e che pubblica non è, resta esclusa.",
+            "Alla sintesi testuale è richiesto di non contenere nomi di persona.",
+            "Il PDF caricato viene trasmesso al fornitore di intelligenza artificiale per la sola analisi e NON viene conservato sui nostri sistemi: restano i dati strutturati estratti e la sintesi.",
+          ]}
+        />
+        <p>
+          Resta inteso che il caricamento della perizia è un&apos;operazione decisa
+          dall&apos;Agenzia, che agisce come titolare rispetto ai dati contenuti nel documento ed è
+          tenuta a verificare di avere un titolo per trattarli.
         </p>
       </LegalSection>
 
