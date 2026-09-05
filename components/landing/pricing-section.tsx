@@ -5,7 +5,14 @@ import Link from "next/link";
 import { Check, X } from "lucide-react";
 import { BillingIntervalToggle } from "@/components/billing/billing-interval-toggle";
 import { UpgradeButton } from "@/components/billing/upgrade-button";
-import { formatEur, getPlanPricing, planFeatureRows, PLANS, type BillingInterval } from "@/lib/plans";
+import {
+  formatEur,
+  formatPlanPrice,
+  getPlanPricing,
+  planFeatureRows,
+  PLANS,
+  type BillingInterval,
+} from "@/lib/plans";
 import { cn } from "@/lib/utils";
 import { SectionHeading } from "@/components/landing/section-heading";
 
@@ -39,6 +46,7 @@ export function PricingSection({ isLoggedIn }: { isLoggedIn: boolean }) {
             const isHighlighted = plan.id === "pro";
             const pricing = getPlanPricing(plan, interval);
             const isFree = plan.priceEurMonthly === null;
+            const prezzo = formatPlanPrice(plan, pricing.monthlyEquivalent);
 
             return (
               <div
@@ -57,11 +65,17 @@ export function PricingSection({ isLoggedIn }: { isLoggedIn: boolean }) {
                 <h3 className="text-sm font-semibold text-foreground">{plan.name}</h3>
                 <p className="mt-0.5 text-xs text-muted-foreground">{plan.audience}</p>
 
+                {/* Prezzo ed etichetta da `formatPlanPrice`, non decisi qui:
+                    era l'ultima cosa che le due pagine sceglievano per conto
+                    proprio, ed erano divergenti — "0€ per sempre" qui,
+                    "Gratuito" nelle Impostazioni. */}
                 <p className="mt-3 text-3xl font-bold text-foreground">
-                  {isFree ? "0€" : formatEur(pricing.monthlyEquivalent as number)}
-                  <span className="text-sm font-normal text-muted-foreground">
-                    {isFree ? " per sempre" : "/mese"}
-                  </span>
+                  {prezzo.amount}
+                  {prezzo.suffix && (
+                    <span className="text-sm font-normal text-muted-foreground">
+                      {prezzo.suffix}
+                    </span>
+                  )}
                 </p>
 
                 {/* Riga di dettaglio a altezza fissa: senza, le card dei piani

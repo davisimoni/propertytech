@@ -280,3 +280,33 @@ export function planFeatureRows(plan: Plan): PlanFeatureRow[] {
     { label: "Voice Seller-Reporting", value: plan.voiceSellerReporting },
   ];
 }
+
+/**
+ * Come si scrive il prezzo di un piano nel listino.
+ *
+ * # Perché anche questo in un posto solo
+ *
+ * Perché era l'ultima cosa che le due pagine decidevano per conto proprio, e
+ * infatti erano divergenti: il listino pubblico scriveva "0€ per sempre", le
+ * Impostazioni "Gratuito". Due modi di dire la stessa cosa fanno dubitare che
+ * sia la stessa cosa — e su un prezzo il dubbio costa la registrazione.
+ *
+ * Un piano gratuito non ha un importo: ha un'etichetta. "0€" invita a
+ * cercare cosa costa davvero, e "/mese" su un prezzo che non si paga mai non
+ * vuol dire niente. Per questo `suffix` è `null` e non una stringa vuota:
+ * chi rende non deve nemmeno decidere se disegnare lo spazio.
+ */
+export interface PlanPriceLabel {
+  /** Cifra grande: l'importo, oppure "Gratuito". */
+  amount: string;
+  /** Testo piccolo accanto. `null` quando non c'è niente da aggiungere. */
+  suffix: string | null;
+}
+
+export function formatPlanPrice(plan: Plan, monthlyEquivalent: number | null): PlanPriceLabel {
+  if (plan.priceEurMonthly === null) {
+    return { amount: "Gratuito", suffix: null };
+  }
+
+  return { amount: formatEur(monthlyEquivalent ?? plan.priceEurMonthly), suffix: "/mese" };
+}

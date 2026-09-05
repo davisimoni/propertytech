@@ -8,6 +8,7 @@ import { UpgradeButton } from "@/components/billing/upgrade-button";
 import { CancelSubscriptionFlow } from "@/components/billing/cancel-subscription-flow";
 import {
   formatEur,
+  formatPlanPrice,
   getPlanPricing,
   planFeatureRows,
   PLANS,
@@ -41,6 +42,7 @@ export function PlanGrid({ currentPlanId }: { currentPlanId: PlanId }) {
           const isCurrent = plan.id === currentPlanId;
           const pricing = getPlanPricing(plan, interval);
           const isFree = plan.priceEurMonthly === null;
+          const prezzo = formatPlanPrice(plan, pricing.monthlyEquivalent);
 
           return (
             <div
@@ -62,8 +64,10 @@ export function PlanGrid({ currentPlanId }: { currentPlanId: PlanId }) {
               <p className="mt-0.5 text-xs text-muted-foreground">{plan.audience}</p>
 
               <p className="mt-2 text-2xl font-semibold text-foreground">
-                {isFree ? "Gratuito" : formatEur(pricing.monthlyEquivalent as number)}
-                {!isFree && <span className="text-sm font-normal text-muted-foreground">/mese</span>}
+                {prezzo.amount}
+                {prezzo.suffix && (
+                  <span className="text-sm font-normal text-muted-foreground">{prezzo.suffix}</span>
+                )}
               </p>
 
               <div className="mt-1 min-h-[2rem]">
