@@ -132,7 +132,7 @@ export function SocialGenerator() {
       // portafoglio vuota, e l'agente la ribatteva a mano avendo davanti un
       // annuncio appena scritto dagli stessi dati. Si recuperano ora, in
       // sottofondo.
-      void riempiSchedaPortafoglio();
+      void riempiSchedaPortafoglio(generato);
     }
   }
 
@@ -153,11 +153,34 @@ export function SocialGenerator() {
    * generazione. Se non riesce, la scheda resta da compilare a mano: esattamente
    * com'era prima che questa scorciatoia esistesse.
    */
-  async function riempiSchedaPortafoglio() {
+  async function riempiSchedaPortafoglio(generato?: SocialContent) {
     // Già estratti: quelli valgono di più, perché l'agente può averli corretti.
     if (imported) return;
 
-    const testo = rawText.trim();
+    /*
+     * La fonte da cui estrarre, qualunque strada abbia preso l'agente.
+     *
+     * Prima si guardava SOLO `rawText`, e si usciva subito se era corto: chi
+     * generava compilando "Titolo" e "Punti chiave" — cioe' il percorso piu'
+     * comune — non vedeva mai la scheda di portafoglio riempirsi, e finiva a
+     * ribattere a mano dati che aveva appena scritto due riquadri sopra.
+     *
+     * Senza testo incollato si usa quello che l'agente ha scritto PIU'
+     * l'annuncio appena generato: quest'ultimo e' una descrizione completa
+     * costruita sui suoi stessi dati, ed e' la fonte piu' ricca che abbiamo.
+     */
+    const testo = [
+      rawText.trim(),
+      propertyTitle.trim(),
+      keyPoints.trim(),
+      generato?.portalListing.body ?? "",
+    ]
+      .filter(Boolean)
+      .join("\n\n")
+      .trim();
+
+    // Sotto questa soglia non c'e' abbastanza per estrarre qualcosa di
+    // affidabile, e una chiamata al modello costerebbe senza produrre nulla.
     if (testo.length < 30) return;
 
     try {
