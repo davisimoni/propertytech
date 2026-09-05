@@ -5,21 +5,12 @@ import Link from "next/link";
 import { Check, X } from "lucide-react";
 import { BillingIntervalToggle } from "@/components/billing/billing-interval-toggle";
 import { UpgradeButton } from "@/components/billing/upgrade-button";
-import { formatCount, formatEur, getPlanPricing, PLANS, type BillingInterval } from "@/lib/plans";
+import { formatEur, getPlanPricing, planFeatureRows, PLANS, type BillingInterval } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 import { SectionHeading } from "@/components/landing/section-heading";
 
 /** Postazioni incluse, con il singolare corretto. */
-function formatSeats(limit: number | null): string {
-  if (limit === null) return "Collaboratori illimitati";
-  return limit === 1 ? "1 postazione" : `Fino a ${limit} collaboratori`;
-}
 
-function formatAgendas(limit: number | null): string {
-  if (limit === null) return "Agende illimitate";
-  if (limit === 0) return "Agenda non inclusa";
-  return `${limit} agend${limit === 1 ? "a" : "e"}`;
-}
 
 export function PricingSection({ isLoggedIn }: { isLoggedIn: boolean }) {
   const [interval, setBillingInterval] = useState<BillingInterval>("monthly");
@@ -91,70 +82,41 @@ export function PricingSection({ isLoggedIn }: { isLoggedIn: boolean }) {
                   )}
                 </div>
 
+                {/* Le stesse righe della scheda Piani nelle Impostazioni.
+
+                    Erano due elenchi scritti a mano che leggevano gli stessi
+                    dati: un listino pubblico che promette cose diverse da
+                    quelle che l'agenzia legge dopo aver pagato e' il difetto
+                    peggiore che possa avere una pagina prezzi, e con due copie
+                    era solo questione di tempo. */}
                 <ul className="mt-4 flex-1 space-y-2 text-sm">
-                  <li className="flex items-start gap-2 text-foreground">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-status-qualified" />
-                    {formatCount(plan.waConversationsLimit)} notizie qualificate su WhatsApp
-                    {plan.id === "trial" ? " (totali, non mensili)" : " al mese"}
-                  </li>
-                  <li className="flex items-start gap-2 text-foreground">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-status-qualified" />
-                    {plan.ocrDocumentsLimit === null
-                      ? "Visure e atti illimitati"
-                      : `${plan.ocrDocumentsLimit} visure o atti analizzati`}
-                  </li>
-                  <li className="flex items-start gap-2 text-foreground">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-status-qualified" />
-                    {formatSeats(plan.seatsLimit)}
-                  </li>
-                  <li className="flex items-start gap-2 text-foreground">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-status-qualified" />
-                    {formatAgendas(plan.agendasLimit)}
-                  </li>
-                  {/* Descritta per quello che fa davvero — archivio e
-                      scadenze — e non come "conformità antiriciclaggio": la
-                      responsabilità della conformità resta dell'agenzia, e
-                      promettere il contrario sarebbe una promessa che il
-                      software non può mantenere. */}
-                  <li
-                    className={cn(
-                      "flex items-start gap-2",
-                      plan.documentVault ? "text-foreground" : "text-muted-foreground"
-                    )}
-                  >
-                    {plan.documentVault ? (
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-status-qualified" />
-                    ) : (
-                      <X className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/40" />
-                    )}
-                    Fascicolo documentale con scadenze
-                  </li>
-                  <li
-                    className={cn(
-                      "flex items-start gap-2",
-                      plan.socialMultiplier ? "text-foreground" : "text-muted-foreground"
-                    )}
-                  >
-                    {plan.socialMultiplier ? (
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-status-qualified" />
-                    ) : (
-                      <X className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/40" />
-                    )}
-                    Social &amp; Listing Multiplier
-                  </li>
-                  <li
-                    className={cn(
-                      "flex items-start gap-2",
-                      plan.voiceSellerReporting ? "text-foreground" : "text-muted-foreground"
-                    )}
-                  >
-                    {plan.voiceSellerReporting ? (
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-status-qualified" />
-                    ) : (
-                      <X className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/40" />
-                    )}
-                    Voice Seller-Reporting
-                  </li>
+                  {planFeatureRows(plan).map((riga) => {
+                    const inclusa = riga.value !== false;
+                    return (
+                      <li
+                        key={riga.label}
+                        className={cn(
+                          "flex items-start gap-2",
+                          inclusa ? "text-foreground" : "text-muted-foreground"
+                        )}
+                      >
+                        {inclusa ? (
+                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-status-qualified" />
+                        ) : (
+                          <X className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/40" />
+                        )}
+                        <span>
+                          {riga.label}
+                          {typeof riga.value === "string" ? `: ${riga.value}` : ""}
+                        </span>
+                      </li>
+                    );
+                  })}
+                  {plan.waConversationsOverageNote && (
+                    <li className="pl-6 text-xs text-muted-foreground">
+                      Oltre l&apos;incluso: {plan.waConversationsOverageNote}
+                    </li>
+                  )}
                 </ul>
 
                 {plan.id === "trial" ? (

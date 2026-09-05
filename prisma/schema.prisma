@@ -613,6 +613,14 @@ model UsageTracker {
   docCreditsUsed      Int    @default(0)
   voiceCreditsUsed    Int    @default(0)
 
+  /// Perizie del Radar analizzate nel periodo.
+  ///
+  /// A consumo come le altre tre: una perizia e' un PDF di centinaia di
+  /// pagine letto dal modello, ed e' la chiamata piu' cara della
+  /// piattaforma. Senza tetto, un piano Starter da 99 euro puo' costare piu'
+  /// di quanto rende in una settimana.
+  radarCreditsUsed Int @default(0)
+
   /// Soglia percentuale di consumo per cui e' gia' partito un avviso.
   ///
   /// Serve a non rispedire la stessa email a ogni messaggio successivo al
@@ -624,6 +632,7 @@ model UsageTracker {
   whatsappNotifiedPct Int      @default(0)
   docNotifiedPct      Int      @default(0)
   voiceNotifiedPct    Int      @default(0)
+  radarNotifiedPct    Int      @default(0)
   updatedAt           DateTime @updatedAt
 
   organizationId String       @unique

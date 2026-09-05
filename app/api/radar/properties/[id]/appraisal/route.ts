@@ -67,10 +67,20 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  // Stesso credito dell'analisi documentale: è la stessa pipeline, e un
-  // contatore separato costringerebbe l'agenzia a ragionare su due budget per
-  // la stessa cosa. Verificato PRIMA di consumare (CLAUDE.md §4).
-  const limite = await checkUsageLimit(organizationId, "documents");
+  /*
+   * Contatore suo, non piu' quello dell'analisi documentale.
+   *
+   * Condividere il credito OCR sembrava semplificare, ma di fatto toglieva
+   * ogni tetto: l'OCR e' illimitato su tutti i piani a pagamento, quindi la
+   * perizia — un PDF di centinaia di pagine, la chiamata piu' cara della
+   * piattaforma — non aveva alcun limite. Su un piano da 99 euro bastava
+   * usarla con costanza per costare piu' di quanto rendeva.
+   *
+   * Ora il Radar ha la sua quota mensile (`radarAppraisalsLimit`): 5 sullo
+   * Starter, 25 sul Professional, 100 sull'Enterprise, zero in prova.
+   * Verificata PRIMA di consumare, fail-closed (CLAUDE.md §4).
+   */
+  const limite = await checkUsageLimit(organizationId, "radar");
   if (limite) return limite;
 
   const form = await request.formData().catch(() => null);
@@ -137,7 +147,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     },
   });
 
-  await incrementUsage(organizationId, "documents");
+  await incrementUsage(organizationId, "radar");
 
   /*
    * Il lavoro vero, dopo la risposta.

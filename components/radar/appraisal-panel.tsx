@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, FileUp, Loader2, ShieldCheck } from "lucide-react";
 import { OCCUPANCY_LABELS, RISK_CLASSES, RISK_LABELS } from "@/lib/radar/risk";
 import { AI_DISCLAIMER } from "@/lib/compliance";
+import { UpgradeLimitModal } from "@/components/billing/upgrade-limit-modal";
 import { cn } from "@/lib/utils";
 import type { AppraisalStatus, OccupancyStatus, RiskLevel } from "@prisma/client";
 
@@ -42,6 +43,15 @@ export function AppraisalPanel({
   const [appraisal, setAppraisal] = useState<Appraisal | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /*
+   * Il 402 della quota perizie apre la modale, non la riga rossa.
+   *
+   * Il payload del gate porta `error` e `resource`, non `message`: senza
+   * questo ramo l'agente leggeva "Caricamento non riuscito (errore 402)", che
+   * non dice cosa e' successo ne' come rimediare — e per una quota esaurita
+   * la cosa da fare c'e', ed e' cambiare piano.
+   */
+  const [quotaEsaurita, setQuotaEsaurita] = useState(false);
   const [pageRange, setPageRange] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -79,6 +89,11 @@ export function AppraisalPanel({
         body: form,
       });
       const data = await response.json().catch(() => null);
+
+      if (response.status === 402) {
+        setQuotaEsaurita(true);
+        return;
+      }
 
       if (!response.ok) {
         setError(data?.message ?? `Caricamento non riuscito (errore ${response.status}).`);
@@ -241,6 +256,10 @@ export function AppraisalPanel({
             {AI_DISCLAIMER}
           </p>
         </div>
+      )}
+
+      {quotaEsaurita && (
+        <UpgradeLimitModal feature="radar" onNavigateAway={() => setQuotaEsaurita(false)} />
       )}
     </div>
   );

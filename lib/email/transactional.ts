@@ -263,6 +263,7 @@ export const CREDIT_LABELS = {
   whatsapp: "conversazioni WhatsApp",
   documents: "analisi documenti",
   voice: "note vocali",
+  radar: "analisi perizia del Radar",
 } as const;
 
 export type CreditKind = keyof typeof CREDIT_LABELS;

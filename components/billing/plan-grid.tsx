@@ -7,24 +7,16 @@ import { BillingIntervalToggle } from "@/components/billing/billing-interval-tog
 import { UpgradeButton } from "@/components/billing/upgrade-button";
 import { CancelSubscriptionFlow } from "@/components/billing/cancel-subscription-flow";
 import {
-  formatCount,
   formatEur,
   getPlanPricing,
+  planFeatureRows,
   PLANS,
   type BillingInterval,
   type PlanId,
 } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 
-function formatAgendas(limit: number | null): string {
-  if (limit === null) return "Illimitate";
-  if (limit === 0) return "—";
-  return String(limit);
-}
 
-function formatOcr(limit: number | null): string {
-  return limit === null ? "Illimitato" : `${limit} estratti`;
-}
 
 /**
  * Griglia dei piani in impostazioni.
@@ -87,42 +79,39 @@ export function PlanGrid({ currentPlanId }: { currentPlanId: PlanId }) {
                 )}
               </div>
 
+              {/* Le righe arrivano da `planFeatureRows`, non riscritte qui.
+
+                  Questo elenco e quello del listino pubblico erano due copie
+                  a mano: leggevano gli stessi dati ma decidevano ciascuno
+                  quali righe mostrare, e aggiungere una funzione voleva dire
+                  ricordarsi due file. Dimenticarne uno significa un listino
+                  pubblico che promette cose diverse da quelle che l'agenzia
+                  legge dopo aver pagato. */}
               <ul className="mt-3 flex-1 space-y-2 text-sm text-muted-foreground">
-                <li>
-                  {formatCount(plan.waConversationsLimit)} conversazioni WA
-                  {plan.id === "trial" ? " (totali)" : "/mese"}
-                  {plan.waConversationsOverageNote && ` (${plan.waConversationsOverageNote})`}
-                </li>
-                <li>OCR: {formatOcr(plan.ocrDocumentsLimit)}</li>
-                <li>
-                  Postazioni:{" "}
-                  {plan.seatsLimit === null ? "illimitate" : plan.seatsLimit}
-                </li>
-                <li>Agende: {formatAgendas(plan.agendasLimit)}</li>
-                <li className="flex items-center gap-2">
-                  {plan.documentVault ? (
-                    <Check className="h-4 w-4 text-primary" />
-                  ) : (
-                    <X className="h-4 w-4 text-muted-foreground/50" />
-                  )}
-                  Fascicolo documentale
-                </li>
-                <li className="flex items-center gap-2">
-                  {plan.socialMultiplier ? (
-                    <Check className="h-4 w-4 text-primary" />
-                  ) : (
-                    <X className="h-4 w-4 text-muted-foreground/50" />
-                  )}
-                  Social Multiplier
-                </li>
-                <li className="flex items-center gap-2">
-                  {plan.voiceSellerReporting ? (
-                    <Check className="h-4 w-4 text-primary" />
-                  ) : (
-                    <X className="h-4 w-4 text-muted-foreground/50" />
-                  )}
-                  Voice Seller-Reporting
-                </li>
+                {planFeatureRows(plan).map((riga) => (
+                  <li key={riga.label} className="flex items-center gap-2">
+                    {typeof riga.value === "boolean" ? (
+                      <>
+                        {riga.value ? (
+                          <Check className="h-4 w-4 shrink-0 text-primary" />
+                        ) : (
+                          <X className="h-4 w-4 shrink-0 text-muted-foreground/50" />
+                        )}
+                        {riga.label}
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-4 w-4 shrink-0 text-primary" />
+                        <span>
+                          {riga.label}: <span className="text-foreground">{riga.value}</span>
+                        </span>
+                      </>
+                    )}
+                  </li>
+                ))}
+                {plan.waConversationsOverageNote && (
+                  <li className="text-xs">Oltre l&apos;incluso: {plan.waConversationsOverageNote}</li>
+                )}
               </ul>
 
               {!isCurrent && plan.id !== "trial" && (

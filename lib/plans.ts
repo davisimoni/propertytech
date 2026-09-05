@@ -29,6 +29,15 @@ export interface Plan {
   agendasLimit: number | null;
   voiceReportsLimit: number | null;
   /**
+   * Perizie del Radar analizzabili in un mese. `0` = modulo non incluso.
+   *
+   * A consumo e non a flag come il Social Multiplier, perche' una perizia e'
+   * un PDF di centinaia di pagine letto dal modello: e' la chiamata piu' cara
+   * della piattaforma, e su un piano a 99 euro un uso senza tetto costa piu'
+   * di quanto il piano rende.
+   */
+  radarAppraisalsLimit: number | null;
+  /**
    * Fascicolo documentale: archivio per immobile e per cliente, con scadenze
    * dei documenti e conservazione decennale (D.Lgs. 231/2007).
    *
@@ -84,21 +93,20 @@ export const PLANS: Record<PlanId, Plan> = {
     ocrDocumentsLimit: 5,
     seatsLimit: 1,
     agendasLimit: 0,
-    /**
-     * Assaggio del Voice Seller-Reporting: tre report, poi il gate a crediti
-     * si chiude. È l'unica funzione Enterprise concessa in prova, e a
-     * differenza delle altre non è illimitata — un modulo che si può provare
-     * ma non usare a regime è ciò che rende evidente il valore del piano
-     * Enterprise, mentre lasciarlo chiuso lo rende invisibile.
+    /*
+     * Voice Seller-Reporting escluso dalla prova.
      *
-     * Il flag resta `false` su Starter e Professional: lì la funzione non è
-     * inclusa davvero, e il gate risponde "non nel tuo piano" indirizzando a
-     * Enterprise (vedi `cheapestPlanWith` in lib/feature-access.ts).
+     * Prima il Trial ne concedeva tre come assaggio. La trascrizione di una
+     * nota vocale e la stesura del report sono due chiamate al modello per
+     * ogni visita, su un account che non ha dato una carta: e' la funzione
+     * piu' facile da usare in volume da chi non ha intenzione di pagare.
+     * Resta Enterprise, e chi vuole vederla la vede in dimostrazione.
      */
-    voiceReportsLimit: 3,
+    voiceReportsLimit: 0,
+    radarAppraisalsLimit: 0,
     documentVault: false,
     socialMultiplier: false,
-    voiceSellerReporting: true,
+    voiceSellerReporting: false,
     advancedReporting: false,
   },
   starter: {
@@ -112,6 +120,7 @@ export const PLANS: Record<PlanId, Plan> = {
     seatsLimit: 1,
     agendasLimit: 1,
     voiceReportsLimit: 0,
+    radarAppraisalsLimit: 5,
     documentVault: true,
     socialMultiplier: false,
     voiceSellerReporting: false,
@@ -128,6 +137,7 @@ export const PLANS: Record<PlanId, Plan> = {
     seatsLimit: 3,
     agendasLimit: 3,
     voiceReportsLimit: 0,
+    radarAppraisalsLimit: 25,
     documentVault: true,
     socialMultiplier: false,
     voiceSellerReporting: false,
@@ -144,6 +154,7 @@ export const PLANS: Record<PlanId, Plan> = {
     seatsLimit: null,
     agendasLimit: null,
     voiceReportsLimit: null,
+    radarAppraisalsLimit: 100,
     documentVault: true,
     socialMultiplier: true,
     voiceSellerReporting: true,
@@ -208,4 +219,64 @@ const COUNT_FORMAT = new Intl.NumberFormat("it-IT", { useGrouping: "always" });
 
 export function formatCount(value: number): string {
   return COUNT_FORMAT.format(value);
+}
+
+/**
+ * Le righe del listino, in un posto solo.
+ *
+ * # Perché
+ *
+ * Perché finora il listino pubblico e la scheda Piani nelle Impostazioni
+ * elencavano le stesse funzioni scrivendole a mano, ciascuno per conto suo.
+ * Leggevano gli stessi dati da `PLANS`, ma decidevano separatamente COSA
+ * mostrare e come formattarlo: aggiungere una funzione voleva dire ricordarsi
+ * di due file, e dimenticarne uno significa un listino pubblico che promette
+ * cose diverse da quello che l'agenzia legge dopo aver pagato.
+ *
+ * `boolean` per le funzioni incluse o escluse, `string` per quelle che hanno
+ * un numero: chi rende decide come disegnare il segno di spunta e la crocetta,
+ * ma non decide più quali righe esistono.
+ */
+export interface PlanFeatureRow {
+  label: string;
+  value: string | boolean;
+}
+
+function conteggio(limit: number | null, illimitato: string, nessuno: string): string {
+  if (limit === null) return illimitato;
+  if (limit === 0) return nessuno;
+  return formatCount(limit);
+}
+
+export function planFeatureRows(plan: Plan): PlanFeatureRow[] {
+  return [
+    {
+      label: "Conversazioni WhatsApp",
+      value:
+        plan.id === "trial"
+          ? `${formatCount(plan.waConversationsLimit)} totali`
+          : `${formatCount(plan.waConversationsLimit)}/mese`,
+    },
+    {
+      label: "Analisi documenti (OCR)",
+      value: conteggio(plan.ocrDocumentsLimit, "illimitate", "—"),
+    },
+    { label: "Postazioni", value: conteggio(plan.seatsLimit, "illimitate", "—") },
+    { label: "Agende", value: conteggio(plan.agendasLimit, "illimitate", "—") },
+    {
+      label: "Radar Immobili & Aste",
+      // Il numero e non un semplice "incluso": e' il dato che distingue i tre
+      // piani a pagamento fra loro, e nasconderlo dietro una spunta
+      // lascerebbe credere che sia illimitato ovunque.
+      value:
+        plan.radarAppraisalsLimit === null
+          ? "perizie illimitate"
+          : plan.radarAppraisalsLimit === 0
+            ? false
+            : `${plan.radarAppraisalsLimit} perizie/mese`,
+    },
+    { label: "Fascicolo documentale", value: plan.documentVault },
+    { label: "Social Multiplier", value: plan.socialMultiplier },
+    { label: "Voice Seller-Reporting", value: plan.voiceSellerReporting },
+  ];
 }

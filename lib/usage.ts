@@ -9,18 +9,21 @@ const FEATURE_RESOURCE: Record<UsageFeature, string> = {
   whatsapp: "wa_conversations",
   documents: "doc_extractions",
   voice: "voice_reports",
+  radar: "radar_appraisals",
 };
 
 const FEATURE_USAGE_FIELD = {
   whatsapp: "whatsappCreditsUsed",
   documents: "docCreditsUsed",
   voice: "voiceCreditsUsed",
+  radar: "radarCreditsUsed",
 } as const;
 
 const FEATURE_LIMIT_FIELD = {
   whatsapp: "waConversationsLimit",
   documents: "ocrDocumentsLimit",
   voice: "voiceReportsLimit",
+  radar: "radarAppraisalsLimit",
 } as const;
 
 function computeMetric(used: number, limit: number | null): UsageMetric {
@@ -64,6 +67,7 @@ export async function getUsageStats(organizationId: string): Promise<UsageStatsR
   const whatsapp = computeMetric(usage?.whatsappCreditsUsed ?? 0, plan[FEATURE_LIMIT_FIELD.whatsapp]);
   const documents = computeMetric(usage?.docCreditsUsed ?? 0, plan[FEATURE_LIMIT_FIELD.documents]);
   const voice = computeMetric(usage?.voiceCreditsUsed ?? 0, plan[FEATURE_LIMIT_FIELD.voice]);
+  const radar = computeMetric(usage?.radarCreditsUsed ?? 0, plan[FEATURE_LIMIT_FIELD.radar]);
 
   return {
     planId,
@@ -71,7 +75,12 @@ export async function getUsageStats(organizationId: string): Promise<UsageStatsR
     whatsapp,
     documents,
     voice,
-    hasAnyLimitReached: whatsapp.isLimitReached || documents.isLimitReached || voice.isLimitReached,
+    radar,
+    hasAnyLimitReached:
+      whatsapp.isLimitReached ||
+      documents.isLimitReached ||
+      voice.isLimitReached ||
+      radar.isLimitReached,
   };
 }
 

@@ -14,6 +14,7 @@ const FEATURE_LABEL: Record<PaywallFeature, string> = {
   whatsapp: "conversazioni WhatsApp",
   documents: "estrazioni documento",
   voice: "note vocali",
+  radar: "analisi perizia del Radar",
   social: "Social & Annunci",
   "voice-reports": "Report Venditori",
   agendas: "Agende",

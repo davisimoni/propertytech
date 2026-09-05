@@ -36,18 +36,21 @@ const CAMPO_CONTATORE = {
   whatsapp: "whatsappCreditsUsed",
   documents: "docCreditsUsed",
   voice: "voiceCreditsUsed",
+  radar: "radarCreditsUsed",
 } as const;
 
 const CAMPO_NOTIFICA = {
   whatsapp: "whatsappNotifiedPct",
   documents: "docNotifiedPct",
   voice: "voiceNotifiedPct",
+  radar: "radarNotifiedPct",
 } as const;
 
 const CAMPO_LIMITE = {
   whatsapp: "waConversationsLimit",
   documents: "ocrDocumentsLimit",
   voice: "voiceReportsLimit",
+  radar: "radarAppraisalsLimit",
 } as const;
 
 /**
@@ -67,9 +70,11 @@ export async function checkCreditThresholds(
           whatsappCreditsUsed: true,
           docCreditsUsed: true,
           voiceCreditsUsed: true,
+          radarCreditsUsed: true,
           whatsappNotifiedPct: true,
           docNotifiedPct: true,
           voiceNotifiedPct: true,
+          radarNotifiedPct: true,
         },
       }),
       prisma.subscription.findUnique({

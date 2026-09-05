@@ -1,6 +1,6 @@
 import type { PlanId } from "@/lib/plans";
 
-export type UsageFeature = "whatsapp" | "documents" | "voice";
+export type UsageFeature = "whatsapp" | "documents" | "voice" | "radar";
 
 export interface UsageMetric {
   used: number;
@@ -26,5 +26,6 @@ export interface UsageStatsResponse {
   whatsapp: UsageMetric;
   documents: UsageMetric;
   voice: UsageMetric;
+  radar: UsageMetric;
   hasAnyLimitReached: boolean;
 }
