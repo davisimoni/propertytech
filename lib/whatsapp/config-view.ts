@@ -26,23 +26,37 @@ export async function getOrCreateWhatsAppConfig(organizationId: string) {
 }
 
 /**
- * Indirizzo di inoltro per i lead dai portali, **solo se esiste davvero**.
+ * Indirizzo a cui l'agenzia inoltra le email dei portali.
  *
- * Prima veniva mostrato `inbound-<token>@tuosaas.it`: un dominio segnaposto
- * mai registrato, senza alcun servizio di ricezione dietro. Un'agenzia che lo
- * avesse configurato su Immobiliare.it avrebbe perso ogni lead inoltrato,
- * **in silenzio** — nessun rimbalzo visibile, nessun errore in dashboard, solo
- * contatti che non arrivano mai. Meglio non mostrare nulla che mostrare un
- * recapito che non riceve.
+ * # Perche' l'id dell'agenzia e non piu' un token segreto
  *
- * Si attiva impostando `INBOUND_EMAIL_DOMAIN` su un dominio con un servizio
- * di inbound parsing configurato, che deve poi inoltrare a
- * `/api/whatsapp/inbound-lead`.
+ * Perche' un indirizzo email non puo' essere un segreto: si consegna ai
+ * portali, si incolla in una regola di inoltro, gira per le caselle
+ * dell'agenzia. Fingere che lo sia porta a proteggere la cosa sbagliata.
+ *
+ * La difesa vera sta altrove ed e' la firma del webhook
+ * (`INBOUND_EMAIL_SECRET`, verificata in `/api/leads/inbound-email`): senza
+ * quella nessuna chiamata entra, e con quella il mittente e' il servizio di
+ * ricezione, non chiunque conosca l'indirizzo.
+ *
+ * Resta vero che chi conosce l'indirizzo puo' scriverci e far nascere una
+ * scheda: e' inevitabile per un recapito email, ed e' il motivo per cui la
+ * richiesta nasce `PENDING` e passa dagli stessi controlli delle altre —
+ * opt-out compreso.
+ *
+ * # Il dominio deve esistere davvero
+ *
+ * `INBOUND_EMAIL_DOMAIN` va impostato su un dominio con i record MX e la
+ * ricezione configurata su Resend. Senza, questa funzione torna `null` e
+ * l'interfaccia non mostra alcun indirizzo: un recapito che non riceve
+ * farebbe perdere in silenzio ogni lead inoltrato — nessun rimbalzo, nessun
+ * errore in dashboard, solo contatti che non arrivano mai.
  */
-function inboundEmailAddress(inboundToken: string): string | null {
+function inboundEmailAddress(organizationId: string): string | null {
   const domain = readSecret("INBOUND_EMAIL_DOMAIN");
-  return domain ? `inbound-${inboundToken}@${domain.replace(/^@/, "")}` : null;
+  return domain ? `lead-${organizationId}@${domain.replace(/^@/, "")}` : null;
 }
+
 
 /** Non espone mai token o Auth Token in chiaro: solo flag di presenza. */
 export function toPublicWhatsAppConfig(config: Awaited<ReturnType<typeof getOrCreateWhatsAppConfig>>) {
@@ -63,7 +77,7 @@ export function toPublicWhatsAppConfig(config: Awaited<ReturnType<typeof getOrCr
     genericSendUrl: config.genericSendUrl,
     hasGenericAuthToken: hasUsableAccessToken(config.genericAuthToken),
     inboundToken: config.inboundToken,
-    inboundEmail: inboundEmailAddress(config.inboundToken),
+    inboundEmail: inboundEmailAddress(config.organizationId),
     webhookVerifyToken: config.webhookVerifyToken,
   };
 }

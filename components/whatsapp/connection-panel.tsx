@@ -613,13 +613,9 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                   <Mail className="h-3.5 w-3.5 text-primary" />
                   Opzione 1 — Inoltro email
                 </span>
-                {config.inboundEmail ? (
+                {config.inboundEmail && (
                   <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
                     Consigliata
-                  </span>
-                ) : (
-                  <span className="rounded-full bg-status-pending/15 px-2 py-0.5 text-[11px] font-medium text-status-pending">
-                    In attivazione
                   </span>
                 )}
               </div>
@@ -648,15 +644,16 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                   </button>
                 </>
               ) : (
-                /* Nessun indirizzo inventato quando il dominio di ricezione non
-                   c'e'. E' gia' successo: un segnaposto mai registrato fece
-                   perdere in silenzio ogni lead inoltrato, senza un rimbalzo ne'
-                   un errore in dashboard. Meglio dire che non e' pronta. */
+                /* Nessun indirizzo mostrato finche' il dominio di ricezione non
+                   e' configurato. Un recapito che non riceve fa perdere i lead
+                   IN SILENZIO — nessun rimbalzo, nessun errore in dashboard,
+                   solo contatti che non arrivano mai — ed e' gia' successo con
+                   un dominio segnaposto. */
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  Stiamo attivando l&apos;indirizzo di inoltro dedicato alla tua agenzia. Finche&apos;
-                  non compare qui, usa l&apos;Opzione 2 qui sotto: non mostriamo un recapito prima
-                  che sappia ricevere, perche&apos; i lead inoltrati andrebbero persi senza che tu
-                  te ne accorga.
+                  L&apos;inoltro email non e&apos; ancora attivo su questo ambiente. Nel frattempo
+                  usa l&apos;Opzione 2 qui sotto: non mostriamo un recapito prima che sappia
+                  ricevere, perche&apos; i lead inoltrati andrebbero persi senza che tu te ne
+                  accorga.
                 </p>
               )}
             </div>
