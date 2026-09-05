@@ -246,10 +246,7 @@ function CampoEuro({
 }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-foreground">
-        {label}
-        {hint && <span className="font-normal text-muted-foreground"> ({hint})</span>}
-      </span>
+      <span className="text-xs font-medium text-foreground">{label}</span>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -257,6 +254,14 @@ function CampoEuro({
         placeholder="—"
         className="input-field h-11 sm:h-9 text-base sm:text-sm"
       />
+      {/* La provenienza SOTTO il campo, non fra parentesi nell'etichetta.
+
+          "Imposte e spese di trasferimento (9% del prezzo — registro senza
+          agevolazione prima casa)" su uno schermo da 375px diventa un
+          paragrafo di quattro righe sopra una casella: l'etichetta smette di
+          essere leggibile a colpo d'occhio, che e' la sola cosa che deve
+          fare. Sotto, e piu' piccola, si legge quando serve e non intralcia. */}
+      {hint && <span className="text-[11px] leading-snug text-muted-foreground">{hint}</span>}
     </label>
   );
 }

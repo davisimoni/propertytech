@@ -130,6 +130,17 @@ body {
     .btn-outline {
       min-height: 2.75rem;
     }
+
+    /* Anche i campi, non solo i pulsanti.
+
+       `.input-field` arriva a circa 42px con il suo `py-2`: due pixel sotto
+       la soglia, che su un modulo di dodici campi compilato in piedi fra un
+       appuntamento e l'altro si sentono. Qui invece che sui singoli campi
+       perche' i punti che usano questa classe sono decine, e rattopparli uno
+       per uno lascia indietro quelli scritti domani. */
+    .input-field {
+      min-height: 2.75rem;
+    }
   }
 }
 
