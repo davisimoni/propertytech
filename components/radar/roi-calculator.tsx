@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Calculator, Loader2, Save } from "lucide-react";
-import { computeRoi } from "@/lib/radar/roi";
+import { computeRoi, suggestRoiInputs } from "@/lib/radar/roi";
 import { cn } from "@/lib/utils";
 import type { RadarItem } from "./radar-board";
 
@@ -43,6 +43,25 @@ export function RoiCalculator({
   suggestedRenovationEur: number | null;
   onSaved: () => void;
 }) {
+  /*
+   * Le ipotesi di partenza, calcolate una volta sola per lotto.
+   *
+   * Sono suggerimenti, non valori: entrano nei campi solo dove l'agente non
+   * ha gia' salvato qualcosa di suo, e restano scritti sotto ciascuno perche'
+   * si veda da dove escono. Un numero che compare senza spiegazione in un
+   * simulatore economico o viene creduto o viene cancellato, e nessuna delle
+   * due e' quello che serve.
+   */
+  const stime = useMemo(
+    () =>
+      suggestRoiInputs({
+        priceEur: item.priceEur,
+        appraisedValueEur: item.basePriceEur ?? null,
+        remediationCostMaxEur: suggestedRenovationEur,
+      }),
+    [item.priceEur, item.basePriceEur, suggestedRenovationEur]
+  );
+
   const [transfer, setTransfer] = useState("");
   const [renovation, setRenovation] = useState("");
   const [market, setMarket] = useState("");
@@ -51,18 +70,23 @@ export function RoiCalculator({
   const [salvato, setSalvato] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /*
+   * Il valore salvato vince sempre sulla stima.
+   *
+   * Quello che l'agente ha scritto e salvato e' una decisione dell'agenzia:
+   * sovrascriverla con un'ipotesi nostra al ricaricamento della scheda
+   * cancellerebbe una correzione voluta, ed e' il modo piu' rapido per far
+   * smettere di fidarsi del simulatore.
+   */
   useEffect(() => {
-    setTransfer(item.transferCostsEur != null ? String(item.transferCostsEur) : "");
-    setRenovation(
-      item.renovationCostEur != null
-        ? String(item.renovationCostEur)
-        : suggestedRenovationEur != null
-          ? String(suggestedRenovationEur)
-          : ""
-    );
-    setMarket(item.marketValueEur != null ? String(item.marketValueEur) : "");
-    setRent(item.monthlyRentEur != null ? String(item.monthlyRentEur) : "");
-  }, [item, suggestedRenovationEur]);
+    const daSalvatoOStima = (salvato: number | null, stima: { value: number } | null) =>
+      salvato != null ? String(salvato) : stima != null ? String(stima.value) : "";
+
+    setTransfer(daSalvatoOStima(item.transferCostsEur, stime.transferCostsEur));
+    setRenovation(daSalvatoOStima(item.renovationCostEur, stime.renovationCostEur));
+    setMarket(daSalvatoOStima(item.marketValueEur, stime.marketValueEur));
+    setRent(daSalvatoOStima(item.monthlyRentEur, stime.monthlyRentEur));
+  }, [item, stime]);
 
   const risultato = useMemo(
     () =>
@@ -108,21 +132,42 @@ export function RoiCalculator({
         Simulatore economico
       </h3>
 
+      {/* La provenienza sotto ogni campo, ma SOLO finche' e' una stima
+          nostra: dal momento in cui l'agente salva un valore suo, quella
+          riga direbbe una cosa falsa sul numero che ha davanti. */}
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <CampoEuro label="Imposte e spese di trasferimento" value={transfer} onChange={setTransfer} />
+        <CampoEuro
+          label="Imposte e spese di trasferimento"
+          value={transfer}
+          onChange={setTransfer}
+          hint={item.transferCostsEur == null ? stime.transferCostsEur?.basis : undefined}
+        />
         <CampoEuro
           label="Ristrutturazione e sanatoria"
           value={renovation}
           onChange={setRenovation}
-          hint={
-            suggestedRenovationEur != null && item.renovationCostEur == null
-              ? "precompilato dalla perizia"
-              : undefined
-          }
+          hint={item.renovationCostEur == null ? stime.renovationCostEur?.basis : undefined}
         />
-        <CampoEuro label="Valore di mercato a lavori conclusi" value={market} onChange={setMarket} />
-        <CampoEuro label="Canone mensile atteso" value={rent} onChange={setRent} />
+        <CampoEuro
+          label="Valore di mercato a lavori conclusi"
+          value={market}
+          onChange={setMarket}
+          hint={item.marketValueEur == null ? stime.marketValueEur?.basis : undefined}
+        />
+        <CampoEuro
+          label="Canone mensile atteso"
+          value={rent}
+          onChange={setRent}
+          hint={item.monthlyRentEur == null ? stime.monthlyRentEur?.basis : undefined}
+        />
       </div>
+
+      {/* Detto una volta, sopra i conti: sono ipotesi, non una valutazione. */}
+      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+        I campi che riportano una nota sotto sono <strong>ipotesi di partenza</strong>, non stime
+        della tua zona: correggile con i numeri veri appena li hai. I conti qui sotto si
+        aggiornano mentre scrivi.
+      </p>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <Kpi
