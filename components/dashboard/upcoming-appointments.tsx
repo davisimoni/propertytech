@@ -86,9 +86,19 @@ export async function UpcomingAppointments({ organizationId }: { organizationId:
         {nonSincronizzate > 0 && <ResyncCalendarButton quante={nonSincronizzate} />}
       </div>
 
-      <ul className="mt-3 divide-y divide-border">
+      {/* `space-y` invece di `divide-y` con righe strette.
+
+          Le righe stavano a `py-2.5` (10px) separate da una linea: con i due
+          comandi ora a 44px il testo e i pulsanti finivano quasi a contatto, e
+          su telefono la riga andava a capo attaccandosi a quella sotto. Ogni
+          visita e' ora un riquadro suo, con lo spazio per essere toccata
+          senza centrare il vicino. */}
+      <ul className="mt-3 space-y-2">
         {appuntamenti.map((lead) => (
-          <li key={lead.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+          <li
+            key={lead.id}
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3"
+          >
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-foreground">
                 {lead.clientName}
@@ -134,14 +144,14 @@ export async function UpcomingAppointments({ organizationId }: { organizationId:
                   ed è quello che si fa quando si è in ritardo. */}
               <a
                 href={`tel:${lead.clientPhone}`}
-                className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted sm:h-8"
+                className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted sm:h-8"
               >
                 <Phone className="h-3.5 w-3.5" />
                 Chiama
               </a>
               <Link
                 href={`/leads?lead=${lead.id}`}
-                className="inline-flex h-10 items-center rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted sm:h-8"
+                className="inline-flex h-11 items-center rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted sm:h-8"
               >
                 Apri
               </Link>

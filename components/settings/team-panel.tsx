@@ -254,7 +254,7 @@ export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
           {isOwner && seats.isFull && seats.upgradeMessage && (
             <Link
               href="/settings?tab=billing"
-              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-2.5 text-xs font-medium text-primary transition-all duration-200 hover:bg-primary/10 sm:h-8"
+              className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-2.5 text-xs font-medium text-primary transition-all duration-200 hover:bg-primary/10 sm:h-8"
             >
               <Crown className="h-3.5 w-3.5" />
               {seats.requiredPlanName ? `Passa a ${seats.requiredPlanName}` : "Passa a un piano superiore"}

@@ -39,7 +39,7 @@ export function QuickActions() {
   return (
     <div className="rounded-xl border border-border bg-card p-4 md:p-5">
       <h2 className="text-sm font-semibold text-foreground">Azioni Rapide</h2>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:gap-4">
         {QUICK_ACTIONS.map((action) => {
           const Icon = action.icon;
           const isBlocked = data?.[action.feature]?.isLimitReached ?? false;
@@ -67,7 +67,7 @@ export function QuickActions() {
             <Link
               key={action.href}
               href={action.href}
-              className="flex items-start gap-3 rounded-lg border border-border p-4 transition-all duration-200 hover:bg-muted"
+              className="flex items-start gap-3 rounded-xl border border-border p-4 transition-all duration-200 hover:border-primary/40 hover:bg-muted"
             >
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Icon className="h-4 w-4" />

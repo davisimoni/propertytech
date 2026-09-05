@@ -93,7 +93,7 @@ export function ReferralPanel() {
           <button
             type="button"
             onClick={copyLink}
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-medium text-foreground transition-all duration-200 hover:bg-muted"
+            className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 sm:h-9 text-xs font-medium text-foreground transition-all duration-200 hover:bg-muted"
           >
             {copied ? (
               <Check className="h-3.5 w-3.5 text-status-qualified" aria-hidden="true" />

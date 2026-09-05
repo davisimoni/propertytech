@@ -58,7 +58,7 @@ export function ResyncCalendarButton({ quante }: { quante: number }) {
       type="button"
       onClick={resincronizza}
       disabled={inCorso}
-      className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-2.5 text-xs font-medium text-primary transition-all duration-200 hover:bg-primary/10 disabled:opacity-50 sm:h-8"
+      className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-2.5 text-xs font-medium text-primary transition-all duration-200 hover:bg-primary/10 disabled:opacity-50 sm:h-8"
     >
       {inCorso ? (
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
