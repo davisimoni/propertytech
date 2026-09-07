@@ -37,6 +37,14 @@ function withDisclaimer(text: string): string {
 }
 
 export function SocialGenerator() {
+  /**
+   * Titolo, punti chiave e testo incollato vivono qui e non dentro
+   * `ListingImport`, anche se è lì che si vedono i loro campi: è questo
+   * componente a chiamare il generatore, e deve poter leggere tutti e tre
+   * insieme al momento dell'invio. `ListingImport` li riceve come prop
+   * controllate — dalla scheda Link, da quella Testo o da "Crea da zero" —
+   * e li rimanda su a ogni modifica.
+   */
   const [propertyTitle, setPropertyTitle] = useState("");
   /**
    * Foto allegate al post, in ordine: la prima e' la copertina.
@@ -47,12 +55,6 @@ export function SocialGenerator() {
    */
   const [media, setMedia] = useState<string[]>([]);
   const [keyPoints, setKeyPoints] = useState("");
-  /**
-   * Il testo incollato vive qui e non dentro `ListingImport` perché serve a
-   * due pulsanti: "Compila i campi", che lo trasforma nei campi qui sotto, e
-   * "Genera", che può inviarlo direttamente all'AI. Le due strade sono
-   * alternative, non in sequenza.
-   */
   const [rawText, setRawText] = useState("");
   const [tone, setTone] = useState<ToneOfVoice>("professionale");
   const [activeTab, setActiveTab] = useState<TabId>("portal");
@@ -128,10 +130,9 @@ export function SocialGenerator() {
        */
       setPropertyTitle((corrente) => corrente || generato.portalListing.title);
 
-      // Generare senza aver premuto "Compila i campi" lasciava la scheda di
-      // portafoglio vuota, e l'agente la ribatteva a mano avendo davanti un
-      // annuncio appena scritto dagli stessi dati. Si recuperano ora, in
-      // sottofondo.
+      // Senza un'estrazione precedente la scheda di portafoglio restava
+      // vuota, e l'agente la ribatteva a mano avendo davanti un annuncio
+      // appena scritto dagli stessi dati. Si recuperano ora, in sottofondo.
       void riempiSchedaPortafoglio(generato);
     }
   }
@@ -219,6 +220,10 @@ export function SocialGenerator() {
       <ListingImport
         rawText={rawText}
         onRawTextChange={setRawText}
+        propertyTitle={propertyTitle}
+        onPropertyTitleChange={setPropertyTitle}
+        keyPoints={keyPoints}
+        onKeyPointsChange={setKeyPoints}
         onImported={(listing) => {
           setPropertyTitle(listing.propertyTitle);
           setKeyPoints(listing.keyPoints);
