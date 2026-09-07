@@ -6,7 +6,7 @@ import { LandingFooter } from "@/components/landing/site-footer";
 import { BRAND } from "@/lib/brand";
 
 /** Data dell'ultima revisione, mostrata in testa a ogni documento. */
-export const LEGAL_LAST_UPDATED = "6 agosto 2026";
+export const LEGAL_LAST_UPDATED = "7 settembre 2026";
 
 /**
  * Titolare del trattamento. Il recapito arriva da `BRAND`, che è l'unica
@@ -69,15 +69,6 @@ export function LegalPage({ title, intro, isLoggedIn, children }: LegalPageProps
           Ultimo aggiornamento: {LEGAL_LAST_UPDATED}
         </p>
         <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{intro}</p>
-
-        <div className="mt-2 rounded-xl border border-status-pending/30 bg-status-pending/5 p-4">
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            <strong className="text-foreground">Nota:</strong> questo documento è un modello di
-            partenza e non sostituisce una consulenza legale. Prima della pubblicazione va rivisto da
-            un legale e completato con i dati societari, il registro dei trattamenti e l&apos;elenco
-            aggiornato dei responsabili esterni.
-          </p>
-        </div>
 
         {children}
 

@@ -22,8 +22,9 @@ export default async function PrivacyPage() {
     >
       <LegalSection title="1. Titolare del trattamento">
         <p>
-          Il titolare è {LEGAL_ENTITY.name}. Per esercitare i tuoi diritti o richiedere chiarimenti
-          puoi scrivere a {LEGAL_ENTITY.email}.
+          Il titolare del trattamento è <strong className="text-foreground">{LEGAL_ENTITY.name}</strong>,
+          P.IVA {BRAND.vatNumber}, erogatore del servizio SaaS descritto in questa informativa. Per
+          esercitare i tuoi diritti o richiedere chiarimenti puoi scrivere a {LEGAL_ENTITY.email}.
         </p>
       </LegalSection>
 

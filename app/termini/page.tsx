@@ -23,7 +23,9 @@ export default async function TerminiPage() {
     >
       <LegalSection title="1. Oggetto del servizio">
         <p>
-          {BRAND.name} mette a disposizione strumenti basati su intelligenza artificiale per la
+          <strong className="text-foreground">{BRAND.name}</strong> (P.IVA {BRAND.vatNumber}) è
+          l&apos;erogatore del servizio SaaS descritto in questi termini, e mette a disposizione
+          strumenti basati su intelligenza artificiale per la
           qualificazione dei contatti via WhatsApp, l&apos;estrazione di dati da documenti
           immobiliari, la generazione di contenuti per annunci e social, la redazione di report per i
           proprietari e l&apos;analisi di perizie di esecuzione immobiliare con simulazione
