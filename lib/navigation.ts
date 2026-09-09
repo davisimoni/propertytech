@@ -22,7 +22,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/documents", label: "Analisi Documenti", icon: FileSearch2 },
   { href: "/social", label: "Social & Annunci", icon: Share2 },
   { href: "/properties", label: "Portafoglio Immobili", icon: Building2 },
-  { href: "/radar", label: "Radar Immobili & Aste", icon: Radar },
+  { href: "/radar", label: "Analisi & Due Diligence Aste", icon: Radar },
   { href: "/voice-reports", label: "Report Venditori (Note Vocali)", icon: Mic },
   { href: "/settings", label: "Impostazioni & Piano", icon: Settings },
 ];

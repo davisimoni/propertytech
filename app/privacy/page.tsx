@@ -58,7 +58,7 @@ export default async function PrivacyPage() {
             "Dati di contatto dei lead: nome, numero di telefono, portale di provenienza, immobile di interesse e contenuto delle conversazioni WhatsApp.",
             "Dati contenuti nei documenti caricati: nomi, cognomi, codici fiscali, quote di proprietà e riferimenti catastali estratti da visure, atti, planimetrie e APE.",
             "Note vocali post-visita e relative trascrizioni, che possono contenere dati di terzi (venditori e potenziali acquirenti).",
-            "Dati estratti dalle perizie di esecuzione immobiliare caricate nel modulo Radar: esclusivamente caratteristiche del bene, stato occupazionale, difformità, gravami e valori. I dati personali dell'esecutato e di terzi contenuti nel documento NON vengono estratti né conservati (vedi sezione 10-ter).",
+            "Dati estratti dalle perizie di esecuzione immobiliare caricate nel modulo Analisi & Due Diligence Aste: esclusivamente caratteristiche del bene, stato occupazionale, difformità, gravami e valori. I dati personali dell'esecutato e di terzi contenuti nel documento NON vengono estratti né conservati (vedi sezione 10-ter).",
             "Dati di utilizzo: crediti consumati, log tecnici necessari alla sicurezza e alla diagnostica.",
           ]}
         />
@@ -279,7 +279,7 @@ export default async function PrivacyPage() {
 
       <LegalSection title="10-ter. Perizie d'asta: cosa NON trattiamo">
         <p>
-          Il modulo Radar Immobili &amp; Aste consente di caricare una perizia di esecuzione
+          Il modulo Analisi &amp; Due Diligence Aste consente di caricare una perizia di esecuzione
           immobiliare in PDF. È il documento più delicato che passa dalla piattaforma: oltre alle
           caratteristiche del bene contiene nome dell&apos;esecutato, situazione patrimoniale e
           talvolta condizioni familiari o di salute — persone che non sono clienti

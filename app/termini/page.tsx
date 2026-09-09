@@ -29,7 +29,7 @@ export default async function TerminiPage() {
           qualificazione dei contatti via WhatsApp, l&apos;estrazione di dati da documenti
           immobiliari, la generazione di contenuti per annunci e social, la redazione di report per i
           proprietari e l&apos;analisi di perizie di esecuzione immobiliare con simulazione
-          economica (modulo Radar Immobili &amp; Aste). Il servizio è offerto in modalità &quot;software come servizio&quot;, senza
+          economica (modulo Analisi &amp; Due Diligence Aste). Il servizio è offerto in modalità &quot;software come servizio&quot;, senza
           cessione di licenze d&apos;uso permanenti.
         </p>
       </LegalSection>
@@ -188,9 +188,10 @@ export default async function TerminiPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="7-bis. Radar Immobili &amp; Aste: perizie, semaforo e business plan">
+      <LegalSection title="7-bis. Analisi &amp; Due Diligence Aste: perizie, semaforo e business plan">
         <p>
-          Il modulo Radar analizza perizie di esecuzione immobiliare caricate dall&apos;Agenzia e ne
+          Il modulo Analisi &amp; Due Diligence Aste analizza perizie di esecuzione immobiliare
+          caricate dall&apos;Agenzia e ne
           produce una sintesi, un indicatore di rischio e una simulazione economica. Sono{" "}
           <strong className="text-foreground">
             strumenti di lavoro per orientare una valutazione, non una valutazione

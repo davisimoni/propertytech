@@ -61,7 +61,17 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
   const radar = await prisma.radarProperty.findFirst({
     where: { id, organizationId },
-    select: { id: true, basePriceEur: true, address: true, comune: true, zona: true },
+    select: {
+      id: true,
+      basePriceEur: true,
+      address: true,
+      comune: true,
+      zona: true,
+      // Letti dal backfill piu' sotto: senza, la regola "scrivi solo se manca"
+      // non avrebbe modo di sapere se manca.
+      auctionDate: true,
+      lotto: true,
+    },
   });
   if (!radar) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
@@ -188,19 +198,40 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       });
 
       /*
-       * Due dati che la perizia porta e che l'agente non deve ricopiare: il
-       * valore di stima e l'indirizzo del bene.
+       * I dati che la perizia porta e che l'agente non deve ricopiare: valore
+       * di stima, indirizzo, data della vendita e numero di lotto.
        *
        * Scritti solo se mancano. Un valore inserito a mano e' una decisione
        * dell'agenzia, e sovrascriverla con quella del perito cancellerebbe
        * una correzione voluta.
        */
-      const daPerizia: { basePriceEur?: number; address?: string } = {};
+      const daPerizia: {
+        basePriceEur?: number;
+        address?: string;
+        auctionDate?: Date;
+        lotto?: string;
+      } = {};
       if (fatti.appraisedValueEur && !radar.basePriceEur) {
         daPerizia.basePriceEur = fatti.appraisedValueEur;
       }
       if (fatti.propertyAddress?.trim() && !radar.address) {
         daPerizia.address = fatti.propertyAddress.trim();
+      }
+
+      /*
+       * La data passa da una verifica prima di finire a database.
+       *
+       * Il modello la restituisce come stringa ISO, e una stringa che non e'
+       * una data valida scriverebbe `Invalid Date`: un'asta che poi non
+       * compare in nessun elenco ordinato per data, e che nessuno va a
+       * cercare perche' la scheda sembra a posto.
+       */
+      if (fatti.auctionDate && !radar.auctionDate) {
+        const quando = new Date(fatti.auctionDate);
+        if (!Number.isNaN(quando.getTime())) daPerizia.auctionDate = quando;
+      }
+      if (fatti.lotto?.trim() && !radar.lotto) {
+        daPerizia.lotto = fatti.lotto.trim();
       }
 
       if (Object.keys(daPerizia).length > 0) {

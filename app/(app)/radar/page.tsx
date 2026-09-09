@@ -12,11 +12,17 @@ export default async function RadarPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-foreground">Radar Immobili &amp; Aste</h1>
+        <h1 className="text-xl font-semibold text-foreground">Analisi &amp; Due Diligence Aste</h1>
+        {/* Il nome dice cosa fa il modulo, non come si chiamava.
+
+            "Radar" faceva pensare a un programma che gira per il web a cercare
+            aste da solo: chi si aspettava quello apriva la pagina, non trovava
+            nessun risultato precaricato e concludeva che fosse rotta. Qui non
+            si cerca: si analizza un lotto che l'agente ha gia' trovato. */}
         <p className="text-sm text-muted-foreground">
-          Le opportunità che stai seguendo: aste giudiziarie e ribassi di mercato. Carica la
-          perizia e l&apos;assistente ne ricava stato occupazionale, difformità, vincoli e costi di
-          sanatoria.
+          Carica la perizia di un lotto e ottieni stato occupazionale, difformità, vincoli, costi di
+          sanatoria e i conti sul margine. Non cerca le aste al posto tuo: analizza quelle che porti
+          tu, e ti dice se vale la pena rilanciare.
         </p>
       </div>
 

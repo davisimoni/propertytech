@@ -50,9 +50,9 @@ export function RadarSection() {
     <section id="radar" className="scroll-mt-20 border-t border-border bg-muted/30 py-16 sm:py-20">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading
-          eyebrow="Radar Aste"
+          eyebrow="Due Diligence Aste"
           width="wide"
-          title="Il primo radar aste e ribassi potenziato dall'intelligenza artificiale"
+          title="La due diligence di un'asta, letta dall'intelligenza artificiale"
           subtitle="Trasforma una perizia da sessanta pagine in un'analisi di rischio leggibile, calcola il rendimento per un investitore e scopri subito quali dei tuoi clienti sono già pronti a comprare."
         />
 

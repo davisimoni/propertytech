@@ -264,7 +264,7 @@ export function planFeatureRows(plan: Plan): PlanFeatureRow[] {
     { label: "Postazioni", value: conteggio(plan.seatsLimit, "illimitate", "—") },
     { label: "Agende", value: conteggio(plan.agendasLimit, "illimitate", "—") },
     {
-      label: "Radar Immobili & Aste",
+      label: "Analisi & Due Diligence Aste",
       // Il numero e non un semplice "incluso": e' il dato che distingue i tre
       // piani a pagamento fra loro, e nasconderlo dietro una spunta
       // lascerebbe credere che sia illimitato ovunque.

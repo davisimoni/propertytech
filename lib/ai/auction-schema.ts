@@ -67,7 +67,79 @@ export const auctionAppraisalSchema = z.object({
     .number()
     .int()
     .nullable()
-    .describe("Valore di stima dell'immobile indicato dal perito, in euro. null se non presente."),
+    .describe(
+      "VALORE DI STIMA del bene secondo il perito, in euro. E' la valutazione tecnica dell'immobile, NON il prezzo a cui parte l'asta. null se non presente."
+    ),
+
+  /*
+   * I campi che permettono di partire dalla perizia invece che dalla tastiera.
+   *
+   * Sono gli stessi che la scheda pretende come obbligatori — comune,
+   * tipologia, superficie, offerta minima — e finche' li scriveva l'agente,
+   * caricare la perizia era l'ULTIMO passo invece che il primo. Ricavarli qui
+   * inverte il flusso: si parte dal PDF e si verifica, invece di ricopiare
+   * sessanta pagine a mano.
+   *
+   * Tutti nullable senza eccezioni: una perizia puo' tacere su qualunque di
+   * questi, e un campo lasciato vuoto che l'agente compila guardando l'avviso
+   * di vendita vale piu' di un valore dedotto per riempire lo spazio.
+   */
+
+  comune: z
+    .string()
+    .nullable()
+    .describe(
+      "Comune in cui si trova l'immobile, come riportato in perizia. Solo il nome del comune, senza provincia ne' CAP (es. 'Vignola'). null se non riportato."
+    ),
+
+  propertyType: z
+    .enum([
+      "APPARTAMENTO",
+      "ATTICO",
+      "VILLA",
+      "VILLETTA",
+      "LOFT",
+      "RUSTICO",
+      "TERRENO",
+      "NEGOZIO",
+      "UFFICIO",
+      "BOX",
+      "ALTRO",
+    ])
+    .nullable()
+    .describe(
+      "Tipologia del bene principale del lotto. Usa ALTRO quando non rientra nelle categorie (es. capannone, magazzino). null se la perizia non permette di stabilirlo."
+    ),
+
+  squareMeters: z
+    .number()
+    .int()
+    .nullable()
+    .describe(
+      "Superficie COMMERCIALE del bene principale in metri quadri. Se la perizia riporta piu' superfici (catastale, utile, lorda) preferisci la commerciale; se manca, usa la lorda. Non sommare le pertinenze (box, cantina) al bene principale. null se non determinabile."
+    ),
+
+  minimumBidEur: z
+    .number()
+    .int()
+    .nullable()
+    .describe(
+      "OFFERTA MINIMA ammessa per partecipare, in euro — di norma inferiore al prezzo base (spesso il 75%). Non confonderla ne' con il prezzo base d'asta ne' con il valore di stima. null se la perizia non la indica: spesso compare solo nell'avviso di vendita, e in quel caso NON dedurla con un calcolo tuo."
+    ),
+
+  auctionDate: z
+    .string()
+    .nullable()
+    .describe(
+      "Data e ora della vendita in formato ISO 8601 (es. '2026-11-14T15:00:00'). Se la data e' nota ma non l'ora, usa le 00:00. null se la perizia non la riporta: e' frequente, perche' la data sta nell'avviso di vendita e non nella perizia."
+    ),
+
+  lotto: z
+    .string()
+    .nullable()
+    .describe(
+      "Identificativo del lotto come lo chiama la perizia (es. 'Lotto 1', 'Lotto unico'). null se il documento non lo numera."
+    ),
 
   summary: z
     .string()

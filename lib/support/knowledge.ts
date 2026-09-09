@@ -72,7 +72,7 @@ Un assistente AI che automatizza il lavoro operativo di un'agenzia immobiliare: 
 3. **Annunci e social.** Da quattro punti elenco produce l'annuncio per i portali, il post per Instagram e Facebook e lo script per un reel. Esporta anche il **feed XML** per i portali. Qualunque sia la fonte — testo incollato, link di un annuncio gia' online, oppure titolo e punti chiave scritti a mano — al termine della generazione compila da sola la scheda "Dati per i portali" con i dati strutturati dell'immobile: riferimento, contratto, tipologia, comune, provincia, zona, prezzo, superficie, locali, bagni, piano e classe energetica. Da li' si salva direttamente in **Portafoglio Immobili**, ed e' quello che alimenta il feed XML. I campi che la fonte non nomina restano **vuoti**: non vengono inventati.
 4. **Report post-visita da nota vocale.** Registri un vocale appena uscito dalla visita e ottieni un report strutturato da mandare al proprietario, in PDF o su WhatsApp.
 
-Accanto ai quattro c'e' il **Radar Immobili & Aste**, descritto piu' sotto.
+Accanto ai quattro c'e' **Analisi & Due Diligence Aste** (nel codice e nell'indirizzo resta /radar), descritto piu' sotto.
 
 ## L'agenda: le visite finiscono sul calendario vero
 Quando l'assistente WhatsApp fissa una visita, l'evento viene scritto anche sul **Google Calendar o Microsoft Outlook** collegato, oltre che nell'agenda interna. Il collegamento si fa una volta sola da Impostazioni -> Agende & Disponibilita', e ogni collaboratore collega il proprio.
@@ -84,7 +84,7 @@ Quando l'assistente WhatsApp fissa una visita, l'evento viene scritto anche sul 
 
 Non dire mai che la visita di un collaboratore senza calendario "resta solo nell'agenda interna": finisce su quella del titolare, che e' il punto del ripiego. In Dashboard, sotto "Prossime visite in programma", ogni riga dice se e' finita sul calendario e su quale account; quelle rimaste indietro si recuperano con il pulsante di sincronizzazione, che non crea doppioni.
 
-## Radar Immobili & Aste
+## Analisi & Due Diligence Aste
 Segue aste giudiziarie e immobili ribassati. Caricando la **perizia in PDF**, l'AI ne estrae: costi di sanatoria stimati dal perito, difformita' edilizie e abusi, vincoli e gravami, stato occupazionale, e il **valore di stima** del perito. Da questi calcola un semaforo di rischio verde/giallo/rosso.
 
 Il **simulatore economico** (scheda "Business plan e ROI") si apre gia' compilato e calcola in tempo reale **Capitale investito, Margine sulla rivendita e Rendimento lordo annuo**. Ogni campo resta modificabile: quello che l'agente scrive e salva vince sempre sull'ipotesi, anche riaprendo la scheda.

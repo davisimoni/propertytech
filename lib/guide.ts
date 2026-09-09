@@ -359,7 +359,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
   },
   {
     id: "radar",
-    title: "Radar Immobili & Aste",
+    title: "Analisi & Due Diligence Aste",
     intro:
       "Le occasioni che stai seguendo — aste giudiziarie e ribassi di mercato — con la perizia letta dall'AI, i conti già fatti e i clienti in pipeline che potrebbero comprarle.",
     steps: [
