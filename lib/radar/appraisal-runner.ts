@@ -73,6 +73,7 @@ export async function runAppraisal(params: {
         remediationCostMinEur: fatti.remediationCostMinEur,
         remediationCostMaxEur: fatti.remediationCostMaxEur,
         summary: fatti.summary,
+        summaryPoints: fatti.summaryPoints,
         risk: verdetto.risk,
         riskReasons: verdetto.reasons,
       },

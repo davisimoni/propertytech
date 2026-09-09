@@ -64,6 +64,10 @@ export async function GET(request: Request) {
           riskReasons: true,
           occupancy: true,
           failureReason: true,
+          // Servono ai tre indicatori in testa alla scheda: senza, il
+          // riquadro della sintesi dovrebbe fare una chiamata sua.
+          summary: true,
+          summaryPoints: true,
           // Serve al simulatore per precompilare il costo di sanatoria.
           remediationCostMaxEur: true,
         },

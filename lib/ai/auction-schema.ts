@@ -146,6 +146,12 @@ export const auctionAppraisalSchema = z.object({
     .describe(
       "Sintesi in 4-6 frasi di cosa un agente deve sapere prima di valutare il lotto: consistenza, stato di fatto, criticità principali. Nessun nome di persona. Nessuna raccomandazione su cosa fare."
     ),
+
+  summaryPoints: z
+    .array(z.string())
+    .describe(
+      "La stessa sintesi in 3-4 punti brevi, uno per riga, ciascuno di una frase sola: consistenza del bene, stato di fatto e occupazione, criticità che pesano sul prezzo. Servono a chi guarda la scheda per decidere se approfondire, quindi vanno dal fatto più rilevante al meno. Nessun nome di persona. Nessuna raccomandazione su cosa fare, nessun giudizio sulla convenienza."
+    ),
 });
 
 export type AuctionAppraisalResult = z.infer<typeof auctionAppraisalSchema>;

@@ -66,6 +66,9 @@ export interface RadarItem {
     occupancy: OccupancyStatus;
     failureReason: string | null;
     remediationCostMaxEur: number | null;
+    summary: string | null;
+    /** Vuoto sulle analisi fatte prima che questo campo esistesse. */
+    summaryPoints: string[];
   } | null;
   _count: { matches: number };
 }

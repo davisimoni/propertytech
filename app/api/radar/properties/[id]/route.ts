@@ -98,6 +98,10 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
           riskReasons: true,
           occupancy: true,
           failureReason: true,
+          // Servono ai tre indicatori in testa alla scheda: senza, il
+          // riquadro della sintesi dovrebbe fare una chiamata sua.
+          summary: true,
+          summaryPoints: true,
           remediationCostMaxEur: true,
         },
       },

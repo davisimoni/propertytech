@@ -1817,6 +1817,14 @@ model AuctionAppraisal {
 
   summary String?
 
+  /// La stessa sintesi in punti, per la scheda a colpo d'occhio.
+  ///
+  /// Campo nuovo accanto a `summary` e non al posto suo: le analisi già in
+  /// archivio hanno la prosa e continuano a mostrarla. Convertirle avrebbe
+  /// richiesto di spezzare un paragrafo sui punti fermi, che sulle
+  /// abbreviazioni ("es.", "ca.", "mq.") sbaglia sistematicamente.
+  summaryPoints String[] @default([])
+
   /// Quante pagine sono state effettivamente analizzate: con la selezione
   /// manuale può essere un sottoinsieme, e l'agente deve saperlo prima di
   /// fidarsi della sintesi.

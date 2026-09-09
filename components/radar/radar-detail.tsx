@@ -22,6 +22,7 @@ import { RISK_CLASSES, RISK_LABELS } from "@/lib/radar/risk";
 import { AUCTION_STATUS_CLASSES, AUCTION_STATUS_LABELS } from "@/lib/radar/tags";
 import { buildSocialCopy, type CopyVariant } from "@/lib/radar/social-copy";
 import { downloadPdf, fetchPdfBranding } from "@/lib/pdf/client";
+import { RadarDashboard } from "@/components/radar/radar-dashboard";
 import { cn } from "@/lib/utils";
 import type { RadarItem } from "./radar-board";
 import { AppraisalPanel } from "./appraisal-panel";
@@ -371,6 +372,13 @@ export function RadarDetail({
           {error}
         </p>
       )}
+
+      {/* --- I tre indicatori, sopra le schede ---
+
+          Stavano sparsi in tre schede diverse: per farsi un'idea di un lotto
+          bisognava aprirle tutte e tenerle a mente. Su venti lotti da vagliare
+          in una sera, quello era il lavoro. */}
+      <RadarDashboard item={item} />
 
       {/* --- Schede --- */}
       <div className="flex flex-wrap gap-1 border-b border-border">
