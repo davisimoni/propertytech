@@ -1608,6 +1608,15 @@ enum RadarSource {
   PVP
   ASTALEGALE
   PORTALE
+
+  /// Scheda nata dal caricamento di una perizia, non dalla tastiera.
+  ///
+  /// Non e' una sfumatura statistica: e' il permesso di scrivere sui campi
+  /// obbligatori. Su una scheda MANUALE comune, tipologia, prezzo e superficie
+  /// li ha decisi l'agente, e l'analisi non deve toccarli; su una PERIZIA
+  /// nascono come segnaposto vuoti in attesa che l'estrazione li riempia, e
+  /// senza questo marcatore le due situazioni sarebbero indistinguibili.
+  PERIZIA
 }
 
 enum RadarKind {

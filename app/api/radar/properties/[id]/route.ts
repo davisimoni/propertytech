@@ -70,6 +70,48 @@ const patchSchema = z.object({
   dismissPriceDrop: z.boolean().optional(),
 });
 
+/**
+ * Una scheda sola, nella stessa forma in cui la restituisce l'elenco.
+ *
+ * Serve al pannello che parte dalla perizia: finita l'analisi deve rileggere
+ * il lotto per proporlo in verifica, e ricaricare l'intero elenco per una
+ * riga sarebbe sproporzionato. La forma coincide con quella della lista
+ * perche' il modulo la consuma con lo stesso tipo — due forme diverse per lo
+ * stesso oggetto costringerebbero a due conversioni destinate a divergere.
+ */
+export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user?.organizationId) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await context.params;
+  const item = await prisma.radarProperty.findFirst({
+    // `organizationId` nel filtro e non solo l'id: un id indovinato non deve
+    // poter leggere il lotto di un'altra agenzia (CLAUDE.md §5).
+    where: { id, organizationId: session.user.organizationId },
+    include: {
+      appraisal: {
+        select: {
+          status: true,
+          risk: true,
+          riskReasons: true,
+          occupancy: true,
+          failureReason: true,
+          remediationCostMaxEur: true,
+        },
+      },
+      _count: { select: { matches: true } },
+    },
+  });
+
+  if (!item) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  return NextResponse.json({ item });
+}
+
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.organizationId) {

@@ -2,9 +2,8 @@ import { NextResponse, after } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { checkUsageLimit, incrementUsage } from "@/lib/usage";
-import { summariseAuctionAppraisal, AuctionAppraisalError, APPRAISAL_MODEL } from "@/lib/ai/auction-appraisal";
-import { evaluateRisk } from "@/lib/radar/risk";
-import { geocodeZona } from "@/lib/radar/geocode";
+import { APPRAISAL_MODEL } from "@/lib/ai/auction-appraisal";
+import { runAppraisal } from "@/lib/radar/appraisal-runner";
 
 /**
  * Analisi della perizia, asincrona.
@@ -67,10 +66,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       address: true,
       comune: true,
       zona: true,
-      // Letti dal backfill piu' sotto: senza, la regola "scrivi solo se manca"
-      // non avrebbe modo di sapere se manca.
+      // Letti da `runAppraisal`: senza, la regola "scrivi solo se manca" non
+      // avrebbe modo di sapere se manca.
       auctionDate: true,
       lotto: true,
+      // `source` decide se l'analisi puo' scrivere sui campi obbligatori.
+      source: true,
+      type: true,
+      priceEur: true,
+      squareMeters: true,
     },
   });
   if (!radar) {
@@ -162,127 +166,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   /*
    * Il lavoro vero, dopo la risposta.
    *
-   * Nessuna eccezione può sfuggire da qui: `after()` gira quando la risposta
-   * è già partita, quindi un errore non ha più nessuno a cui essere
-   * comunicato se non la riga di stato sulla scheda. Lasciarlo propagare
-   * significherebbe una scheda ferma su "in analisi" per sempre, che è il
-   * modo peggiore di fallire — indistinguibile da un'analisi lenta.
+   * La logica vive in `runAppraisal`, condivisa con la creazione a partire
+   * dalla perizia: le regole su quali campi si possono sovrascrivere sono
+   * delicate, e in due copie divergerebbero al primo ritocco. Non lancia mai —
+   * da dentro `after()` la risposta è già partita, e un errore non avrebbe più
+   * nessuno a cui essere comunicato se non la riga di stato sulla scheda.
    */
-  after(async () => {
-    try {
-      const fatti = await summariseAuctionAppraisal(pdfBase64);
-
-      // Il semaforo lo calcola il codice, non il modello: criteri dichiarati
-      // in lib/radar/risk.ts e mostrati accanto al colore.
-      const verdetto = evaluateRisk({
-        occupancy: fatti.occupancy,
-        irregularities: fatti.irregularities,
-        encumbrances: fatti.encumbrances,
-        remediationCostMaxEur: fatti.remediationCostMaxEur,
-        basePriceEur: radar.basePriceEur ?? fatti.appraisedValueEur,
-      });
-
-      await prisma.auctionAppraisal.update({
-        where: { id: appraisal.id },
-        data: {
-          status: "PRONTA",
-          occupancy: fatti.occupancy,
-          irregularities: fatti.irregularities,
-          encumbrances: fatti.encumbrances,
-          remediationCostMinEur: fatti.remediationCostMinEur,
-          remediationCostMaxEur: fatti.remediationCostMaxEur,
-          summary: fatti.summary,
-          risk: verdetto.risk,
-          riskReasons: verdetto.reasons,
-        },
-      });
-
-      /*
-       * I dati che la perizia porta e che l'agente non deve ricopiare: valore
-       * di stima, indirizzo, data della vendita e numero di lotto.
-       *
-       * Scritti solo se mancano. Un valore inserito a mano e' una decisione
-       * dell'agenzia, e sovrascriverla con quella del perito cancellerebbe
-       * una correzione voluta.
-       */
-      const daPerizia: {
-        basePriceEur?: number;
-        address?: string;
-        auctionDate?: Date;
-        lotto?: string;
-      } = {};
-      if (fatti.appraisedValueEur && !radar.basePriceEur) {
-        daPerizia.basePriceEur = fatti.appraisedValueEur;
-      }
-      if (fatti.propertyAddress?.trim() && !radar.address) {
-        daPerizia.address = fatti.propertyAddress.trim();
-      }
-
-      /*
-       * La data passa da una verifica prima di finire a database.
-       *
-       * Il modello la restituisce come stringa ISO, e una stringa che non e'
-       * una data valida scriverebbe `Invalid Date`: un'asta che poi non
-       * compare in nessun elenco ordinato per data, e che nessuno va a
-       * cercare perche' la scheda sembra a posto.
-       */
-      if (fatti.auctionDate && !radar.auctionDate) {
-        const quando = new Date(fatti.auctionDate);
-        if (!Number.isNaN(quando.getTime())) daPerizia.auctionDate = quando;
-      }
-      if (fatti.lotto?.trim() && !radar.lotto) {
-        daPerizia.lotto = fatti.lotto.trim();
-      }
-
-      if (Object.keys(daPerizia).length > 0) {
-        await prisma.radarProperty.update({ where: { id }, data: daPerizia });
-      }
-
-      /*
-       * Con un indirizzo nuovo il pin va rifatto: prima stava sul centro del
-       * comune, ora si puo' mettere sul portone. Se la ricerca fallisce il
-       * lotto resta dov'era — un'analisi riuscita non deve fallire per un
-       * servizio di mappe che non risponde.
-       */
-      if (daPerizia.address) {
-        const posizione = await geocodeZona(radar.comune, radar.zona, daPerizia.address);
-        if (posizione) {
-          await prisma.radarProperty.update({
-            where: { id },
-            data: { latitude: posizione.latitude, longitude: posizione.longitude },
-          });
-        }
-      }
-
-      console.info("[RADAR-APPRAISAL] Sintesi completata", {
-        organizationId,
-        radarPropertyId: id,
-        rischio: verdetto.risk,
-      });
-    } catch (error) {
-      const messaggio =
-        error instanceof AuctionAppraisalError
-          ? error.message
-          : "L'analisi non è riuscita a concludersi nel tempo disponibile. Riprova indicando un intervallo di pagine più ristretto.";
-
-      console.error("[RADAR-APPRAISAL] Analisi non riuscita", {
-        organizationId,
-        radarPropertyId: id,
-        codice: error instanceof AuctionAppraisalError ? error.code : "unknown",
-      });
-
-      await prisma.auctionAppraisal
-        .update({
-          where: { id: appraisal.id },
-          data: { status: "FALLITA", failureReason: messaggio },
-        })
-        .catch(() => {
-          // Se non riusciamo nemmeno a scrivere il fallimento non resta altro
-          // da fare: la scheda mostrera' "in analisi" e l'agente ricarichera'.
-          console.error("[RADAR-APPRAISAL] Stato di fallimento non salvato", { id });
-        });
-    }
-  });
+  after(() => runAppraisal({ radar, appraisalId: appraisal.id, organizationId, pdfBase64 }));
 
   // 202: accettata, non completata. L'interfaccia interroga lo stato.
   return NextResponse.json({ appraisal, status: "IN_ANALISI" }, { status: 202 });

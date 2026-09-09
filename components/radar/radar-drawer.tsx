@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Loader2, MapPin, X } from "lucide-react";
+import { Check, FileUp, Loader2, MapPin, X } from "lucide-react";
 import { PROPERTY_TYPE_LABELS } from "@/lib/listings/property-fields";
 import { cn } from "@/lib/utils";
 import type { AuctionStatus, PropertyType } from "@prisma/client";
@@ -50,12 +50,123 @@ export function RadarDrawer({
 }) {
   const modifica = item !== null;
 
-  const [kind, setKind] = useState<"ASTA" | "RIBASSO">(item?.kind ?? "ASTA");
+  /*
+   * La bozza nata dalla perizia, quando si parte dal PDF.
+   *
+   * Da qui in giu' i valori iniziali del modulo si leggono da `base`, che e'
+   * la scheda in modifica oppure la bozza appena analizzata: e' cio' che
+   * permette al modulo di aprirsi gia' compilato invece che vuoto.
+   */
+  const [bozza, setBozza] = useState<RadarItem | null>(null);
+  const base = item ?? bozza;
+
+  /*
+   * Da dove si parte: dal PDF o dalla tastiera.
+   *
+   * "scelta" e' il primo schermo di una scheda nuova, e mostra la perizia
+   * come strada principale. Chi modifica un lotto gia' in elenco non lo vede
+   * mai: li' i dati ci sono gia', e ripartire dal caricamento sarebbe un
+   * passaggio in piu' verso qualcosa che si voleva solo correggere.
+   */
+  const [modo, setModo] = useState<"scelta" | "form">(modifica ? "form" : "scelta");
+  const [faseAnalisi, setFaseAnalisi] = useState<string | null>(null);
+
+  /**
+   * Crea la scheda dalla perizia e attende che l'analisi finisca.
+   *
+   * # Perche' si interroga invece di aspettare la risposta
+   *
+   * Perche' leggere una perizia richiede molto piu' di quanto una richiesta
+   * HTTP possa restare aperta: la rotta risponde 202 appena la scheda esiste,
+   * e il lavoro prosegue sul server. Qui si chiede lo stato finche' non e'
+   * pronto, dicendo a che punto siamo — un'attesa muta di un minuto su un
+   * pannello fermo si legge come un blocco.
+   */
+  async function analizzaPerizia(file: File) {
+    if (file.type !== "application/pdf") {
+      setError("La perizia deve essere un PDF.");
+      return;
+    }
+
+    setError(null);
+    setFaseAnalisi("Caricamento della perizia…");
+
+    try {
+      const modulo = new FormData();
+      modulo.append("file", file);
+      modulo.append("kind", kind);
+
+      const risposta = await fetch("/api/radar/properties/from-appraisal", {
+        method: "POST",
+        body: modulo,
+      });
+      const corpo = await risposta.json().catch(() => null);
+
+      if (!risposta.ok) {
+        setError(corpo?.message ?? "Caricamento non riuscito. Riprova.");
+        setFaseAnalisi(null);
+        return;
+      }
+
+      const idBozza = corpo.radarPropertyId as string;
+      setFaseAnalisi("Lettura della perizia in corso…");
+
+      /*
+       * Il tetto sui tentativi non e' prudenza: e' il limite reale.
+       *
+       * L'analisi gira dentro `after()`, quindi non puo' superare il
+       * `maxDuration` della funzione. Oltre quel tempo lo stato resta
+       * IN_ANALISI perche' l'invocazione e' stata troncata, e continuare a
+       * interrogare per sempre lascerebbe l'agente davanti a una rotella che
+       * non si ferma mai.
+       */
+      for (let tentativo = 0; tentativo < 30; tentativo += 1) {
+        await new Promise((r) => setTimeout(r, 3000));
+
+        if (tentativo === 3) setFaseAnalisi("Estrazione dei dati catastali…");
+        if (tentativo === 8) setFaseAnalisi("Analisi di difformità e vincoli…");
+        if (tentativo === 15) setFaseAnalisi("Ancora al lavoro: la perizia è lunga…");
+
+        const stato = await fetch(`/api/radar/properties/${idBozza}/appraisal`);
+        const datiStato = await stato.json().catch(() => null);
+        const situazione = datiStato?.appraisal?.status;
+
+        if (situazione === "PRONTA" || situazione === "FALLITA") {
+          const scheda = await fetch(`/api/radar/properties/${idBozza}`);
+          const datiScheda = await scheda.json().catch(() => null);
+          if (datiScheda?.item) setBozza(datiScheda.item as RadarItem);
+
+          if (situazione === "FALLITA") {
+            // La scheda esiste comunque e il credito e' speso: si passa al
+            // modulo con i campi vuoti invece di far ricominciare da capo.
+            setError(
+              datiStato?.appraisal?.failureReason ??
+                "L'analisi non è riuscita. I campi restano da compilare a mano."
+            );
+          }
+
+          setFaseAnalisi(null);
+          setModo("form");
+          return;
+        }
+      }
+
+      setError(
+        "L'analisi sta impiegando più del previsto. La scheda è salvata: riapri il lotto fra poco per vedere l'esito."
+      );
+      setFaseAnalisi(null);
+    } catch {
+      setError("Errore di rete durante il caricamento della perizia.");
+      setFaseAnalisi(null);
+    }
+  }
+
+  const [kind, setKind] = useState<"ASTA" | "RIBASSO">(base?.kind ?? "ASTA");
   const [step, setStep] = useState<1 | 2>(1);
   const [salvato, setSalvato] = useState<RadarItem | null>(item);
-  const [tags, setTags] = useState<string[]>(item?.tags ?? []);
+  const [tags, setTags] = useState<string[]>(base?.tags ?? []);
   const [auctionStatus, setAuctionStatus] = useState<AuctionStatus | "">(
-    item?.auctionStatus ?? ""
+    base?.auctionStatus ?? ""
   );
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -150,9 +261,9 @@ export function RadarDrawer({
 
     try {
       const response = await fetch(
-        modifica ? `/api/radar/properties/${item!.id}` : "/api/radar/properties",
+        base ? `/api/radar/properties/${base.id}` : "/api/radar/properties",
         {
-          method: modifica ? "PATCH" : "POST",
+          method: base ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(corpo),
         }
@@ -168,8 +279,8 @@ export function RadarDrawer({
       const salvatoOra = {
         ...(item ?? {}),
         ...body.item,
-        appraisal: item?.appraisal ?? null,
-        _count: item?._count ?? { matches: 0 },
+        appraisal: base?.appraisal ?? null,
+        _count: base?._count ?? { matches: 0 },
       } as RadarItem;
 
       setSalvato(salvatoOra);
@@ -236,8 +347,89 @@ export function RadarDrawer({
         </header>
 
         <div className="flex-1 overflow-y-auto p-4">
-          {step === 1 ? (
-            <form id="radar-form" onSubmit={submit} className="space-y-4">
+          {step === 1 && modo === "scelta" ? (
+            /* Prima schermata di una scheda nuova: la perizia in evidenza.
+
+               Prima si arrivava qui e si trovava un modulo da riempire, con il
+               caricamento del PDF relegato al passo due — cioe' si ricopiavano
+               a mano comune, tipologia, superficie e offerta minima da un
+               documento che il sistema sa leggere. Ora quei campi li porta il
+               PDF e all'agente resta la verifica. */
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Carica la Perizia Giudiziaria (PDF)
+                </h3>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  Da qui ricaviamo comune, indirizzo, tipologia, superficie, valore di stima, data
+                  d&apos;asta e lotto, piu&apos; stato occupazionale, difformita&apos; e vincoli.
+                  Tu verifichi e confermi.
+                </p>
+              </div>
+
+              <label
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const file = e.dataTransfer.files?.[0];
+                  if (file && !faseAnalisi) void analizzaPerizia(file);
+                }}
+                className={cn(
+                  "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-10 text-center transition-colors duration-200",
+                  faseAnalisi
+                    ? "border-primary bg-primary/5"
+                    : "border-border-strong hover:border-primary/50 hover:bg-muted/50"
+                )}
+              >
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  disabled={Boolean(faseAnalisi)}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void analizzaPerizia(file);
+                  }}
+                />
+                {faseAnalisi ? (
+                  <>
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <span className="text-sm font-medium text-foreground">{faseAnalisi}</span>
+                    <span className="text-xs text-muted-foreground">
+                      Puoi lasciare aperto: l&apos;analisi prosegue sul server.
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <FileUp className="h-6 w-6 text-muted-foreground" />
+                    <span className="text-sm font-medium text-foreground">
+                      Trascina qui la perizia, o scegli il file
+                    </span>
+                    <span className="text-xs text-muted-foreground">PDF fino a 15 MB</span>
+                  </>
+                )}
+              </label>
+
+              {error && (
+                <p role="alert" className="text-sm text-status-blocked">
+                  {error}
+                </p>
+              )}
+
+              {/* La strada senza PDF resta, ma non compete con la principale:
+                  serve ai ribassi di mercato e alle occasioni da privato, dove
+                  una perizia non esiste proprio. */}
+              <button
+                type="button"
+                disabled={Boolean(faseAnalisi)}
+                onClick={() => setModo("form")}
+                className="h-11 w-full rounded-lg border border-border text-xs font-medium text-muted-foreground transition-colors duration-200 hover:bg-muted disabled:opacity-50 sm:h-9"
+              >
+                Inserisci senza PDF / Opportunità da privato
+              </button>
+            </div>
+          ) : step === 1 ? (
+            <form key={base?.id ?? "nuovo"} id="radar-form" onSubmit={submit} className="space-y-4">
               {!modifica && (
                 <div className="inline-flex rounded-lg border border-border p-0.5">
                   {(
@@ -266,15 +458,15 @@ export function RadarDrawer({
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <Campo id="d-comune" label="Comune" required error={fieldErrors.comune}>
-                  <input id="d-comune" aria-invalid={Boolean(fieldErrors.comune)} name="comune" defaultValue={item?.comune ?? ""} required maxLength={120} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
+                  <input id="d-comune" aria-invalid={Boolean(fieldErrors.comune)} name="comune" defaultValue={base?.comune ?? ""} required maxLength={120} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                 </Campo>
                 <Campo id="d-zona" label="Zona o frazione" error={fieldErrors.zona}>
-                  <input id="d-zona" name="zona" defaultValue={item?.zona ?? ""} maxLength={120} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
+                  <input id="d-zona" name="zona" defaultValue={base?.zona ?? ""} maxLength={120} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                 </Campo>
               </div>
 
               <Campo id="d-address" label="Indirizzo e civico" hint="porta il pin sul portone" error={fieldErrors.address}>
-                <input id="d-address" name="address" defaultValue={item?.address ?? ""} placeholder="Es. Via Emilia 45" maxLength={200} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
+                <input id="d-address" name="address" defaultValue={base?.address ?? ""} placeholder="Es. Via Emilia 45" maxLength={200} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
               </Campo>
 
               <div className="rounded-lg border border-border bg-muted/30 p-3">
@@ -305,7 +497,7 @@ export function RadarDrawer({
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <Campo id="d-type" label="Tipologia" required error={fieldErrors.type}>
-                  <select id="d-type" name="type" required defaultValue={item?.type ?? "APPARTAMENTO"} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm">
+                  <select id="d-type" name="type" required defaultValue={base?.type ?? "APPARTAMENTO"} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm">
                     {(Object.keys(PROPERTY_TYPE_LABELS) as PropertyType[]).map((t) => (
                       <option key={t} value={t}>
                         {PROPERTY_TYPE_LABELS[t]}
@@ -314,36 +506,36 @@ export function RadarDrawer({
                   </select>
                 </Campo>
                 <Campo id="d-mq" label="Metri quadri" required error={fieldErrors.squareMeters}>
-                  <input id="d-mq" aria-invalid={Boolean(fieldErrors.squareMeters)} name="squareMeters" defaultValue={item?.squareMeters ?? ""} required inputMode="numeric" className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
+                  <input id="d-mq" aria-invalid={Boolean(fieldErrors.squareMeters)} name="squareMeters" defaultValue={base?.squareMeters ?? ""} required inputMode="numeric" className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                 </Campo>
 
                 <Campo id="d-prezzo" label={kind === "ASTA" ? "Offerta minima (€)" : "Prezzo attuale (€)"} required hint={modifica ? "abbassandolo si registra il ribasso" : undefined} error={fieldErrors.priceEur}>
-                  <input id="d-prezzo" aria-invalid={Boolean(fieldErrors.priceEur)} name="priceEur" defaultValue={item?.priceEur ?? ""} required inputMode="numeric" className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
+                  <input id="d-prezzo" aria-invalid={Boolean(fieldErrors.priceEur)} name="priceEur" defaultValue={base?.priceEur ?? ""} required inputMode="numeric" className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                 </Campo>
 
                 {kind === "ASTA" ? (
                   <Campo id="d-base" label="Valore di perizia (€)" hint="lo ricava anche dalla perizia" error={fieldErrors.basePriceEur}>
-                    <input id="d-base" name="basePriceEur" defaultValue={item?.basePriceEur ?? ""} inputMode="numeric" className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
+                    <input id="d-base" name="basePriceEur" defaultValue={base?.basePriceEur ?? ""} inputMode="numeric" className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                   </Campo>
                 ) : (
                   <Campo id="d-prec" label="Prezzo precedente (€)" hint="per calcolare il ribasso" error={fieldErrors.previousPriceEur}>
-                    <input id="d-prec" name="previousPriceEur" defaultValue={item?.previousPriceEur ?? ""} inputMode="numeric" className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
+                    <input id="d-prec" name="previousPriceEur" defaultValue={base?.previousPriceEur ?? ""} inputMode="numeric" className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                   </Campo>
                 )}
 
                 {kind === "ASTA" && (
                   <>
                     <Campo id="d-data" label="Data dell'asta" error={fieldErrors.auctionDate}>
-                      <input id="d-data" name="auctionDate" type="date" defaultValue={item?.auctionDate ? item.auctionDate.slice(0, 10) : ""} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
+                      <input id="d-data" name="auctionDate" type="date" defaultValue={base?.auctionDate ? base.auctionDate.slice(0, 10) : ""} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                     </Campo>
                     <Campo id="d-lotto" label="Lotto" error={fieldErrors.lotto}>
-                      <input id="d-lotto" name="lotto" defaultValue={item?.lotto ?? ""} maxLength={60} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
+                      <input id="d-lotto" name="lotto" defaultValue={base?.lotto ?? ""} maxLength={60} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                     </Campo>
                   </>
                 )}
 
                 <Campo id="d-url" label="Link all'annuncio" error={fieldErrors.sourceUrl}>
-                  <input id="d-url" name="sourceUrl" type="url" defaultValue={item?.sourceUrl ?? ""} maxLength={500} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
+                  <input id="d-url" name="sourceUrl" type="url" defaultValue={base?.sourceUrl ?? ""} maxLength={500} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                 </Campo>
               </div>
 
@@ -404,7 +596,7 @@ export function RadarDrawer({
               </div>
 
               <Campo id="d-note" label="Note" error={fieldErrors.notes}>
-                <textarea id="d-note" name="notes" defaultValue={item?.notes ?? ""} rows={2} maxLength={2000} className="input-field w-full resize-y text-base sm:text-sm" />
+                <textarea id="d-note" name="notes" defaultValue={base?.notes ?? ""} rows={2} maxLength={2000} className="input-field w-full resize-y text-base sm:text-sm" />
               </Campo>
 
               {error && (
@@ -440,7 +632,7 @@ export function RadarDrawer({
           >
             {step === 2 ? "Chiudi" : "Annulla"}
           </button>
-          {step === 1 && (
+          {step === 1 && modo === "form" && (
             <button
               type="submit"
               form="radar-form"
