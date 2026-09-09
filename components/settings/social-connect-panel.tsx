@@ -2,29 +2,50 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { UserRole } from "@prisma/client";
-import { CheckCircle2, Instagram, Loader2, Share2, Unlink } from "lucide-react";
+import { CheckCircle2, Facebook, Instagram, Loader2, Share2, Unlink } from "lucide-react";
 import { useToast } from "@/components/shared/toast-provider";
+import { ToggleSwitch } from "@/components/shared/toggle-switch";
+import { cn } from "@/lib/utils";
 
 export interface SocialConnectionStatus {
   connected: boolean;
+  facebookPageId: string | null;
   facebookPageName: string | null;
   instagramUsername: string | null;
+  facebookAutoPublish: boolean;
+  instagramAutoPublish: boolean;
   configured: boolean;
 }
+
+type Canale = "facebook" | "instagram";
 
 /**
  * Collegamento della Pagina Facebook e del profilo Instagram dell'agenzia.
  *
- * # Perché lo stato dice A COSA si è connessi
+ * # Due card, un solo consenso
  *
- * Un "Connesso" verde da solo non permette di accorgersi che il consenso è
- * andato sulla pagina personale invece che su quella dell'agenzia — un errore
- * frequente, perché il dialogo Meta le mostra insieme. Il nome della Pagina e
- * lo username Instagram sono l'unico modo di verificarlo prima di pubblicare.
+ * Facebook e Instagram vivono in due riquadri distinti perché sono due
+ * pubblici diversi con due interruttori distinti — ma sotto restano LO
+ * STESSO collegamento Meta: non esiste un modo di autorizzare "solo
+ * Instagram" separatamente dalla Pagina Facebook a cui è agganciato. Premere
+ * "Connetti" su una card avvia sempre lo stesso consenso combinato; la card
+ * disconnessa lo dice esplicitamente, o l'agente si aspetterebbe un secondo
+ * passaggio che non arriva mai.
+ *
+ * # "Pubblicazione automatica" non è un invio senza controllo
+ *
+ * L'interruttore per canale non fa partire nulla da solo: /social pubblica
+ * solo quando l'agente preme "Pubblica", esattamente come oggi. Ciò che
+ * l'interruttore decide è se QUEL clic raggiunge anche quel canale — un modo
+ * di escludere Instagram (o Facebook) dagli invii futuri senza scollegare
+ * l'intero account. Il controllo vero è lato server, in `publishToMeta`: uno
+ * switch spento nel database blocca l'invio anche se qualcosa a monte
+ * richiedesse comunque quel canale.
  */
 export function SocialConnectPanel({ currentRole }: { currentRole: UserRole }) {
   const [stato, setStato] = useState<SocialConnectionStatus | null>(null);
   const [inCorso, setInCorso] = useState(false);
+  const [canaleInSalvataggio, setCanaleInSalvataggio] = useState<Canale | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
 
@@ -113,13 +134,59 @@ export function SocialConnectPanel({ currentRole }: { currentRole: UserRole }) {
         return;
       }
       await carica();
-      showToast("Pagina scollegata.", "success");
+      showToast("Account Meta scollegato.", "success");
     } catch {
       setError("Errore di rete.");
     } finally {
       setInCorso(false);
     }
   }
+
+  /*
+   * Ottimistico, con ripristino in caso di errore.
+   *
+   * L'agente aspetta un effetto immediato da un interruttore — è lo stesso
+   * gesto di `AiHandoverToggle` — e un'attesa di rete su un click così breve
+   * si nota. Se il salvataggio fallisce si torna indietro e si spiega perché.
+   */
+  async function cambiaAutoPublish(canale: Canale, valore: boolean) {
+    if (!stato) return;
+
+    const precedente = stato;
+    setStato({
+      ...stato,
+      ...(canale === "facebook"
+        ? { facebookAutoPublish: valore }
+        : { instagramAutoPublish: valore }),
+    });
+    setCanaleInSalvataggio(canale);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/social/connection", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channel: canale, enabled: valore }),
+      });
+
+      if (!response.ok) {
+        setStato(precedente);
+        const body = await response.json().catch(() => null);
+        setError(body?.message ?? "Non è stato possibile salvare la modifica.");
+        return;
+      }
+
+      setStato((await response.json()) as SocialConnectionStatus);
+    } catch {
+      setStato(precedente);
+      setError("Errore di rete. La modifica non è stata salvata.");
+    } finally {
+      setCanaleInSalvataggio(null);
+    }
+  }
+
+  const facebookConnesso = Boolean(stato?.connected);
+  const instagramConnesso = Boolean(stato?.connected && stato?.instagramUsername);
 
   return (
     <section className="rounded-xl border border-border bg-card p-4 md:p-5">
@@ -130,36 +197,52 @@ export function SocialConnectPanel({ currentRole }: { currentRole: UserRole }) {
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-foreground">Integrazioni Social Media</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Collega la Pagina Facebook dell&apos;agenzia per pubblicare i post generati senza
-            copiarli a mano. Il profilo Instagram Business agganciato alla Pagina viene collegato
-            insieme.
+            Collega Facebook e Instagram per pubblicare i post generati in /social senza copiarli a
+            mano. Entrambi arrivano dallo stesso collegamento con la Pagina dell&apos;agenzia.
           </p>
         </div>
       </div>
 
-      <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3">
-        {stato?.connected ? (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-status-qualified">
-              <CheckCircle2 className="h-4 w-4" />
-              Connesso a: {stato.facebookPageName}
-            </span>
-            {stato.instagramUsername ? (
-              <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Instagram className="h-3.5 w-3.5" />@{stato.instagramUsername}
-              </span>
-            ) : (
-              /* Detto e non taciuto: su Instagram non si pubblica finché il
-                 profilo non è agganciato alla Pagina, e l'agente lo scoprirebbe
-                 al primo post fallito. */
-              <span className="text-xs text-muted-foreground">
-                Nessun profilo Instagram Business collegato a questa Pagina.
-              </span>
-            )}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">Non connesso</p>
-        )}
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <CanaleCard
+          icona={Facebook}
+          nome="Facebook"
+          connesso={facebookConnesso}
+          etichettaConnessa={stato?.facebookPageName ?? null}
+          avatarUrl={
+            stato?.facebookPageId
+              ? `https://graph.facebook.com/${stato.facebookPageId}/picture?type=square`
+              : null
+          }
+          autoPublish={stato?.facebookAutoPublish ?? true}
+          isSavingToggle={canaleInSalvataggio === "facebook"}
+          onToggle={(valore) => void cambiaAutoPublish("facebook", valore)}
+          noteDisconnesso="Il consenso copre insieme Facebook e Instagram."
+          isOwner={isOwner}
+          inCorso={inCorso}
+          onConnetti={collega}
+          testoConnetti="Connetti Facebook"
+        />
+
+        <CanaleCard
+          icona={Instagram}
+          nome="Instagram"
+          connesso={instagramConnesso}
+          etichettaConnessa={stato?.instagramUsername ? `@${stato.instagramUsername}` : null}
+          avatarUrl={null}
+          autoPublish={stato?.instagramAutoPublish ?? true}
+          isSavingToggle={canaleInSalvataggio === "instagram"}
+          onToggle={(valore) => void cambiaAutoPublish("instagram", valore)}
+          noteDisconnesso={
+            facebookConnesso
+              ? "Nessun profilo Instagram Business agganciato a questa Pagina. Collegalo nel Business Manager di Meta, poi ripeti qui."
+              : "Si collega tramite la Pagina Facebook: se un profilo Instagram Business vi è agganciato, viene trovato in automatico."
+          }
+          isOwner={isOwner}
+          inCorso={inCorso}
+          onConnetti={collega}
+          testoConnetti="Connetti Instagram"
+        />
       </div>
 
       {error && (
@@ -168,31 +251,7 @@ export function SocialConnectPanel({ currentRole }: { currentRole: UserRole }) {
         </p>
       )}
 
-      {isOwner ? (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {stato?.connected ? (
-            <button
-              type="button"
-              onClick={scollega}
-              disabled={inCorso}
-              className="btn-outline text-xs disabled:opacity-50"
-            >
-              {inCorso ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unlink className="h-3.5 w-3.5" />}
-              Scollega
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={collega}
-              disabled={inCorso}
-              className="btn-brand text-xs disabled:opacity-50"
-            >
-              {inCorso ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
-              Connetti Pagina Facebook &amp; Instagram Business
-            </button>
-          )}
-        </div>
-      ) : (
+      {!isOwner && (
         <p className="mt-4 text-xs text-muted-foreground">
           Il collegamento lo gestisce il titolare dell&apos;agenzia.
         </p>
@@ -212,6 +271,135 @@ export function SocialConnectPanel({ currentRole }: { currentRole: UserRole }) {
           testo</strong>: l&apos;API richiede un&apos;immagine. È un limite di Meta, non nostro.
         </li>
       </ul>
+
+      {isOwner && facebookConnesso && (
+        <div className="mt-4 border-t border-border pt-3">
+          <button
+            type="button"
+            onClick={scollega}
+            disabled={inCorso}
+            className="inline-flex h-11 items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-status-blocked disabled:opacity-50 sm:h-auto"
+          >
+            {inCorso ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Unlink className="h-3.5 w-3.5" />
+            )}
+            Scollega Account Meta
+          </button>
+        </div>
+      )}
     </section>
+  );
+}
+
+function CanaleCard({
+  icona: Icona,
+  nome,
+  connesso,
+  etichettaConnessa,
+  avatarUrl,
+  autoPublish,
+  isSavingToggle,
+  onToggle,
+  noteDisconnesso,
+  isOwner,
+  inCorso,
+  onConnetti,
+  testoConnetti,
+}: {
+  icona: typeof Facebook;
+  nome: string;
+  connesso: boolean;
+  etichettaConnessa: string | null;
+  avatarUrl: string | null;
+  autoPublish: boolean;
+  isSavingToggle: boolean;
+  onToggle: (valore: boolean) => void;
+  noteDisconnesso: string;
+  isOwner: boolean;
+  inCorso: boolean;
+  onConnetti: () => void;
+  testoConnetti: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-3 rounded-lg border p-3",
+        connesso ? "border-status-qualified/30 bg-status-qualified/5" : "border-border bg-muted/30"
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <Icona className="h-4 w-4 shrink-0 text-foreground" />
+        <span className="text-sm font-semibold text-foreground">{nome}</span>
+      </div>
+
+      {connesso ? (
+        <>
+          <div className="flex items-center gap-2">
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={avatarUrl}
+                alt=""
+                className="h-8 w-8 shrink-0 rounded-full border border-border object-cover"
+                onError={(e) => {
+                  // La Pagina è pubblica e la foto quasi sempre risponde, ma
+                  // un handle raro o rinominato non deve lasciare un'icona
+                  // rotta al posto dell'avatar.
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            ) : null}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-foreground">{etichettaConnessa}</p>
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-status-qualified">
+                <CheckCircle2 className="h-3 w-3" />
+                Connesso
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-1 flex items-center justify-between gap-2 border-t border-border/70 pt-3">
+            <span className="text-xs font-medium text-foreground">Pubblicazione automatica</span>
+            {isOwner ? (
+              <ToggleSwitch
+                checked={autoPublish}
+                onChange={onToggle}
+                isSaving={isSavingToggle}
+                label={`Pubblicazione automatica su ${nome}`}
+              />
+            ) : (
+              <span className="text-xs text-muted-foreground">{autoPublish ? "Attiva" : "Disattiva"}</span>
+            )}
+          </div>
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            {autoPublish
+              ? `Quando premi "Pubblica" in /social, il post raggiunge anche ${nome}.`
+              : `${nome} resta escluso quando premi "Pubblica" in /social, finché non riattivi qui.`}
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-muted-foreground">Non connesso</p>
+          {isOwner ? (
+            <button
+              type="button"
+              onClick={onConnetti}
+              disabled={inCorso}
+              className="btn-brand text-xs disabled:opacity-50"
+            >
+              {inCorso ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Icona className="h-4 w-4" />
+              )}
+              {testoConnetti}
+            </button>
+          ) : null}
+          <p className="text-[11px] leading-snug text-muted-foreground">{noteDisconnesso}</p>
+        </>
+      )}
+    </div>
   );
 }

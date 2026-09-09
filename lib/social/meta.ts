@@ -219,8 +219,19 @@ export async function saveConnection(
 
 export interface ConnectionStatus {
   connected: boolean;
+  facebookPageId: string | null;
   facebookPageName: string | null;
   instagramUsername: string | null;
+  /**
+   * Se il canale riceve i post quando l'agente preme "Pubblica" in /social.
+   *
+   * Non e' un invio che parte da solo: e' un filtro su quello manuale. `true`
+   * quando non c'e' ancora un collegamento, cosi' la UI non deve distinguere
+   * "non collegato" da "collegato ma disattivato" per decidere cosa mostrare
+   * di default una volta che l'agenzia si collega.
+   */
+  facebookAutoPublish: boolean;
+  instagramAutoPublish: boolean;
   /** Vero se l'app Meta è configurata: senza, il pulsante non ha senso. */
   configured: boolean;
 }
@@ -228,15 +239,49 @@ export interface ConnectionStatus {
 export async function getConnectionStatus(organizationId: string): Promise<ConnectionStatus> {
   const connection = await prisma.socialConnection.findUnique({
     where: { organizationId },
-    select: { facebookPageName: true, instagramUsername: true },
+    select: {
+      facebookPageId: true,
+      facebookPageName: true,
+      instagramUsername: true,
+      facebookAutoPublish: true,
+      instagramAutoPublish: true,
+    },
   });
 
   return {
     connected: connection !== null,
+    facebookPageId: connection?.facebookPageId ?? null,
     facebookPageName: connection?.facebookPageName ?? null,
     instagramUsername: connection?.instagramUsername ?? null,
+    facebookAutoPublish: connection?.facebookAutoPublish ?? true,
+    instagramAutoPublish: connection?.instagramAutoPublish ?? true,
     configured: isMetaConfigured(),
   };
+}
+
+/**
+ * Attiva o disattiva un canale, senza toccare l'altro.
+ *
+ * Restituisce `null` quando non c'e' alcun collegamento: la rotta lo traduce
+ * in 404 invece di scrivere un interruttore su una riga che non esiste.
+ */
+export async function setAutoPublish(
+  organizationId: string,
+  channel: PublishTarget,
+  enabled: boolean
+): Promise<ConnectionStatus | null> {
+  const esiste = await prisma.socialConnection.findUnique({
+    where: { organizationId },
+    select: { id: true },
+  });
+  if (!esiste) return null;
+
+  await prisma.socialConnection.update({
+    where: { organizationId },
+    data: channel === "facebook" ? { facebookAutoPublish: enabled } : { instagramAutoPublish: enabled },
+  });
+
+  return getConnectionStatus(organizationId);
 }
 
 export type PublishTarget = "facebook" | "instagram";
@@ -303,6 +348,26 @@ export async function publishToMeta(params: {
   const esiti: PublishResult[] = [];
 
   for (const target of targets) {
+    /*
+     * Il gate per canale si controlla qui, non prima di chiamare questa
+     * funzione.
+     *
+     * E' l'unico punto che tutti i chiamanti attraversano, quindi e' l'unico
+     * posto dove il controllo non si puo' scavalcare passando un `targets`
+     * costruito a mano. Il canale disattivato riceve un esito negativo con la
+     * ragione, esattamente come un token scaduto: l'agente lo vede accanto
+     * agli altri risultati, non come un errore muto.
+     */
+    const abilitato = target === "facebook" ? connection.facebookAutoPublish : connection.instagramAutoPublish;
+    if (!abilitato) {
+      esiti.push({
+        target,
+        ok: false,
+        error: `Pubblicazione su ${target === "facebook" ? "Facebook" : "Instagram"} disattivata da Impostazioni → Integrazioni.`,
+      });
+      continue;
+    }
+
     try {
       if (target === "facebook") {
         esiti.push(await pubblicaSuFacebook(connection.facebookPageId, token, message, mediaUrls));
