@@ -409,7 +409,7 @@ export function ListingImport({
             inputMode="url"
             value={url}
             onChange={(event) => setUrl(event.target.value)}
-            placeholder="https://…"
+            placeholder="https://www.immobiliare.it/annunci/… o il link sul tuo sito"
             className="input-field bg-card sm:flex-1"
             aria-describedby="listing-url-help"
             disabled={isBusy}

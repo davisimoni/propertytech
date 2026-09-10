@@ -1,6 +1,7 @@
 "use client";
 
 import { FileSearch2 } from "lucide-react";
+import { InfoTip } from "@/components/shared/info-tip";
 import { ModuleWithHistory } from "@/components/history/module-with-history";
 import { DocumentExtractor } from "@/components/documents/document-extractor";
 
@@ -16,7 +17,10 @@ export default function DocumentsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-foreground">Analisi Documenti</h1>
+        <h1 className="flex items-center gap-1.5 text-xl font-semibold text-foreground">
+          Analisi Documenti
+          <InfoTip label="Quello che a mano vuol dire leggere una visura pagina per pagina e ricopiare intestatari, foglio e particella a mano, qui è un caricamento: pochi secondi, e i campi arrivano già compilati da correggere." />
+        </h1>
         <p className="text-sm text-muted-foreground">
           Carica una Visura Catastale, Planimetria, Atto di Provenienza o APE: i dati vengono estratti
           automaticamente con Claude AI.

@@ -458,7 +458,7 @@ export function RadarDrawer({
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <Campo id="d-comune" label="Comune" required error={fieldErrors.comune}>
-                  <input id="d-comune" aria-invalid={Boolean(fieldErrors.comune)} name="comune" defaultValue={base?.comune ?? ""} required maxLength={120} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
+                  <input id="d-comune" aria-invalid={Boolean(fieldErrors.comune)} name="comune" defaultValue={base?.comune ?? ""} placeholder="Es. Vignola" required maxLength={120} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                 </Campo>
                 <Campo id="d-zona" label="Zona o frazione" error={fieldErrors.zona}>
                   <input id="d-zona" name="zona" defaultValue={base?.zona ?? ""} maxLength={120} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
@@ -529,7 +529,7 @@ export function RadarDrawer({
                       <input id="d-data" name="auctionDate" type="date" defaultValue={base?.auctionDate ? base.auctionDate.slice(0, 10) : ""} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                     </Campo>
                     <Campo id="d-lotto" label="Lotto" error={fieldErrors.lotto}>
-                      <input id="d-lotto" name="lotto" defaultValue={base?.lotto ?? ""} maxLength={60} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
+                      <input id="d-lotto" name="lotto" defaultValue={base?.lotto ?? ""} placeholder="Es. Lotto 1" maxLength={60} className="input-field h-11 sm:h-9 w-full text-base sm:text-sm" />
                     </Campo>
                   </>
                 )}

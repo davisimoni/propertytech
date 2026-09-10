@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { auth } from "@/auth";
 import { RadarBoard } from "@/components/radar/radar-board";
+import { InfoTip } from "@/components/shared/info-tip";
 
 /**
  * Il nome dell'agenzia si legge qui e scende come proprieta': i componenti
@@ -13,7 +14,10 @@ export default async function RadarPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-foreground">Analisi &amp; Due Diligence Aste</h1>
+        <h1 className="flex items-center gap-1.5 text-xl font-semibold text-foreground">
+          Analisi &amp; Due Diligence Aste
+          <InfoTip label="Una perizia giudiziaria sta fra le trenta e le centoventi pagine. Leggerla tutta per trovare occupazione, difformità e vincoli è il lavoro che di solito si rimanda; qui è un caricamento, e i conti sul margine li fa il simulatore." />
+        </h1>
         {/* Il nome dice cosa fa il modulo, non come si chiamava.
 
             "Radar" faceva pensare a un programma che gira per il web a cercare

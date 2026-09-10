@@ -2,6 +2,7 @@
 
 import { Suspense } from "react";
 import { Mic } from "lucide-react";
+import { InfoTip } from "@/components/shared/info-tip";
 import { ModuleWithHistory } from "@/components/history/module-with-history";
 import { VoiceReportStudio } from "@/components/reports/voice-report-studio";
 
@@ -14,7 +15,10 @@ export default function VoiceReportsPage() {
   return (
     <div className="space-y-6">
       <div className="print:hidden">
-        <h1 className="text-xl font-semibold text-foreground">Report Venditori (Note Vocali)</h1>
+        <h1 className="flex items-center gap-1.5 text-xl font-semibold text-foreground">
+          Report Venditori (Note Vocali)
+          <InfoTip label="Scrivere un report professionale per il proprietario partendo dai propri appunti richiede tempo che di solito si trova la sera, non appena usciti dalla visita. Qui basta la nota a voce: l'AI la trasforma nel report mentre sei già in macchina verso il prossimo appuntamento." />
+        </h1>
         <p className="text-sm text-muted-foreground">
           Registra o scrivi la nota post-visita: l&apos;AI genera il report professionale da
           condividere con il proprietario dell&apos;immobile.
