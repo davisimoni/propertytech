@@ -328,6 +328,7 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
             guardando, non doverlo rifiltrare in Excel. */}
         <a
           href={`/api/radar/export${vistaArchivio ? "?archived=only" : ""}`}
+          download
           className="inline-flex h-11 items-center sm:h-9 gap-1.5 rounded-lg border border-border px-3 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
         >
           <FileDown className="h-3.5 w-3.5" />

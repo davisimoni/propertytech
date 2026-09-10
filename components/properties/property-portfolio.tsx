@@ -10,7 +10,7 @@ import type {
   PropertyStatus,
   PropertyType,
 } from "@prisma/client";
-import { Building2, ChevronDown, FileCode2, FolderOpen, History, ImageOff, Loader2, Pencil, Phone, Plus, Sparkles, Upload, UserRound } from "lucide-react";
+import { Building2, ChevronDown, FileCode2, FileDown, FolderOpen, History, ImageOff, Loader2, Pencil, Phone, Plus, Sparkles, Upload, UserRound } from "lucide-react";
 import { DocumentVault } from "@/components/documents/document-vault";
 import {
   CONTRACT_LABELS,
@@ -251,6 +251,10 @@ export function PropertyPortfolio({ currentRole }: { currentRole: UserRole }) {
           <a href="/api/properties/xml" download className="btn-outline text-xs">
             <FileCode2 className="h-3.5 w-3.5" />
             Scarica feed XML completo
+          </a>
+          <a href="/api/properties/export" download className="btn-outline text-xs">
+            <FileDown className="h-3.5 w-3.5" />
+            Esporta CSV
           </a>
           <button type="button" onClick={() => setImportando(true)} className="btn-outline text-xs">
             <Upload className="h-3.5 w-3.5" />
