@@ -9,8 +9,8 @@ export default function SocialPage() {
         <div>
           <h1 className="text-xl font-semibold text-foreground">Social &amp; Annunci</h1>
           <p className="text-sm text-muted-foreground">
-            Incolla il link di un annuncio o descrivi l&apos;immobile: ottieni il testo per i
-            portali, il post social e lo script del video Reel.
+            Parti da un immobile che hai già, da un annuncio esistente, da una tua istruzione o
+            da zero: ottieni il testo per i portali, il post social e lo script del video Reel.
           </p>
         </div>
         {/* Discreto e in alto: dice se si potra' pubblicare direttamente,

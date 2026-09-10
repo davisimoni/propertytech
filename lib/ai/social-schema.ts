@@ -24,6 +24,30 @@ export const TONE_LABELS: Record<ToneOfVoice, string> = {
  * una union restituirebbe gli errori di entrambi i rami lasciando l'agente a
  * indovinare quale stesse seguendo.
  */
+/**
+ * A cosa serve la generazione, quando il punto di partenza e' un testo altrui.
+ *
+ * Lo stesso annuncio incollato va trattato in tre modi diversi a seconda di
+ * cosa se ne vuole fare, e l'agente lo sa mentre incolla: chiederglielo li'
+ * costa un clic e cambia il risultato piu' di qualunque aggiustamento del
+ * tono.
+ */
+export const GENERATION_INTENTS = ["social", "fsbo", "rilancio"] as const;
+
+export type GenerationIntent = (typeof GENERATION_INTENTS)[number];
+
+export const INTENT_LABELS: Record<GenerationIntent, string> = {
+  social: "Converti in post social (FB/IG)",
+  fsbo: "Riscrivi annuncio da privato",
+  rilancio: "Riscrivi e rilancia incarico vecchio",
+};
+
+export const INTENT_HINTS: Record<GenerationIntent, string> = {
+  social: "Sintetizza un annuncio lungo in un post breve, con emoji e invito all'azione.",
+  fsbo: "Ripulisce un testo amatoriale (Subito, Marketplace) e lo porta al registro di un portale.",
+  rilancio: "Riposiziona un annuncio fermo da tempo, mettendo in evidenza cosa e' cambiato.",
+};
+
 export const socialGenerationRequestSchema = z
   .object({
     propertyTitle: z.string().trim().max(150).optional(),
@@ -31,17 +55,28 @@ export const socialGenerationRequestSchema = z
     /** Testo dell'annuncio incollato, alternativa ai due campi sopra. */
     rawText: z.string().trim().max(20_000).optional(),
     tone: z.enum(TONE_OPTIONS),
+    /** Cosa farne. Assente vale `social`, che e' il caso di gran lunga piu' frequente. */
+    intent: z.enum(GENERATION_INTENTS).optional(),
+    /**
+     * Istruzione libera dell'agente, per chi sa gia' cosa vuole.
+     *
+     * Si somma alle altre fonti invece di sostituirle, e non puo' sospendere
+     * le regole del prompt di sistema: chiedere "inventa che ha il giardino"
+     * non aggiunge un giardino che le note non hanno.
+     */
+    freePrompt: z.string().trim().max(1000).optional(),
   })
   .superRefine((data, ctx) => {
     const hasFields =
       (data.propertyTitle?.length ?? 0) >= 3 && (data.keyPoints?.length ?? 0) >= 10;
     const hasRawText = (data.rawText?.length ?? 0) >= 30;
+    const hasPrompt = (data.freePrompt?.length ?? 0) >= 10;
 
-    if (!hasFields && !hasRawText) {
+    if (!hasFields && !hasRawText && !hasPrompt) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message:
-          "Compila titolo e punti chiave dell'immobile, oppure incolla il testo dell'annuncio.",
+          "Compila titolo e punti chiave dell'immobile, incolla il testo dell'annuncio, oppure scrivi un'istruzione.",
         path: ["keyPoints"],
       });
     }

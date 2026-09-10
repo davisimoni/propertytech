@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
-import { AlertTriangle, FileText, Link2, Loader2, PenLine, Wand2 } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { AlertTriangle, Building2, FileText, Link2, Loader2, PenLine, Sparkles, Wand2 } from "lucide-react";
 import { IMPORT_PROGRESS, ProgressMessages } from "@/components/shared/progress-messages";
 import {
   composeScratchListing,
@@ -10,6 +10,17 @@ import {
   PROPERTY_CONDITION_OPTIONS,
   type ScratchListingFields,
 } from "@/lib/social/scratch-listing";
+import {
+  GENERATION_INTENTS,
+  INTENT_HINTS,
+  INTENT_LABELS,
+  type GenerationIntent,
+} from "@/lib/ai/social-schema";
+import {
+  composePortfolioListing,
+  type PortfolioListingSource,
+} from "@/lib/social/portfolio-listing";
+import { InfoTip } from "@/components/shared/info-tip";
 import { cn } from "@/lib/utils";
 
 export interface ImportedListingView {
@@ -31,12 +42,33 @@ export interface ImportedListingView {
   missingInfo: string[];
 }
 
-type SourceTab = "link" | "text" | "scratch";
+/** I campi che `/api/properties` restituisce e che servono a comporre le note. */
+interface ImmobileInPortafoglio extends PortfolioListingSource {
+  id: string;
+  reference: string;
+}
+
+type SourceTab = "portafoglio" | "esistente" | "prompt" | "scratch";
 
 const SOURCE_TABS: { id: SourceTab; label: string; icon: typeof Link2 }[] = [
-  { id: "link", label: "Link Annuncio", icon: Link2 },
-  { id: "text", label: "Testo Esistente", icon: FileText },
+  { id: "portafoglio", label: "Da Portafoglio", icon: Building2 },
+  { id: "esistente", label: "Da Link o Testo", icon: Link2 },
+  { id: "prompt", label: "Prompt Libero", icon: Sparkles },
   { id: "scratch", label: "Crea da Zero", icon: PenLine },
+];
+
+/**
+ * Suggerimenti cliccabili per la scheda del prompt libero.
+ *
+ * Non sono scorciatoie carine: sono le quattro richieste che un agente fa
+ * davvero e che, scritte a mano ogni volta, si scrivono male. Si sommano al
+ * testo invece di sostituirlo, cosi' se ne possono usare due.
+ */
+const QUICK_CHIPS = [
+  "Evidenzia il ribasso di prezzo",
+  "Tono emozionale",
+  "Rivolgiti a investitori",
+  "Metti al centro terrazzo e spazi esterni",
 ];
 
 interface ListingImportProps {
@@ -59,6 +91,12 @@ interface ListingImportProps {
   keyPoints: string;
   onKeyPointsChange: (value: string) => void;
   /** Riempie la scheda di portafoglio coi dati estratti dal link. */
+  /** Cosa farne del testo incollato: cambia il prompt, non i fatti. */
+  intent: GenerationIntent;
+  onIntentChange: (value: GenerationIntent) => void;
+  /** Istruzione libera dell'agente, per la scheda "Prompt Libero". */
+  freePrompt: string;
+  onFreePromptChange: (value: string) => void;
   onImported: (listing: ImportedListingView) => void;
   onLocked: () => void;
   /**
@@ -105,14 +143,53 @@ export function ListingImport({
   onPropertyTitleChange,
   keyPoints,
   onKeyPointsChange,
+  intent,
+  onIntentChange,
+  freePrompt,
+  onFreePromptChange,
   onImported,
   onLocked,
   footer,
 }: ListingImportProps) {
   const [error, setError] = useState<string | null>(null);
-  const [sourceTab, setSourceTab] = useState<SourceTab>("link");
+  const [sourceTab, setSourceTab] = useState<SourceTab>("portafoglio");
 
   const [url, setUrl] = useState("");
+
+  /*
+   * Il portafoglio, caricato una volta sola all'apertura.
+   *
+   * `null` significa "sto ancora leggendo", array vuoto "non ne hai": sono
+   * due schermate diverse, e ridurle a un unico stato mostrerebbe "non hai
+   * immobili" per il secondo che serve alla chiamata.
+   */
+  const [immobili, setImmobili] = useState<ImmobileInPortafoglio[] | null>(null);
+  const [immobileScelto, setImmobileScelto] = useState("");
+
+  useEffect(() => {
+    fetch("/api/properties")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((dati) => setImmobili((dati?.properties ?? []) as ImmobileInPortafoglio[]))
+      // Silenzio: la scheda mostra "non hai immobili" e le altre tre restano
+      // utilizzabili. Un errore rosso qui bloccherebbe una pagina che funziona.
+      .catch(() => setImmobili([]));
+  }, []);
+
+  /**
+   * Riempie titolo e note dai dati della scheda immobile.
+   *
+   * Scrive negli STESSI due campi che compilano le altre schede: il
+   * generatore non sa da dove arrivano, e non deve saperlo.
+   */
+  function scegliImmobile(id: string) {
+    setImmobileScelto(id);
+    const immobile = immobili?.find((i) => i.id === id);
+    if (!immobile) return;
+
+    const composto = composePortfolioListing(immobile);
+    onPropertyTitleChange(composto.propertyTitle);
+    onKeyPointsChange(composto.keyPoints);
+  }
   const [isExtracting, setIsExtracting] = useState(false);
 
   /** Serve a portare il cursore nel riquadro quando il portale blocca il link. */
@@ -159,7 +236,7 @@ export function ListingImport({
         // Il messaggio rimanda al riquadro del testo: passare a quella
         // scheda e portarci il cursore trasforma un'istruzione in un gesto
         // già iniziato, invece di un rimando che l'agente deve interpretare.
-        setSourceTab("text");
+        setSourceTab("esistente");
         textareaRef.current?.focus();
         return;
       }
@@ -217,8 +294,103 @@ export function ListingImport({
         ))}
       </div>
 
-      {/* --- Da link --- */}
-      <div className={cn("mt-4", sourceTab === "link" ? undefined : "hidden")}>
+      {/* --- Da portafoglio --- */}
+      <div className={cn("mt-4 space-y-3", sourceTab === "portafoglio" ? undefined : "hidden")}>
+        <div>
+          <label
+            htmlFor="pf-immobile"
+            className="flex items-center gap-1 text-xs font-medium text-foreground"
+          >
+            Scegli un immobile già in portafoglio
+            <InfoTip label="Prende i dati dalla scheda dell'immobile — tipologia, zona, prezzo, metratura, locali, classe energetica — e li usa come note per la generazione. Ti risparmia di riscriverli, e non inventa i campi che in scheda sono vuoti." />
+          </label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Prende dalla scheda tipologia, zona, prezzo, metratura e caratteristiche: non devi
+            riscriverli. È la strada più rapida quando l&apos;immobile è già tuo.
+          </p>
+        </div>
+
+        {immobili === null ? (
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Caricamento del portafoglio…
+          </p>
+        ) : immobili.length === 0 ? (
+          <p className="rounded-lg border border-border bg-muted/30 px-3 py-3 text-xs text-muted-foreground">
+            Non hai ancora immobili in portafoglio. Usa una delle altre schede, oppure salvane uno
+            da Portafoglio Immobili.
+          </p>
+        ) : (
+          <>
+            <select
+              id="pf-immobile"
+              value={immobileScelto}
+              onChange={(e) => scegliImmobile(e.target.value)}
+              className="input-field h-11 w-full bg-card text-base sm:h-10 sm:text-sm"
+            >
+              <option value="">— Seleziona —</option>
+              {immobili.map((imm) => (
+                <option key={imm.id} value={imm.id}>
+                  {imm.reference} · {imm.title}
+                </option>
+              ))}
+            </select>
+            {immobileScelto && (
+              <p className="text-xs text-muted-foreground">
+                Dati caricati nelle note. Scegli il tono qui sotto e premi Genera.
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* --- Prompt libero --- */}
+      <div className={cn("mt-4 space-y-3", sourceTab === "prompt" ? undefined : "hidden")}>
+        <div>
+          <label
+            htmlFor="pf-prompt"
+            className="flex items-center gap-1 text-xs font-medium text-foreground"
+          >
+            Scrivi tu l&apos;istruzione
+            <InfoTip label="Descrivi taglio e immobile in una frase. L'istruzione dice all'AI COME scrivere, non le fornisce fatti nuovi: se chiedi di citare una caratteristica che non hai indicato, quella parte viene ignorata." />
+          </label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Per chi sa già cosa vuole. Descrivi il taglio e l&apos;immobile in una frase:
+            l&apos;AI userà solo quello che scrivi qui, senza aggiungere dati che non hai dato.
+          </p>
+        </div>
+
+        <textarea
+          id="pf-prompt"
+          value={freePrompt}
+          onChange={(e) => onFreePromptChange(e.target.value)}
+          rows={4}
+          placeholder="Es. Scrivi un post ironico per le storie IG su un attico con terrazzo a Vignola"
+          className="input-field bg-card"
+        />
+
+        {/* I suggerimenti si SOMMANO al testo invece di sostituirlo: se ne
+            usano due insieme, ed e' il caso normale ("tono emozionale" +
+            "evidenzia il ribasso"). */}
+        <div className="flex flex-wrap gap-1.5">
+          {QUICK_CHIPS.map((chip) => (
+            <button
+              key={chip}
+              type="button"
+              onClick={() =>
+                onFreePromptChange(freePrompt.trim() ? `${freePrompt.trim()}. ${chip}` : chip)
+              }
+              className="inline-flex h-11 items-center gap-1 rounded-full border border-border px-3 text-[11px] font-medium text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:text-foreground sm:h-8"
+            >
+              + {chip}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* --- Da link o testo --- */}
+      <div className={cn("mt-4 space-y-4", sourceTab === "esistente" ? undefined : "hidden")}>
+        <div>
         <label htmlFor="listing-url" className="block text-xs font-medium text-foreground">
           Incolla il link dell&apos;annuncio
         </label>
@@ -252,12 +424,11 @@ export function ListingImport({
           Ideale per il sito della tua agenzia, i portali locali, il gestionale e le pagine che si
           caricano da sole. <span className="font-medium text-foreground">Immobiliare.it e
           Idealista</span> respingono le letture automatiche: per quei due usa direttamente la
-          scheda <span className="font-medium text-foreground">«Testo Esistente»</span> qui sopra.
+          casella di testo qui sotto, che funziona sempre.
         </p>
-      </div>
+        </div>
 
-      {/* --- Da testo --- */}
-      <div className={cn("mt-4", sourceTab === "text" ? undefined : "hidden")}>
+        <div>
         <label htmlFor="listing-text" className="block text-xs font-medium text-foreground">
           Incolla il testo dell&apos;annuncio
         </label>
@@ -276,6 +447,50 @@ export function ListingImport({
           essenziali: tipologia, metratura, zona, prezzo e caratteristiche. L&apos;AI userà solo
           ciò che è scritto, senza inventare nulla.
         </p>
+        </div>
+
+        {/* Il selettore di intento.
+
+            Lo stesso annuncio incollato va trattato in tre modi diversi a
+            seconda di cosa se ne vuole fare, e l'agente lo sa gia' mentre
+            incolla: chiederglielo qui costa un clic e cambia il risultato piu'
+            di qualunque aggiustamento del tono. */}
+        <fieldset>
+          <legend className="flex items-center gap-1 text-xs font-medium text-foreground">
+            Cosa vuoi ottenere
+            <InfoTip label="Lo stesso annuncio va trattato in modo diverso a seconda dello scopo: sintetizzarlo per i social, ripulirlo se viene da un privato, o riproporlo se è fermo da tempo. Nessuna delle tre aggiunge dati che il testo non contiene." />
+          </legend>
+          <div className="mt-1.5 space-y-1.5">
+            {GENERATION_INTENTS.map((id) => (
+              <label
+                key={id}
+                className={cn(
+                  "flex cursor-pointer items-start gap-2 rounded-lg border p-2.5 transition-colors duration-200",
+                  intent === id
+                    ? "border-primary/40 bg-primary/5"
+                    : "border-border hover:bg-muted/50"
+                )}
+              >
+                <input
+                  type="radio"
+                  name="intento"
+                  value={id}
+                  checked={intent === id}
+                  onChange={() => onIntentChange(id)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[color:var(--primary)]"
+                />
+                <span className="min-w-0">
+                  <span className="block text-xs font-medium text-foreground">
+                    {INTENT_LABELS[id]}
+                  </span>
+                  <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
+                    {INTENT_HINTS[id]}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
       </div>
 
       {/* --- Crea da zero --- */}

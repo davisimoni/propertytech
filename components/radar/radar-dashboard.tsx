@@ -4,6 +4,7 @@ import { AlertTriangle, ListChecks, ShieldCheck, TrendingUp } from "lucide-react
 import type { RadarItem } from "@/components/radar/radar-board";
 import { RISK_CLASSES, RISK_LABELS } from "@/lib/radar/risk";
 import { computeRoi } from "@/lib/radar/roi";
+import { InfoTip } from "@/components/shared/info-tip";
 import { cn } from "@/lib/utils";
 
 /**
@@ -54,6 +55,7 @@ export function RadarDashboard({ item }: { item: RadarItem }) {
       <Riquadro
         icona={ShieldCheck}
         titolo="Rischio e complessità"
+        spiegazione="Semaforo calcolato dal codice con criteri dichiarati, non dal modello: pesa stato occupazionale, difformità, vincoli e costo di sanatoria sul valore. Nel dubbio resta giallo, che significa 'da verificare di persona' e mai 'via libera'."
         nota={
           pronta
             ? `${analisi.riskReasons.length} ${analisi.riskReasons.length === 1 ? "criterio" : "criteri"} valutati`
@@ -88,6 +90,7 @@ export function RadarDashboard({ item }: { item: RadarItem }) {
       <Riquadro
         icona={TrendingUp}
         titolo="Margine stimato"
+        spiegazione="Valore di mercato meno il capitale investito (offerta minima + imposte + sanatoria). Usa gli stessi numeri del simulatore, quindi cambia quando li correggi lì. Due dei valori di partenza sono ipotesi nostre dichiarate — imposte al 9%, resa locativa al 5% — non dati della perizia."
         nota={
           conti.flipMarginEur === null
             ? "Manca il valore di mercato"
@@ -118,6 +121,7 @@ export function RadarDashboard({ item }: { item: RadarItem }) {
       <Riquadro
         icona={ListChecks}
         titolo="Sintesi della perizia"
+        spiegazione="Punti ricavati dalla perizia dall'AI, ordinati dal fatto più rilevante. Riportano ciò che il documento dice, non le conclusioni del perito: non sostituiscono la lettura integrale né il sopralluogo."
         nota={pronta ? "Generata dall'AI, da verificare" : "Serve la perizia"}
       >
         {pronta && (punti || analisi.summary) ? (
@@ -153,11 +157,13 @@ function Riquadro({
   icona: Icona,
   titolo,
   nota,
+  spiegazione,
   children,
 }: {
   icona: typeof ShieldCheck;
   titolo: string;
   nota: string;
+  spiegazione: string;
   children: React.ReactNode;
 }) {
   return (
@@ -165,6 +171,7 @@ function Riquadro({
       <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         <Icona className="h-3.5 w-3.5" />
         {titolo}
+        <InfoTip label={spiegazione} />
       </p>
       <div className="mt-2">{children}</div>
       <p className="mt-2 text-[11px] leading-snug text-muted-foreground">{nota}</p>

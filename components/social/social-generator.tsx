@@ -7,6 +7,7 @@ import { ShareActions } from "@/components/shared/share-actions";
 import { ListingImport, type ImportedListingView } from "@/components/social/listing-import";
 import { PropertyExportPanel } from "@/components/social/property-export-panel";
 import { PublishButton } from "@/components/social/publish-button";
+import type { GenerationIntent } from "@/lib/ai/social-schema";
 import { MediaAttachments } from "@/components/social/media-attachments";
 import { JobPaywallError, useJobs } from "@/components/jobs/job-provider";
 import { AiDisclaimer } from "@/components/shared/ai-disclaimer";
@@ -57,6 +58,9 @@ export function SocialGenerator() {
   const [keyPoints, setKeyPoints] = useState("");
   const [rawText, setRawText] = useState("");
   const [tone, setTone] = useState<ToneOfVoice>("professionale");
+  /** Cosa farne del testo incollato. `social` e' il caso di gran lunga piu' frequente. */
+  const [intent, setIntent] = useState<GenerationIntent>("social");
+  const [freePrompt, setFreePrompt] = useState("");
   const [activeTab, setActiveTab] = useState<TabId>("portal");
 
   /*
@@ -104,7 +108,9 @@ export function SocialGenerator() {
             ...(propertyTitle.trim() ? { propertyTitle: propertyTitle.trim() } : {}),
             ...(keyPoints.trim() ? { keyPoints: keyPoints.trim() } : {}),
             ...(rawText.trim() ? { rawText: rawText.trim() } : {}),
+            ...(freePrompt.trim() ? { freePrompt: freePrompt.trim() } : {}),
             tone,
+            intent,
           }),
         });
 
@@ -213,7 +219,14 @@ export function SocialGenerator() {
    */
   const hasFields = propertyTitle.trim().length >= 3 && keyPoints.trim().length >= 10;
   const hasRawText = rawText.trim().length >= 30;
-  const canGenerate = hasFields || hasRawText;
+  /*
+   * L'istruzione libera basta da sola.
+   *
+   * E' la terza scheda: chi scrive "post ironico su un attico a Vignola" non
+   * ha ne' note ne' testo incollato, e senza questa condizione il pulsante
+   * Genera resterebbe spento davanti a un modulo compilato.
+   */
+  const canGenerate = hasFields || hasRawText || freePrompt.trim().length >= 10;
 
   return (
     <div className="space-y-6">
@@ -234,7 +247,11 @@ export function SocialGenerator() {
           if (job?.status === "error") clearJob("social");
         }}
         onLocked={() => setLockedFromImport("Enterprise")}
-        footer={
+        intent={intent}
+          onIntentChange={setIntent}
+          freePrompt={freePrompt}
+          onFreePromptChange={setFreePrompt}
+          footer={
           <div className="space-y-4">
             <div>
               <span className="text-xs font-medium text-muted-foreground">Tono di voce</span>
