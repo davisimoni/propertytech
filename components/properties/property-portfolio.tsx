@@ -10,7 +10,7 @@ import type {
   PropertyStatus,
   PropertyType,
 } from "@prisma/client";
-import { Building2, ChevronDown, FileCode2, FolderOpen, History, ImageOff, Loader2, Pencil, Phone, Plus, Sparkles, UserRound } from "lucide-react";
+import { Building2, ChevronDown, FileCode2, FolderOpen, History, ImageOff, Loader2, Pencil, Phone, Plus, Sparkles, Upload, UserRound } from "lucide-react";
 import { DocumentVault } from "@/components/documents/document-vault";
 import {
   CONTRACT_LABELS,
@@ -22,6 +22,7 @@ import { PERFECT_MATCH_THRESHOLD, matchLabel } from "@/lib/matching/smart-match"
 import { GenerationHistory } from "@/components/history/generation-history";
 import { PortalFeedPanel } from "@/components/properties/portal-feed-panel";
 import { PropertyEditDialog } from "@/components/properties/property-edit-dialog";
+import { PropertyImportDialog } from "@/components/properties/property-import-dialog";
 import { PropertyImagesEditor } from "@/components/properties/property-images-editor";
 import { PropertyStatusSelect } from "@/components/properties/property-status-select";
 import { MandateBadge } from "@/components/properties/mandate-badge";
@@ -84,6 +85,7 @@ export function PropertyPortfolio({ currentRole }: { currentRole: UserRole }) {
   const [openHistoryId, setOpenHistoryId] = useState<string | null>(null);
   const [editing, setEditing] = useState<PropertyView | null>(null);
   const [creando, setCreando] = useState(false);
+  const [importando, setImportando] = useState(false);
   /*
    * Una scheda aperta per volta.
    *
@@ -185,6 +187,12 @@ export function PropertyPortfolio({ currentRole }: { currentRole: UserRole }) {
             <Plus className="h-4 w-4" />
             Inserisci a mano
           </button>
+          {/* Chi arriva con un portafoglio gia' in Excel non deve ricopiarlo
+              scheda per scheda: lo carica una volta sola. */}
+          <button type="button" onClick={() => setImportando(true)} className="btn-outline">
+            <Upload className="h-4 w-4" />
+            Importa da CSV
+          </button>
         </div>
 
         {creando && (
@@ -193,6 +201,12 @@ export function PropertyPortfolio({ currentRole }: { currentRole: UserRole }) {
             onClose={() => setCreando(false)}
             onSaved={() => {}}
             onCreated={() => void caricaPortafoglio()}
+          />
+        )}
+        {importando && (
+          <PropertyImportDialog
+            onClose={() => setImportando(false)}
+            onImported={() => void caricaPortafoglio()}
           />
         )}
       </section>
@@ -238,6 +252,10 @@ export function PropertyPortfolio({ currentRole }: { currentRole: UserRole }) {
             <FileCode2 className="h-3.5 w-3.5" />
             Scarica feed XML completo
           </a>
+          <button type="button" onClick={() => setImportando(true)} className="btn-outline text-xs">
+            <Upload className="h-3.5 w-3.5" />
+            Importa da CSV
+          </button>
           {/* Azione primaria a destra, accanto all'export.
 
               Sta qui e non solo nello stato vuoto perche' un immobile si
@@ -543,6 +561,13 @@ export function PropertyPortfolio({ currentRole }: { currentRole: UserRole }) {
           onSaved={() => {}}
           onCreated={() => void caricaPortafoglio()}
           riferimentiEsistenti={properties.map((property) => property.reference)}
+        />
+      )}
+
+      {importando && (
+        <PropertyImportDialog
+          onClose={() => setImportando(false)}
+          onImported={() => void caricaPortafoglio()}
         />
       )}
     </div>
