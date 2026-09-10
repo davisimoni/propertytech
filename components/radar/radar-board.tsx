@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import { ArchiveRestore, ArrowDown, Gavel, Loader2, Map as MapIcon, Plus, Radar, Table2, TrendingDown, Users } from "lucide-react";
+import { ArchiveRestore, ArrowDown, FileDown, Gavel, Loader2, Map as MapIcon, Plus, Radar, Table2, TrendingDown, Users } from "lucide-react";
 import { PROPERTY_TYPE_LABELS } from "@/lib/listings/property-fields";
 import { RISK_CLASSES, RISK_LABELS, OCCUPANCY_LABELS } from "@/lib/radar/risk";
 import { RadarDrawer } from "./radar-drawer";
@@ -322,6 +322,17 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
               </button>
             ))}
           </div>
+
+        {/* Il CSV rispetta la vista aperta: da "Attive" esporta le attive,
+            da "Archiviate" quelle. Chi lo scarica vuole ciò che sta
+            guardando, non doverlo rifiltrare in Excel. */}
+        <a
+          href={`/api/radar/export${vistaArchivio ? "?archived=only" : ""}`}
+          className="inline-flex h-11 items-center sm:h-9 gap-1.5 rounded-lg border border-border px-3 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+        >
+          <FileDown className="h-3.5 w-3.5" />
+          Esporta CSV
+        </a>
 
         <button
           type="button"
