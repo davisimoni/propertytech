@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { SlotManager } from "@/components/calendar/slot-manager";
 import { ExternalCalendarSync } from "@/components/calendar/external-calendar-sync";
+import { InfoTip } from "@/components/shared/info-tip";
 
 export default function CalendarSettingsPage() {
   return (
@@ -15,10 +16,14 @@ export default function CalendarSettingsPage() {
           <ArrowLeft className="h-3.5 w-3.5" />
           Impostazioni &amp; Piano
         </Link>
-        <h1 className="mt-2 text-xl font-semibold text-foreground">Agende &amp; Disponibilità</h1>
+        <h1 className="mt-2 flex items-center gap-1.5 text-xl font-semibold text-foreground">
+          Agende &amp; Disponibilità
+          <InfoTip label="Qui configuri le fasce in cui i tuoi agenti possono far visitare gli immobili. L'assistente WhatsApp le propone da solo ai lead che ha qualificato e riporta l'appuntamento già fissato, senza che tu debba rispondere." />
+        </h1>
         <p className="text-sm text-muted-foreground">
           Inserisci gli slot di disponibilità dei tuoi agenti per le visite. Gli slot liberi vengono
-          proposti automaticamente dall&apos;assistente WhatsApp ai lead qualificati.
+          proposti automaticamente dall&apos;assistente WhatsApp ai lead qualificati: puoi aprirli
+          uno per volta oppure a settimane intere con la ricorrenza.
         </p>
       </div>
 
