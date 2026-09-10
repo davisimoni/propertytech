@@ -42,6 +42,10 @@ La valutazione del rischio la calcola il software da questi fatti, con criteri p
 Riporta i fatti citando i valori e le espressioni della perizia. Se il perito scrive che una difformità non è sanabile, riportalo con quelle parole: è la distinzione che pesa di più.
 Fra i gravami elenca ciò che RESTA a carico dell'aggiudicatario. Se la perizia precisa che un'iscrizione verrà cancellata con il decreto di trasferimento, non elencarla.
 
+# Modalità di vendita e cauzione
+- SENZA_INCANTO (offerte in busta chiusa, riferimento normativo art. 571 e ss. c.p.c.) è la procedura di gran lunga più diffusa oggi: se il documento non lo specifica esplicitamente, NON presumerla. Usa CON_INCANTO solo se il documento nomina davvero una gara con rilancio in udienza.
+- La percentuale di cauzione compare spesso nell'avviso di vendita, non nella perizia: se non la trovi, null. Se il documento indica un importo fisso invece di una percentuale, calcola tu la percentuale solo se riporta anche il prezzo a cui si riferisce; altrimenti null.
+
 # Importi
 In euro interi, senza separatori. Se il perito fornisce un intervallo di costo, usa i due estremi. Se non stima nulla, null: non inventare una cifra plausibile.
 

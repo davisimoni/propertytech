@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, FileUp, Loader2, ShieldCheck } from "lucide-react";
-import { OCCUPANCY_LABELS, RISK_CLASSES, RISK_LABELS } from "@/lib/radar/risk";
+import { OCCUPANCY_LABELS, RISK_CLASSES, RISK_LABELS, SALE_TYPE_LABELS } from "@/lib/radar/risk";
 import { AI_DISCLAIMER } from "@/lib/compliance";
 import { UpgradeLimitModal } from "@/components/billing/upgrade-limit-modal";
 import { cn } from "@/lib/utils";
-import type { AppraisalStatus, OccupancyStatus, RiskLevel } from "@prisma/client";
+import type { AppraisalStatus, OccupancyStatus, RiskLevel, SaleType } from "@prisma/client";
 
 interface Appraisal {
   id: string;
@@ -19,6 +19,8 @@ interface Appraisal {
   encumbrances: string[];
   remediationCostMinEur: number | null;
   remediationCostMaxEur: number | null;
+  saleType: SaleType;
+  depositPct: number | null;
   summary: string | null;
   pageRange: string | null;
 }
@@ -202,6 +204,16 @@ export function AppraisalPanel({
             <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
               {OCCUPANCY_LABELS[appraisal.occupancy]}
             </span>
+            {appraisal.saleType !== "NON_DETERMINATO" && (
+              <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+                {SALE_TYPE_LABELS[appraisal.saleType]}
+              </span>
+            )}
+            {appraisal.depositPct !== null && (
+              <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+                Cauzione {appraisal.depositPct}%
+              </span>
+            )}
             {appraisal.pageRange && (
               <span className="text-xs text-muted-foreground">
                 analisi limitata alle pagine {appraisal.pageRange}
@@ -236,7 +248,7 @@ export function AppraisalPanel({
             </div>
           )}
 
-          <Elenco titolo="Difformità rilevate" voci={appraisal.irregularities} />
+          <Elenco titolo="Difformità rilevate" voci={appraisal.irregularities} evidenziaNonSanabili />
           <Elenco titolo="Vincoli e gravami" voci={appraisal.encumbrances} />
 
           {(appraisal.remediationCostMinEur !== null || appraisal.remediationCostMaxEur !== null) && (
@@ -265,7 +277,27 @@ export function AppraisalPanel({
   );
 }
 
-function Elenco({ titolo, voci }: { titolo: string; voci: string[] }) {
+/**
+ * Riconosce una difformità che il perito dichiara non sanabile.
+ *
+ * Il modello scrive la parola cosi' com'è in perizia (vedi il prompt in
+ * `auction-schema.ts`): un confronto testuale basta, e resta più onesto di
+ * un campo strutturato che finirebbe per dedurre ciò che il perito non dice.
+ */
+function nonSanabile(voce: string): boolean {
+  return /non\s+(?:è|e'|e)?\s*sanabil/i.test(voce);
+}
+
+function Elenco({
+  titolo,
+  voci,
+  evidenziaNonSanabili,
+}: {
+  titolo: string;
+  voci: string[];
+  /** Solo per le difformità: le non sanabili pesano sul semaforo, il resto è solo da annotare. */
+  evidenziaNonSanabili?: boolean;
+}) {
   if (voci.length === 0) return null;
 
   return (
@@ -274,12 +306,25 @@ function Elenco({ titolo, voci }: { titolo: string; voci: string[] }) {
         {titolo}
       </h4>
       <ul className="mt-1.5 space-y-1.5">
-        {voci.map((voce) => (
-          <li key={voce} className="flex items-start gap-2 text-sm leading-relaxed text-foreground">
-            <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-muted-foreground" />
-            {voce}
-          </li>
-        ))}
+        {voci.map((voce) => {
+          const grave = evidenziaNonSanabili && nonSanabile(voce);
+          return (
+            <li
+              key={voce}
+              className={cn(
+                "flex items-start gap-2 text-sm leading-relaxed",
+                grave ? "font-medium text-status-blocked" : "text-foreground"
+              )}
+            >
+              {grave ? (
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              ) : (
+                <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-muted-foreground" />
+              )}
+              {voce}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

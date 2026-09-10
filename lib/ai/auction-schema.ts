@@ -141,6 +141,19 @@ export const auctionAppraisalSchema = z.object({
       "Identificativo del lotto come lo chiama la perizia (es. 'Lotto 1', 'Lotto unico'). null se il documento non lo numera."
     ),
 
+  saleType: z
+    .enum(["SENZA_INCANTO", "CON_INCANTO", "NON_DETERMINATO"])
+    .describe(
+      "Modalità di vendita giudiziaria. SENZA_INCANTO: offerte in busta chiusa, e' la procedura oggi piu' comune (art. 571 e ss. c.p.c.). CON_INCANTO: gara con rilancio in udienza, oggi rara. NON_DETERMINATO se il documento non lo specifica: non dedurlo dal tipo di procedura in generale, deve essere scritto."
+    ),
+
+  depositPct: z
+    .number()
+    .nullable()
+    .describe(
+      "Percentuale della cauzione/deposito richiesto per partecipare alla vendita, rispetto al prezzo offerto (es. 10 per il 10%, il valore piu' frequente). null se la perizia o l'avviso non la indicano: spesso e' l'avviso di vendita a riportarla, non la perizia."
+    ),
+
   summary: z
     .string()
     .describe(

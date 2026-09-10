@@ -1,4 +1,4 @@
-import type { OccupancyStatus, RiskLevel } from "@prisma/client";
+import type { OccupancyStatus, RiskLevel, SaleType } from "@prisma/client";
 
 /**
  * Semaforo di rischio di un lotto all'asta.
@@ -145,4 +145,10 @@ export const OCCUPANCY_LABELS: Record<OccupancyStatus, string> = {
   OCCUPATO_CON_TITOLO: "Occupato con titolo",
   OCCUPATO_SENZA_TITOLO: "Occupato senza titolo",
   NON_DETERMINATO: "Non determinato",
+};
+
+export const SALE_TYPE_LABELS: Record<SaleType, string> = {
+  SENZA_INCANTO: "Senza incanto",
+  CON_INCANTO: "Con incanto",
+  NON_DETERMINATO: "Modalità non specificata",
 };

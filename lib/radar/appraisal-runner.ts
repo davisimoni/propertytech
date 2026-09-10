@@ -72,6 +72,8 @@ export async function runAppraisal(params: {
         encumbrances: fatti.encumbrances,
         remediationCostMinEur: fatti.remediationCostMinEur,
         remediationCostMaxEur: fatti.remediationCostMaxEur,
+        saleType: fatti.saleType,
+        depositPct: fatti.depositPct,
         summary: fatti.summary,
         summaryPoints: fatti.summaryPoints,
         risk: verdetto.risk,

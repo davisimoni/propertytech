@@ -248,6 +248,14 @@ export function RadarDetail({
             <span className="text-xs text-muted-foreground">
               {item.kind === "ASTA" ? "offerta minima" : "prezzo attuale"}
             </span>
+            {/* Il valore di stima e' quello che il perito attribuisce
+                all'immobile, non il prezzo base d'asta: sono due numeri
+                diversi e vanno letti insieme, non uno al posto dell'altro. */}
+            {item.kind === "ASTA" && item.basePriceEur !== null && (
+              <span className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground">
+                Valore di stima {euro(item.basePriceEur)} €
+              </span>
+            )}
             {pronta && item.appraisal && (
               <span
                 className={cn(

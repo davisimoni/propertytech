@@ -28,6 +28,7 @@ Garage, cantine e posti auto sono di norma subalterni distinti sulla stessa part
 
 # Criticità
 In "criticita" segnala ciò che merita attenzione: incongruenze fra dati (superficie catastale diversa da quella dichiarata, intestatari catastali diversi dai soggetti dell'atto), ipoteche, pignoramenti, domande giudiziali, sanatorie, condoni, assenza di agibilità, diritti reali che limitano la vendita.
+Su un'ispezione ipotecaria o un atto di provenienza, verifica anche la CONTINUITÀ DELLE TRASCRIZIONI (art. 2650 c.c.): ogni passaggio di proprietà deve risultare trascritto a partire da un dante causa già trascritto, senza salti nella catena. Un salto rende il titolo dell'attuale intestatario non opponibile ai terzi, anche se l'atto in sé è valido: segnalalo sempre come criticità di livello "alta", citando i passaggi e le date che risultano dal documento.
 Descrivi il FATTO rilevato citando i valori del documento. NON esprimere valutazioni legali, non concludere se l'immobile sia vendibile o commerciabile, non consigliare azioni legali: quella è responsabilità del professionista, e un giudizio sbagliato qui costerebbe caro all'agenzia. Se non emerge nulla, lascia l'array vuoto anziché forzare un rilievo.
 
 # Regole generali

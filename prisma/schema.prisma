@@ -1682,6 +1682,16 @@ enum AuctionStatus {
   AGGIUDICATA
 }
 
+/// Modalità di vendita giudiziaria letta dalla perizia. Senza incanto (buste
+/// chiuse) è oggi la procedura di gran lunga più comune; con incanto (gara in
+/// udienza) è residuale. `NON_DETERMINATO` quando il documento non lo dice:
+/// va scritto esplicitamente, non dedotto.
+enum SaleType {
+  SENZA_INCANTO
+  CON_INCANTO
+  NON_DETERMINATO
+}
+
 enum AppraisalStatus {
   IN_ANALISI
   PRONTA
@@ -1832,6 +1842,11 @@ model AuctionAppraisal {
 
   remediationCostMinEur Int?
   remediationCostMaxEur Int?
+
+  saleType SaleType @default(NON_DETERMINATO)
+  /// Cauzione richiesta per partecipare, in percentuale sul prezzo offerto
+  /// (es. 10 = 10%). `null` quando né perizia né avviso la riportano.
+  depositPct Float?
 
   summary String?
 

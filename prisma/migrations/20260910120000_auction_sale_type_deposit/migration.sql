@@ -1,0 +1,6 @@
+-- CreateEnum
+CREATE TYPE "SaleType" AS ENUM ('SENZA_INCANTO', 'CON_INCANTO', 'NON_DETERMINATO');
+
+-- AlterTable
+ALTER TABLE "AuctionAppraisal" ADD COLUMN     "depositPct" DOUBLE PRECISION,
+ADD COLUMN     "saleType" "SaleType" NOT NULL DEFAULT 'NON_DETERMINATO';

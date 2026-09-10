@@ -9,6 +9,7 @@ import {
   Columns3,
   Crown,
   Eye,
+  Flame,
   Home,
   Loader2,
   RefreshCw,
@@ -39,6 +40,13 @@ import {
   portfolioBadgeLabel,
   SELLER_CATEGORY_LABELS,
 } from "@/lib/whatsapp/portfolio";
+import {
+  computeLeadScore,
+  deriveLeadPriority,
+  leadScoreReasons,
+  LEAD_PRIORITY_CLASSES,
+  LEAD_PRIORITY_LABELS,
+} from "@/lib/whatsapp/priority";
 import { ChatSlideOver } from "./chat-slide-over";
 import { cn } from "@/lib/utils";
 
@@ -106,6 +114,34 @@ function PortfolioBadge({ count }: { count: number | null }) {
       {gold ? <Crown className="h-3 w-3" /> : <Home className="h-3 w-3" />}
       {label}
       <span className="sr-only">{description}</span>
+    </span>
+  );
+}
+
+/**
+ * Punteggio di priorità, accanto agli altri badge.
+ *
+ * Solo "Alta" mostra la fiamma: è il segnale che deve saltare all'occhio
+ * scorrendo la lista la sera, quando si sceglie chi richiamare per primo.
+ * Media e bassa restano un'etichetta discreta, non un'urgenza.
+ */
+function PriorityBadge({ lead }: { lead: LeadView }) {
+  const score = computeLeadScore(lead);
+  const priorita = deriveLeadPriority(score);
+  if (!priorita) return null;
+
+  const motivi = leadScoreReasons(lead);
+
+  return (
+    <span
+      title={`${LEAD_PRIORITY_LABELS[priorita]}${motivi.length ? ` · ${motivi.join(", ")}` : ""}`}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-semibold",
+        LEAD_PRIORITY_CLASSES[priorita]
+      )}
+    >
+      {priorita === "ALTA" && <Flame className="h-3 w-3" />}
+      {LEAD_PRIORITY_LABELS[priorita]}
     </span>
   );
 }
@@ -487,6 +523,7 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
                       <span className="truncate">{lead.clientName}</span>
                       <PortfolioBadge count={lead.ownedPropertiesCount} />
                       <IntentBadge intent={lead.intent} />
+                      <PriorityBadge lead={lead} />
                       {lead.pendingMatches.length > 0 && (
                         <span
                           title="Corrispondenza da visura da verificare"
@@ -552,6 +589,7 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
                     </span>
                     <PortfolioBadge count={lead.ownedPropertiesCount} />
                     <IntentBadge intent={lead.intent} />
+                    <PriorityBadge lead={lead} />
                   </div>
                   <span
                     className={cn(
