@@ -13,6 +13,7 @@ import { IntegrationPanel } from "@/components/settings/integration-panel";
 import { ReferralPanel } from "@/components/settings/referral-panel";
 import { TeamPanel } from "@/components/settings/team-panel";
 import { SettingsTabs } from "@/components/settings/settings-tabs";
+import { InfoTip } from "@/components/shared/info-tip";
 import type { PlanId } from "@/lib/plans";
 
 const DATE_FORMAT = new Intl.DateTimeFormat("it-IT", {
@@ -36,7 +37,10 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-foreground">Impostazioni &amp; Piano</h1>
+        <h1 className="flex items-center gap-1.5 text-xl font-semibold text-foreground">
+          Impostazioni &amp; Piano
+          <InfoTip label="Da qui passano le tre cose che fanno funzionare il resto: il piano con i suoi limiti di utilizzo, i dati dell'agenzia che finiscono nei documenti e nei messaggi ai clienti, e i collegamenti verso l'esterno — WhatsApp, agende, gestionale, portali." />
+        </h1>
         <p className="text-sm text-muted-foreground">
           Gestisci il piano della tua agenzia e i limiti di utilizzo.
         </p>

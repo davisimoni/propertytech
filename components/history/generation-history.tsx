@@ -20,6 +20,7 @@ import { downloadText, fileNameFromTitle, outputToText } from "@/lib/history/out
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useToast } from "@/components/shared/toast-provider";
 import { EmptyStateCard } from "@/components/shared/empty-state-card";
+import { SkeletonList } from "@/components/shared/skeleton";
 import { HistoryDetailDrawer } from "./history-detail-drawer";
 
 /** Configurazione dell'empty state ricco, per i quattro moduli principali. */
@@ -162,8 +163,8 @@ export function GenerationHistory({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center rounded-xl border border-border bg-card p-8">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden="true" />
+      <div className="card-surface p-4 md:p-5">
+        <SkeletonList rows={3} label="Caricamento della cronologia" />
       </div>
     );
   }

@@ -10,7 +10,7 @@ import type {
   PropertyStatus,
   PropertyType,
 } from "@prisma/client";
-import { Building2, ChevronDown, FileCode2, FileDown, FolderOpen, History, ImageOff, Loader2, Pencil, Phone, Plus, Sparkles, Upload, UserRound } from "lucide-react";
+import { Building2, ChevronDown, FileCode2, FileDown, FolderOpen, History, ImageOff, Pencil, Phone, Plus, Sparkles, Upload, UserRound } from "lucide-react";
 import { DocumentVault } from "@/components/documents/document-vault";
 import {
   CONTRACT_LABELS,
@@ -23,6 +23,7 @@ import { GenerationHistory } from "@/components/history/generation-history";
 import { PortalFeedPanel } from "@/components/properties/portal-feed-panel";
 import { PropertyEditDialog } from "@/components/properties/property-edit-dialog";
 import { PropertyImportDialog } from "@/components/properties/property-import-dialog";
+import { Skeleton, SkeletonList } from "@/components/shared/skeleton";
 import { PropertyImagesEditor } from "@/components/properties/property-images-editor";
 import { PropertyStatusSelect } from "@/components/properties/property-status-select";
 import { MandateBadge } from "@/components/properties/mandate-badge";
@@ -140,8 +141,9 @@ export function PropertyPortfolio({ currentRole }: { currentRole: UserRole }) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center rounded-xl border border-border bg-card p-12">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      <div className="card-surface p-4 md:p-5">
+        <Skeleton className="h-5 w-48" />
+        <SkeletonList rows={3} className="mt-4" label="Caricamento del portafoglio" />
       </div>
     );
   }

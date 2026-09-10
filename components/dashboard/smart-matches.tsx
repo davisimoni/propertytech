@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Loader2, Phone, Sparkles } from "lucide-react";
+import { ArrowRight, Phone, Sparkles } from "lucide-react";
 import { formatPrice } from "@/lib/listings/property-fields";
 import { PERFECT_MATCH_THRESHOLD, matchLabel } from "@/lib/matching/smart-match";
+import { Skeleton, SkeletonList } from "@/components/shared/skeleton";
 import { cn } from "@/lib/utils";
 
 interface DashboardMatch {
@@ -42,8 +43,9 @@ export function SmartMatches() {
 
   if (isLoading) {
     return (
-      <section className="flex items-center justify-center rounded-xl border border-border bg-card p-8">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      <section className="card-surface p-4 md:p-5">
+        <Skeleton className="h-5 w-36" />
+        <SkeletonList rows={2} className="mt-4" label="Caricamento dei match" />
       </section>
     );
   }

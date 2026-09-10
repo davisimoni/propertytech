@@ -7,6 +7,7 @@ import { SmartMatches } from "@/components/dashboard/smart-matches";
 import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
 import { UpcomingAppointments } from "@/components/dashboard/upcoming-appointments";
 import { AgencyNamePrompt } from "@/components/dashboard/agency-name-prompt";
+import { InfoTip } from "@/components/shared/info-tip";
 import { formatTimeSaved, getRoiMetrics, MINUTES_SAVED } from "@/lib/metrics";
 
 /**
@@ -36,7 +37,10 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
+        <h1 className="flex items-center gap-1.5 text-xl font-semibold text-foreground">
+          Dashboard
+          <InfoTip label="Il riepilogo di cosa è successo mentre eri fuori: appuntamenti in arrivo, lead che l'assistente ha qualificato, abbinamenti fra i tuoi immobili e i contatti in pipeline. Le ore risparmiate sono una stima su tempi medi dichiarati, non un dato misurato." />
+        </h1>
         <p className="text-sm text-muted-foreground">
           Cosa ha fatto l&apos;assistente per la tua agenzia mentre eri fuori.
         </p>

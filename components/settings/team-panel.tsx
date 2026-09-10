@@ -7,6 +7,7 @@ import { Check, Clipboard, Crown, Loader2, Trash2, UserPlus, Users, Send } from 
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { UpgradeLimitModal } from "@/components/billing/upgrade-limit-modal";
 import { useToast } from "@/components/shared/toast-provider";
+import { Skeleton, SkeletonList } from "@/components/shared/skeleton";
 import { cn } from "@/lib/utils";
 
 interface Member {
@@ -208,8 +209,9 @@ export function TeamPanel({ currentRole }: { currentRole: UserRole }) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center rounded-xl border border-border bg-card p-8">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      <div className="card-surface p-4 md:p-5">
+        <Skeleton className="h-5 w-40" />
+        <SkeletonList rows={3} className="mt-4" label="Caricamento dei collaboratori" />
       </div>
     );
   }

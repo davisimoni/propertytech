@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { UserRole } from "@prisma/client";
 import { CheckCircle2, Facebook, Instagram, Loader2, Share2, Unlink } from "lucide-react";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useToast } from "@/components/shared/toast-provider";
 import { ToggleSwitch } from "@/components/shared/toggle-switch";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,13 @@ export function SocialConnectPanel({ currentRole }: { currentRole: UserRole }) {
   const [inCorso, setInCorso] = useState(false);
   const [canaleInSalvataggio, setCanaleInSalvataggio] = useState<Canale | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /*
+   * Scollegare non cancella dati, ma non si rimedia con un secondo clic:
+   * ricollegare vuol dire rifare tutto il consenso su facebook.com, scegliere
+   * di nuovo la pagina e ridare i permessi. Troppo per un tasto che sta
+   * accanto agli interruttori di pubblicazione, che invece si premono spesso.
+   */
+  const [confermaScollega, setConfermaScollega] = useState(false);
   const { showToast } = useToast();
 
   const isOwner = currentRole === "OWNER";
@@ -139,6 +147,7 @@ export function SocialConnectPanel({ currentRole }: { currentRole: UserRole }) {
       setError("Errore di rete.");
     } finally {
       setInCorso(false);
+      setConfermaScollega(false);
     }
   }
 
@@ -276,7 +285,7 @@ export function SocialConnectPanel({ currentRole }: { currentRole: UserRole }) {
         <div className="mt-4 border-t border-border pt-3">
           <button
             type="button"
-            onClick={scollega}
+            onClick={() => setConfermaScollega(true)}
             disabled={inCorso}
             className="inline-flex h-11 items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-status-blocked disabled:opacity-50 sm:h-auto"
           >
@@ -288,6 +297,17 @@ export function SocialConnectPanel({ currentRole }: { currentRole: UserRole }) {
             Scollega Account Meta
           </button>
         </div>
+      )}
+
+      {confermaScollega && (
+        <ConfirmDialog
+          title="Scollegare l'account Meta?"
+          description="La pubblicazione su Facebook e Instagram si ferma subito. Per ricollegarlo dovrai rifare il consenso su facebook.com e riselezionare la pagina: non basta premere di nuovo."
+          confirmLabel="Scollega"
+          isWorking={inCorso}
+          onConfirm={() => void scollega()}
+          onCancel={() => setConfermaScollega(false)}
+        />
       )}
     </section>
   );

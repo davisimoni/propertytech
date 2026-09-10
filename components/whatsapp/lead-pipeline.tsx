@@ -11,7 +11,6 @@ import {
   Eye,
   Flame,
   Home,
-  Loader2,
   RefreshCw,
   ShieldQuestion,
   Table2,
@@ -48,6 +47,7 @@ import {
   LEAD_PRIORITY_LABELS,
 } from "@/lib/whatsapp/priority";
 import { ChatSlideOver } from "./chat-slide-over";
+import { SkeletonList } from "@/components/shared/skeleton";
 import { cn } from "@/lib/utils";
 
 type Filter = "ALL" | QualificationStatus;
@@ -451,9 +451,7 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
       )}
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        </div>
+        <SkeletonList rows={5} className="py-4" label="Caricamento dei contatti" />
       ) : leads.length === 0 ? (
         <div className="py-12 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-sm">
