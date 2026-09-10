@@ -3,10 +3,14 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { checkFeatureAccess } from "@/lib/feature-access";
-import { sendWhatsAppMessage, WhatsAppSendError } from "@/lib/whatsapp/client";
+import {
+  hasSendableCredentials,
+  sendWhatsAppMessageForProvider,
+  WhatsAppSendError,
+} from "@/lib/whatsapp/client";
 import { storedReportForSendingSchema } from "@/lib/ai/report-schema";
 import { AI_DISCLAIMER_SHORT } from "@/lib/compliance";
-import { decryptAccessToken } from "@/lib/whatsapp/credentials";
+import { resolveWhatsAppCredentials } from "@/lib/whatsapp/credentials";
 
 const sendSchema = z.object({
   sellerPhone: z.string().min(6).max(20).optional(),
@@ -50,10 +54,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const config = await prisma.whatsAppConfig.findUnique({ where: { organizationId } });
-  // Il token si decifra qui: se non è utilizzabile la connessione va rifatta,
-  // ed è lo stesso esito di una connessione mai configurata.
-  const accessToken = decryptAccessToken(config?.metaAccessToken);
-  if (!config?.isConnected || !accessToken || !config.metaPhoneAccountId) {
+
+  /*
+   * Il controllo passa dal provider configurato, non dalle credenziali Meta.
+   *
+   * Prima qui si pretendevano `metaAccessToken` e `metaPhoneAccountId`: era
+   * l'ultima rotta di invio rimasta indietro rispetto al passaggio multi
+   * provider (conversation.ts, reminders.ts, propose e notify erano gia'
+   * passati a `resolveWhatsAppCredentials`). L'effetto era che un'agenzia
+   * collegata via QR, Twilio o webhook generico vedeva "Connesso" in Qualifica
+   * Lead — quella pagina legge `isConnected`, che tutti e quattro i percorsi
+   * valorizzano — e si sentiva rispondere "WhatsApp non è collegato" appena
+   * provava a mandare un report al proprietario.
+   */
+  const credentials = config ? resolveWhatsAppCredentials(config) : null;
+  if (!config?.isConnected || !credentials || !hasSendableCredentials(credentials)) {
     return NextResponse.json({ error: "whatsapp_not_connected" }, { status: 409 });
   }
 
@@ -70,11 +85,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const messageWithDisclaimer = `${content.data.sellerMessage}\n\n---\n${AI_DISCLAIMER_SHORT}`;
 
   try {
-    await sendWhatsAppMessage(
-      { metaAccessToken: accessToken, metaPhoneAccountId: config.metaPhoneAccountId },
-      sellerPhone,
-      messageWithDisclaimer
-    );
+    await sendWhatsAppMessageForProvider(credentials, sellerPhone, messageWithDisclaimer);
   } catch (error) {
     if (error instanceof WhatsAppSendError) {
       return NextResponse.json({ error: error.code, message: error.message }, { status: 502 });

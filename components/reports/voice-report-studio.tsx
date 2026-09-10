@@ -10,6 +10,7 @@ import { SellerReportDocument } from "@/lib/pdf/seller-report-document";
 import { sellerReportFileName } from "@/lib/pdf/file-name";
 import { DownloadPdfButton } from "@/components/shared/download-pdf-button";
 import { AI_DISCLAIMER_SHORT } from "@/lib/compliance";
+import { truncateForShare, whatsappShareUrl } from "@/lib/share";
 import { AudioRecorder } from "./audio-recorder";
 import { JobPaywallError, useJobs } from "@/components/jobs/job-provider";
 import {
@@ -145,6 +146,14 @@ export function VoiceReportStudio() {
 
   const [isSending, setIsSending] = useState(false);
   const [sent, setSent] = useState(false);
+  /**
+   * L'invio automatico ha rifiutato: si mostra la via manuale via `wa.me`.
+   *
+   * Non parte da subito perché la strada normale è quella automatica, che
+   * registra l'invio sul report e non richiede all'agente di premere "invia"
+   * una seconda volta dentro WhatsApp. Il ripiego compare quando serve.
+   */
+  const [ripiegoManuale, setRipiegoManuale] = useState(false);
   /**
    * Le due 402 non dicono la stessa cosa e non vanno mostrate uguali: a un
    * utente Starter serve sapere che il modulo è di Enterprise, a uno in prova
@@ -295,15 +304,27 @@ export function VoiceReportStudio() {
           return;
         }
 
+        /*
+         * L'invio automatico non e' disponibile: si apre la strada manuale.
+         *
+         * WhatsApp non collegato, oppure il trasporto ha rifiutato: in
+         * entrambi i casi l'agente ha davanti un report finito, un numero e
+         * un proprietario che aspetta. Lasciarlo con un messaggio d'errore
+         * significa fargli ricopiare il testo a mano; `wa.me` gli apre la
+         * chat giusta con il messaggio gia' dentro, e l'invio lo fa lui dal
+         * proprio WhatsApp. Il report non risulta "inviato" — perche' da qui
+         * non possiamo saperlo — e resta segnato come da mandare.
+         */
+        setRipiegoManuale(true);
         setLocalError(
           body.error === "whatsapp_not_connected"
-            ? "WhatsApp non è collegato. Configuralo in Qualifica Lead per inviare il report."
-            : (body.message ?? "Invio non riuscito.")
+            ? "L'invio automatico non è disponibile: WhatsApp non risulta collegato. Puoi mandarlo comunque dal tuo WhatsApp con il pulsante qui sotto."
+            : `${body.message ?? "Invio non riuscito."} Puoi mandarlo dal tuo WhatsApp con il pulsante qui sotto.`
         );
         setToast(
           body.error === "whatsapp_not_connected"
-            ? "WhatsApp non è collegato: configuralo in Qualifica Lead."
-            : "Invio non riuscito. Riprova."
+            ? "Invio automatico non disponibile: usa «Apri in WhatsApp»."
+            : "Invio non riuscito: usa «Apri in WhatsApp»."
         );
         return;
       }
@@ -656,6 +677,10 @@ export function VoiceReportStudio() {
                     e inoltro manuale non devono uscire senza disclaimer. */}
                 <ShareActions
                   text={`${report.sellerMessage}\n\n---\n${AI_DISCLAIMER_SHORT}`}
+                  // Con il numero in scheda il deep link apre direttamente la
+                  // chat del proprietario; senza, WhatsApp fa scegliere il
+                  // contatto come prima.
+                  phone={sellerPhone}
                   copyLabel="Copia Testo"
                   className="shrink-0 print:hidden"
                 />
@@ -763,6 +788,25 @@ export function VoiceReportStudio() {
                 )}
                 {sent ? "Report inviato" : "Invia Report al Proprietario via WhatsApp"}
               </button>
+
+              {/* Ripiego manuale: compare solo dopo che l'invio automatico ha
+                  rifiutato. Apre la chat del proprietario con il messaggio già
+                  dentro — disclaimer compreso, come nell'invio automatico. */}
+              {ripiegoManuale && !sent && (
+                <a
+                  href={whatsappShareUrl(
+                    truncateForShare(`${report.sellerMessage}\n\n---\n${AI_DISCLAIMER_SHORT}`),
+                    sellerPhone
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setToast("Controlla il messaggio e premi invia dentro WhatsApp.")}
+                  className="inline-flex items-center gap-2 rounded-xl border-2 border-status-qualified/50 px-4 py-2 text-sm font-medium text-status-qualified transition-all duration-200 hover:bg-status-qualified/10"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Apri in WhatsApp
+                </a>
+              )}
 
               {/* Il report è già in memoria: il PDF si costruisce da lì, senza
                   tornare al server per rileggere quello che si ha davanti. */}
