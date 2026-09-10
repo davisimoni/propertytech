@@ -8,6 +8,7 @@ import { PROPERTY_TYPE_LABELS } from "@/lib/listings/property-fields";
 import { RISK_CLASSES, RISK_LABELS, OCCUPANCY_LABELS } from "@/lib/radar/risk";
 import { RadarDrawer } from "./radar-drawer";
 import { RadarDetail } from "./radar-detail";
+import { EmptyStateCard } from "@/components/shared/empty-state-card";
 import { AUCTION_STATUS_CLASSES, AUCTION_STATUS_LABELS, RADAR_TAGS } from "@/lib/radar/tags";
 import { AI_DISCLAIMER } from "@/lib/compliance";
 import { cn } from "@/lib/utils";
@@ -480,22 +481,33 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
       )}
 
       {!isLoading && items.length === 0 && !vistaArchivio && (
-        <div className="card-surface p-8 text-center">
-          <Gavel className="mx-auto h-8 w-8 text-muted-foreground" />
-          <p className="mt-3 text-sm font-medium text-foreground">Nessuna opportunità seguita</p>
-          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-            Aggiungi un lotto all&apos;asta o un immobile ribassato, poi carica la perizia: in
-            pochi secondi hai stato occupazionale, difformità e costi stimati di sanatoria.
-          </p>
+        <div className="space-y-3">
+          <EmptyStateCard
+            icon={Gavel}
+            title="Nessuna opportunità seguita"
+            description="Trascina la perizia di un'asta giudiziaria: in pochi secondi hai stato occupazionale, difformità, vincoli e costi stimati di sanatoria, già verificati e pronti da correggere."
+            primaryAction={{
+              label: "Carica la tua prima perizia",
+              icon: Gavel,
+              onClick: () => setDrawer("nuovo"),
+            }}
+            // Nessun "prova con un esempio": il flusso PDF-first apre un
+            // drawer che aspetta un file vero, e il ripiego manuale ha campi
+            // senza valore predefinito, guidati da `defaultValue` e non da
+            // stato — non c'è un punto onesto dove innestare dati finti
+            // senza riscrivere quella logica.
+          />
           {archivedCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setVistaArchivio(true)}
-              className="btn-outline mt-4 text-xs"
-            >
-              <ArchiveRestore className="h-3.5 w-3.5" />
-              Vedi le {archivedCount} archiviate
-            </button>
+            <p className="text-center">
+              <button
+                type="button"
+                onClick={() => setVistaArchivio(true)}
+                className="btn-outline text-xs"
+              >
+                <ArchiveRestore className="h-3.5 w-3.5" />
+                Vedi le {archivedCount} archiviate
+              </button>
+            </p>
           )}
         </div>
       )}

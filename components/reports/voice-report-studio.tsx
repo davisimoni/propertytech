@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type DragEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { Check, ClipboardList, FileAudio, Home, Loader2, MessageCircle, Printer, Send, Sparkles, TriangleAlert, Users, X } from "lucide-react";
 import { UpgradeLimitModal } from "@/components/billing/upgrade-limit-modal";
 import { ShareActions } from "@/components/shared/share-actions";
@@ -18,6 +19,17 @@ import {
 } from "@/lib/ai/report-schema";
 import { REPORT_PROGRESS, ProgressMessages } from "@/components/shared/progress-messages";
 import { cn } from "@/lib/utils";
+
+/**
+ * Nota di esempio per il pulsante "Prova con un esempio" dell'empty state.
+ *
+ * Percorso testuale, non audio: è quello "pienamente funzionante e non
+ * richiede configurazione" a prescindere dal fornitore STT (CLAUDE.md), ed è
+ * l'unico modo di far vedere una generazione vera con un clic solo —
+ * nessuna registrazione da fare, nessun microfono da autorizzare.
+ */
+const NOTA_ESEMPIO =
+  "Visita di oggi con la famiglia Bianchi per il trilocale di via Emilia. Molto colpiti dalla luminosità e dal terrazzo, un po' preoccupati per le spese condominiali che ho detto essere sui 90 euro al mese. Chiedono se il prezzo è trattabile e vorrebbero rivedere l'immobile con un tecnico prima di fare un'offerta. Sentimento generale positivo, direi interessati sul serio.";
 
 type InputMode = "audio" | "text";
 
@@ -68,6 +80,23 @@ export function VoiceReportStudio() {
   const [sellerName, setSellerName] = useState("");
   const [sellerPhone, setSellerPhone] = useState("");
   const [notes, setNotes] = useState("");
+
+  /*
+   * `?demo=1` precompila la nota testuale con un esempio realistico.
+   *
+   * Arriva dal pulsante "Prova con un esempio" dell'empty state, e da qui in
+   * poi non è diverso da una nota scritta a mano: lo stesso pulsante Genera,
+   * lo stesso credito, la stessa AI. Non genera nulla da solo — serve il
+   * clic dell'agente, come ogni altra elaborazione.
+   */
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("demo") !== "1") return;
+    setMode("text");
+    setNotes((corrente) => corrente || NOTA_ESEMPIO);
+    setPropertyRef((corrente) => corrente || "Rif. A102");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   /**
    * Sorgente audio unica, con la sua provenienza.
    *

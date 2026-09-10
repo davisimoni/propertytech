@@ -43,12 +43,15 @@ const SCHEDE_VALIDE = ["portafoglio", "esistente", "prompt", "scratch"] as const
 
 export function SocialGenerator() {
   /*
-   * `?fonte=` per chi arriva da un link diretto (es. il widget "Primi
-   * passi"). Letto una volta sola, non tenuto in stato: non deve seguire
-   * l'agente se naviga fra le schede da solo dopo l'apertura.
+   * `?fonte=` e `?demo=1` per chi arriva da un link diretto (il widget "Primi
+   * passi", o "Prova con un esempio" nell'empty state della Cronologia).
+   * Letti una volta sola, non tenuti in stato: non devono seguire l'agente
+   * se naviga fra le schede da solo dopo l'apertura.
    */
-  const fonteDallaQuery = useSearchParams().get("fonte");
+  const paramsIniziali = useSearchParams();
+  const fonteDallaQuery = paramsIniziali.get("fonte");
   const initialTab = SCHEDE_VALIDE.find((s) => s === fonteDallaQuery);
+  const isDemo = paramsIniziali.get("demo") === "1";
 
   /**
    * Titolo, punti chiave e testo incollato vivono qui e non dentro
@@ -72,7 +75,15 @@ export function SocialGenerator() {
   const [tone, setTone] = useState<ToneOfVoice>("professionale");
   /** Cosa farne del testo incollato. `social` e' il caso di gran lunga piu' frequente. */
   const [intent, setIntent] = useState<GenerationIntent>("social");
-  const [freePrompt, setFreePrompt] = useState("");
+  /*
+   * Con `?demo=1` il prompt nasce già compilato: la stessa istruzione che
+   * l'agente potrebbe scrivere lui, non un risultato finto. Da qui in poi
+   * serve comunque il suo clic su "Genera" — nessuna generazione parte da
+   * sola, e il credito consumato è il suo, non un esempio regalato.
+   */
+  const [freePrompt, setFreePrompt] = useState(() =>
+    isDemo ? "Scrivi un post accattivante per un trilocale in centro, con terrazzo e vista aperta" : ""
+  );
   const [activeTab, setActiveTab] = useState<TabId>("portal");
 
   /*

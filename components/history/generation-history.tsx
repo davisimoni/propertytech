@@ -15,10 +15,23 @@ import {
   type HistoryEntry,
   type HistoryKind,
 } from "@/lib/history/entries";
+import type { LucideIcon } from "lucide-react";
 import { downloadText, fileNameFromTitle, outputToText } from "@/lib/history/output-text";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useToast } from "@/components/shared/toast-provider";
+import { EmptyStateCard } from "@/components/shared/empty-state-card";
 import { HistoryDetailDrawer } from "./history-detail-drawer";
+
+/** Configurazione dell'empty state ricco, per i quattro moduli principali. */
+export interface HistoryEmptyStateConfig {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  primaryLabel: string;
+  onPrimary: () => void;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
+}
 
 /**
  * Cronologia delle elaborazioni, condivisa dai tre moduli.
@@ -35,6 +48,7 @@ interface GenerationHistoryProps {
   /** Limita lo storico a un immobile: usato nella scheda dell'immobile. */
   propertyId?: string;
   emptyHint?: string;
+  emptyState?: HistoryEmptyStateConfig;
 }
 
 const DATE_FORMAT = new Intl.DateTimeFormat("it-IT", {
@@ -50,6 +64,7 @@ export function GenerationHistory({
   reloadKey = 0,
   propertyId,
   emptyHint,
+  emptyState,
 }: GenerationHistoryProps) {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [opened, setOpened] = useState<HistoryEntry | null>(null);
@@ -154,6 +169,26 @@ export function GenerationHistory({
   }
 
   if (entries.length === 0) {
+    // Con una configurazione ricca, la scheda condivisa: icona del modulo,
+    // due righe di valore vero e un pulsante che riporta al lavoro. Senza
+    // (uso scoperto sulla scheda di un immobile, non su uno dei quattro
+    // moduli principali) resta il riquadro minimo che c'era già.
+    if (emptyState) {
+      return (
+        <EmptyStateCard
+          icon={emptyState.icon}
+          title={emptyState.title}
+          description={emptyState.description}
+          primaryAction={{ label: emptyState.primaryLabel, onClick: emptyState.onPrimary }}
+          secondaryAction={
+            emptyState.secondaryLabel && emptyState.onSecondary
+              ? { label: emptyState.secondaryLabel, onClick: emptyState.onSecondary }
+              : undefined
+          }
+        />
+      );
+    }
+
     return (
       <div className="rounded-xl border border-dashed border-border p-8 text-center">
         <HistoryIcon className="mx-auto h-6 w-6 text-muted-foreground" aria-hidden="true" />

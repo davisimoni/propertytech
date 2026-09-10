@@ -2,9 +2,25 @@
 
 import { useState, type ReactNode } from "react";
 import { History, Sparkles } from "lucide-react";
-import { GenerationHistory } from "@/components/history/generation-history";
+import {
+  GenerationHistory,
+  type HistoryEmptyStateConfig,
+} from "@/components/history/generation-history";
 import type { HistoryKind } from "@/lib/history/entries";
 import { cn } from "@/lib/utils";
+
+/**
+ * L'empty state ricco, meno l'azione primaria.
+ *
+ * `onPrimary` non lo fornisce chi chiama `ModuleWithHistory`: è sempre
+ * "torna alla scheda di lavoro", e solo questo componente conosce
+ * `setTab` per farlo. Chiedere a ogni pagina di ricostruirla significherebbe
+ * rischiare che un giorno punti da un'altra parte.
+ */
+export type ModuleEmptyState = Omit<HistoryEmptyStateConfig, "primaryLabel" | "onPrimary"> & {
+  /** Testo del pulsante che torna al lavoro. Di norma coincide con `workLabel`. */
+  primaryLabel?: string;
+};
 
 /**
  * Modulo con due viste: lo strumento e la sua cronologia.
@@ -20,11 +36,13 @@ export function ModuleWithHistory({
   kind,
   workLabel = "Genera",
   emptyHint,
+  emptyState,
   children,
 }: {
   kind: HistoryKind;
   workLabel?: string;
   emptyHint?: string;
+  emptyState?: ModuleEmptyState;
   children: ReactNode;
 }) {
   const [tab, setTab] = useState<"work" | "history">("work");
@@ -49,7 +67,21 @@ export function ModuleWithHistory({
       {/* `hidden` anziché smontaggio: conserva quello che l'agente ha scritto. */}
       <div className={tab === "work" ? undefined : "hidden"}>{children}</div>
 
-      {tab === "history" && <GenerationHistory kind={kind} emptyHint={emptyHint} />}
+      {tab === "history" && (
+        <GenerationHistory
+          kind={kind}
+          emptyHint={emptyHint}
+          emptyState={
+            emptyState
+              ? {
+                  ...emptyState,
+                  primaryLabel: emptyState.primaryLabel ?? workLabel,
+                  onPrimary: () => setTab("work"),
+                }
+              : undefined
+          }
+        />
+      )}
     </div>
   );
 }
