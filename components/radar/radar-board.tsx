@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { ArchiveRestore, ArrowDown, Gavel, Loader2, Map as MapIcon, Plus, Radar, Table2, TrendingDown, Users } from "lucide-react";
 import { PROPERTY_TYPE_LABELS } from "@/lib/listings/property-fields";
@@ -95,6 +96,32 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
   const [drawer, setDrawer] = useState<RadarItem | "nuovo" | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  /*
+   * `?nuovo=perizia` apre subito il drawer di creazione, che parte già sulla
+   * dropzone (`RadarDrawer` predefinisce `modo: "scelta"` per una scheda
+   * nuova — vedi il turno sul flusso PDF-first). Serve al widget "Primi
+   * passi": senza, "Carica la tua prima perizia" atterrerebbe sull'elenco e
+   * l'agente dovrebbe ritrovare da solo il pulsante "Nuova opportunità".
+   *
+   * Il parametro si toglie subito dopo averlo letto, o un ricaricamento
+   * della pagina riaprirebbe il drawer da capo a ogni visita.
+   */
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("nuovo") !== "perizia") return;
+    setDrawer("nuovo");
+
+    const params = new URLSearchParams(searchParams);
+    params.delete("nuovo");
+    const query = params.toString();
+    router.replace(query ? `/radar?${query}` : "/radar", { scroll: false });
+    // Solo al montaggio: `searchParams` e `router` cambiano identità a ogni
+    // navigazione, e rientrare in questo effetto ad ogni cambio riaprirebbe
+    // il drawer che l'agente ha appena chiuso.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [view, setView] = useState<"table" | "map">("table");
   const [filtroTipo, setFiltroTipo] = useState<"TUTTI" | "ASTA" | "RIBASSO">("TUTTI");

@@ -64,7 +64,18 @@ export async function getUsageStats(organizationId: string): Promise<UsageStatsR
   const plan = PLANS[planId];
   const usage = organization?.usageTracker;
 
-  const whatsapp = computeMetric(usage?.whatsappCreditsUsed ?? 0, plan[FEATURE_LIMIT_FIELD.whatsapp]);
+  /*
+   * Il bonus di onboarding si somma al limite del piano, mai al contrario.
+   *
+   * Stessa forma di `maxSeatsFor` per le postazioni: un piano a conteggio
+   * illimitato (`null`) resta illimitato qualunque cosa dica il bonus — non
+   * ha senso sommare un numero a "nessun tetto".
+   */
+  const waLimit =
+    plan.waConversationsLimit === null
+      ? null
+      : plan.waConversationsLimit + (organization?.bonusWhatsappCredits ?? 0);
+  const whatsapp = computeMetric(usage?.whatsappCreditsUsed ?? 0, waLimit);
   const documents = computeMetric(usage?.docCreditsUsed ?? 0, plan[FEATURE_LIMIT_FIELD.documents]);
   const voice = computeMetric(usage?.voiceCreditsUsed ?? 0, plan[FEATURE_LIMIT_FIELD.voice]);
   const radar = computeMetric(usage?.radarCreditsUsed ?? 0, plan[FEATURE_LIMIT_FIELD.radar]);

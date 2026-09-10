@@ -90,13 +90,13 @@ interface ListingImportProps {
   onPropertyTitleChange: (value: string) => void;
   keyPoints: string;
   onKeyPointsChange: (value: string) => void;
-  /** Riempie la scheda di portafoglio coi dati estratti dal link. */
   /** Cosa farne del testo incollato: cambia il prompt, non i fatti. */
   intent: GenerationIntent;
   onIntentChange: (value: GenerationIntent) => void;
   /** Istruzione libera dell'agente, per la scheda "Prompt Libero". */
   freePrompt: string;
   onFreePromptChange: (value: string) => void;
+  /** Riempie la scheda di portafoglio coi dati estratti dal link. */
   onImported: (listing: ImportedListingView) => void;
   onLocked: () => void;
   /**
@@ -109,6 +109,13 @@ interface ListingImportProps {
    * significherebbe tenerne due copie sincronizzate a mano.
    */
   footer?: ReactNode;
+  /**
+   * Scheda da aprire al montaggio, per chi arriva da un link diretto (es. il
+   * widget "Primi passi" che rimanda qui con `?fonte=esistente`). Letta solo
+   * all'apertura: cambiare pagina e tornare non deve far saltare l'agente da
+   * una scheda che ha scelto lui a quella suggerita all'inizio.
+   */
+  initialTab?: SourceTab;
 }
 
 /**
@@ -150,9 +157,10 @@ export function ListingImport({
   onImported,
   onLocked,
   footer,
+  initialTab,
 }: ListingImportProps) {
   const [error, setError] = useState<string | null>(null);
-  const [sourceTab, setSourceTab] = useState<SourceTab>("portafoglio");
+  const [sourceTab, setSourceTab] = useState<SourceTab>(initialTab ?? "portafoglio");
 
   const [url, setUrl] = useState("");
 

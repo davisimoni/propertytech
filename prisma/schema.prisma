@@ -386,6 +386,24 @@ model Organization {
   /// a ogni caricamento di pagina.
   extraSeats Int @default(0)
 
+  /// Conversazioni WhatsApp in più, sommate al limite del piano.
+  ///
+  /// Stessa forma di `extraSeats` — un intero sommato al valore statico di
+  /// `lib/plans.ts` — ma la fonte qui non è Stripe: è il bonus una tantum per
+  /// aver completato l'onboarding. Vive sul canale WhatsApp e non su un altro
+  /// perché è la metrica che ogni piano ha, Trial compreso, quindi è l'unico
+  /// regalo che significa qualcosa per chiunque lo riceva.
+  bonusWhatsappCredits Int @default(0)
+
+  /// Quando il bonus di completamento onboarding è stato assegnato.
+  ///
+  /// `null` finché non è mai successo. È l'unico pezzo di stato di questa
+  /// sezione che non si può derivare da un'altra tabella — "è già stato
+  /// festeggiato" non è un fatto osservabile altrove — quindi è anche
+  /// l'unico che si persiste invece di ricalcolarsi. La guardia impedisce
+  /// che un secondo giro di generazioni assegni il bonus una seconda volta.
+  onboardingBonusGrantedAt DateTime?
+
   socialConnection SocialConnection?
 
   crmWebhookUrl    String?

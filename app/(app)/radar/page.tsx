@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { auth } from "@/auth";
 import { RadarBoard } from "@/components/radar/radar-board";
 
@@ -26,7 +27,11 @@ export default async function RadarPage() {
         </p>
       </div>
 
-      <RadarBoard nomeAgenzia={session?.user?.agencyName ?? "la tua agenzia"} />
+      {/* RadarBoard legge `?nuovo=perizia` per aprire subito la dropzone
+          quando si arriva da un link diretto: serve un confine Suspense. */}
+      <Suspense>
+        <RadarBoard nomeAgenzia={session?.user?.agencyName ?? "la tua agenzia"} />
+      </Suspense>
     </div>
   );
 }

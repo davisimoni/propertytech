@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2, Sparkles } from "lucide-react";
 import { UpgradeLimitModal } from "@/components/billing/upgrade-limit-modal";
 import { ShareActions } from "@/components/shared/share-actions";
@@ -37,7 +38,18 @@ function withDisclaimer(text: string): string {
   return `${text}\n\n---\n${AI_DISCLAIMER_SHORT}`;
 }
 
+/** Le sole schede valide da `?fonte=`: un valore ignoto non deve far esplodere la scelta iniziale. */
+const SCHEDE_VALIDE = ["portafoglio", "esistente", "prompt", "scratch"] as const;
+
 export function SocialGenerator() {
+  /*
+   * `?fonte=` per chi arriva da un link diretto (es. il widget "Primi
+   * passi"). Letto una volta sola, non tenuto in stato: non deve seguire
+   * l'agente se naviga fra le schede da solo dopo l'apertura.
+   */
+  const fonteDallaQuery = useSearchParams().get("fonte");
+  const initialTab = SCHEDE_VALIDE.find((s) => s === fonteDallaQuery);
+
   /**
    * Titolo, punti chiave e testo incollato vivono qui e non dentro
    * `ListingImport`, anche se è lì che si vedono i loro campi: è questo
@@ -237,6 +249,7 @@ export function SocialGenerator() {
         onPropertyTitleChange={setPropertyTitle}
         keyPoints={keyPoints}
         onKeyPointsChange={setKeyPoints}
+        initialTab={initialTab}
         onImported={(listing) => {
           setPropertyTitle(listing.propertyTitle);
           setKeyPoints(listing.keyPoints);

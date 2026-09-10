@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { ModuleWithHistory } from "@/components/history/module-with-history";
 import { SocialGenerator } from "@/components/social/social-generator";
 import { SocialConnectionBadge } from "@/components/social/publish-button";
@@ -19,7 +20,12 @@ export default function SocialPage() {
       </div>
 
       <ModuleWithHistory kind="SOCIAL" workLabel="Genera" emptyHint="Gli annunci e i post che generi restano qui, pronti da ricopiare.">
-        <SocialGenerator />
+        {/* SocialGenerator legge `?fonte=` dalla query per aprire una scheda
+            precisa quando si arriva da un link diretto: serve un confine
+            Suspense, stesso motivo di PlanGrid in Impostazioni. */}
+        <Suspense>
+          <SocialGenerator />
+        </Suspense>
       </ModuleWithHistory>
     </div>
   );
