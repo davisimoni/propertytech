@@ -265,10 +265,12 @@ function LabeledField({
   label,
   value,
   onChange,
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  placeholder?: string;
 }) {
   return (
     <div>
@@ -277,6 +279,7 @@ function LabeledField({
         type="text"
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
         className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary"
       />
     </div>
@@ -631,6 +634,20 @@ function ExtractionResultView({
               onChange={(value) =>
                 onChange({ ...result, datiImmobile: { ...result.datiImmobile, superficieCatastale: value } })
               }
+            />
+            <LabeledField
+              label="Classe Energetica"
+              value={result.datiImmobile.classeEnergetica ?? ""}
+              onChange={(value) =>
+                onChange({ ...result, datiImmobile: { ...result.datiImmobile, classeEnergetica: value } })
+              }
+              placeholder="Solo da un APE"
+            />
+            <LabeledField
+              label="Indice EPgl,nren"
+              value={result.datiImmobile.ipeGlNren ?? ""}
+              onChange={(value) => onChange({ ...result, datiImmobile: { ...result.datiImmobile, ipeGlNren: value } })}
+              placeholder="Solo da un APE"
             />
           </div>
           {/* La distinzione che gli agenti chiedono più spesso: la superficie

@@ -128,6 +128,15 @@ export const documentExtractionSchema = z.object({
     renditaCatastale: z.string().nullable().describe("Rendita in euro."),
     superficieCatastale: z.string().nullable().describe("Superficie catastale in mq."),
     indirizzo: z.string().nullable().describe("Indirizzo completo."),
+    /// Solo su un APE. `null` sugli altri tipi di documento o se l'APE non la
+    /// riporta leggibilmente: non va mai stimata dalla tipologia dell'immobile.
+    classeEnergetica: z.string().nullable().describe("Classe energetica (es. 'B', 'A4'), solo da un APE."),
+    /// L'indice che la normativa chiama EPgl,nren: prestazione energetica
+    /// globale non rinnovabile, l'unico che compare per legge sugli annunci.
+    ipeGlNren: z
+      .string()
+      .nullable()
+      .describe("Indice EPgl,nren con l'unità di misura come riportata (es. '145,3 kWh/m²anno'), solo da un APE."),
   }),
   proprietari: z
     .array(

@@ -22,6 +22,7 @@ Un immobile può essere in regola su un piano e non sull'altro. Compila solo le 
 - La SUPERFICIE CATASTALE non coincide necessariamente con quella commerciale, che segue criteri diversi.
 - I MILLESIMI sono una frazione su 1000, non una percentuale di proprietà dell'edificio.
 - Il DIRITTO REALE va letto, non dedotto: distingui proprietà, nuda proprietà e usufrutto, perché determinano chi può disporre del bene.
+- Su un APE, riporta la CLASSE ENERGETICA e l'indice EPgl,nren (prestazione energetica globale non rinnovabile) così come scritti nell'attestato, con l'unità di misura. Non compilarli MAI su un documento che non è un APE, e non stimarli dalla tipologia o dall'età dell'immobile.
 
 # Pertinenze
 Garage, cantine e posti auto sono di norma subalterni distinti sulla stessa particella. Se il documento ne riporta, elencali in "pertinenze" anziché confonderli con l'unità principale.
