@@ -7,34 +7,40 @@ import { BottomNav } from "@/components/layout/bottom-nav";
  * Guscio dell'area riservata: altezza fissa alla finestra, con un solo
  * elemento che scorre.
  *
- * # Perché `100dvh` e non `h-screen`
+ * # Perché `relative` su guscio e `main` — la causa dello scroll nel vuoto
  *
- * `h-screen` vale `100vh`, che sui browser da telefono è l'altezza dello
- * schermo **con la barra degli indirizzi già ritirata** — non quella che si
- * vede in quel momento. Con `viewport-fit=cover` (vedi `app/layout.tsx`) il
- * guscio risultava così più alto della finestra visibile, il documento
- * diventava scorrevole di quella differenza, e arrivati in fondo al contenuto
- * si continuava a scorrere dentro il fondo pagina vuoto. `100dvh` è
- * l'altezza *dinamica*: segue la barra mentre compare e scompare, quindi il
- * guscio combacia sempre con ciò che si vede. È la stessa unità già usata dai
- * pannelli laterali di questo progetto.
+ * Un elemento `position: absolute` si posiziona rispetto al primo antenato
+ * posizionato. Qui non ce n'era nessuno fra `main` e la finestra, quindi il
+ * riferimento degli elementi assoluti delle pagine era la finestra stessa —
+ * e un elemento così NON viene ritagliato dall'`overflow` di `main`, perché
+ * `main` non è il suo blocco contenitore. Gli input file `sr-only` (pannello
+ * perizia, caricamento documenti, import CSV) sono assoluti: stando in fondo
+ * a una pagina lunga, allungavano il documento fin lì, e la barra del
+ * browser scorreva oltre l'ultima scheda dentro il fondo vuoto. Più lunga la
+ * pagina, più vuoto: da qui l'effetto "infinito".
  *
- * # Perché `overscroll-contain` sul contenuto
+ * Misurato in Chrome headless con il CSS compilato: 1320 px di vuoto su
+ * desktop e 1372 su mobile senza `relative`, zero con. Con `relative` gli
+ * elementi assoluti restano dentro `main`, scorrono con il contenuto e il
+ * documento non supera mai l'altezza della finestra.
  *
- * Perché senza, esaurito lo scorrimento di `main`, il gesto prosegue sul
- * documento sottostante (scroll chaining) e sull'elastico dei browser
- * mobili: è l'altra metà dello "spazio vuoto infinito". `contain` ferma il
- * gesto al confine di questo riquadro senza disabilitare nulla dentro.
+ * # `100dvh` e `overscroll-contain`
+ *
+ * Non sono loro a correggere il problema sopra (la misura dà lo stesso vuoto
+ * con e senza), ma restano giusti per ragioni proprie: `100vh` sui telefoni è
+ * l'altezza con la barra degli indirizzi ritirata, più alta di quella
+ * visibile, mentre `100dvh` la segue; `overscroll-contain` ferma l'elastico
+ * dei browser mobili al bordo di `main` invece di passarlo alla pagina.
  */
 export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-[100dvh] overflow-hidden bg-background">
+    <div className="relative flex h-[100dvh] overflow-hidden bg-background">
       <Sidebar />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <Header />
         {/* Il padding inferiore su mobile evita che la bottom bar fissa
             copra l'ultimo elemento della pagina. */}
-        <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-24 md:p-6 md:pb-6">
+        <main className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-24 md:p-6 md:pb-6">
           {children}
         </main>
       </div>
