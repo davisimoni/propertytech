@@ -86,6 +86,21 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
   const [showPortalSetup, setShowPortalSetup] = useState(false);
   const [portalCopied, setPortalCopied] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);
+  /**
+   * Quale delle due strade di collegamento è aperta.
+   *
+   * Erano due riquadri impilati: insieme occupavano mezza schermata per
+   * mostrare due cose alternative, di cui l'agenzia ne usa una sola. A schede
+   * l'altezza è quella di una sola, e la scelta resta visibile.
+   *
+   * Parte da `email` perché è quella che l'agenzia attiva da sola nella
+   * propria casella, mentre il webhook dipende dal portale. Quando l'inoltro
+   * non è disponibile su questo ambiente la scheda lo dice e offre il
+   * passaggio all'altra: si è preferito questo a un cambio di scheda
+   * automatico, che avrebbe spostato l'interfaccia sotto le mani dell'agente
+   * senza spiegare perché la prima strada non c'era.
+   */
+  const [portalTab, setPortalTab] = useState<"email" | "webhook">("email");
   const { showToast } = useToast();
 
   // --- Meta ---
@@ -596,99 +611,131 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
           </p>
 
           <div className="mt-3 space-y-3">
-            {/* Due strade, dichiarate come tali.
+            {/* Due strade alternative, in un riquadro solo.
 
-                Prima ce n'era una sola in evidenza — il link webhook — e
-                l'email compariva sotto come ripiego senza nome. Ma i portali
-                italiani non hanno un pulsante "aggiungi webhook" che l'agenzia
-                possa premere da sola: su Immobiliare.it, Idealista e Casa.it
-                l'inoltro lo attiva il portale su richiesta. L'inoltro email
-                invece l'agenzia lo configura da sola, nella propria casella,
-                senza chiedere niente a nessuno: per questo viene prima. */}
-
-            {/* --- Opzione 1: inoltro email --- */}
-            <div className="rounded-lg border border-border p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <Mail className="h-3.5 w-3.5 text-primary" />
-                  Opzione 1 — Inoltro email
-                </span>
-                {config.inboundEmail && (
-                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-                    Consigliata
-                  </span>
-                )}
+                I portali italiani non hanno un pulsante "aggiungi webhook" che
+                l'agenzia possa premere da sola: su Immobiliare.it, Idealista e
+                Casa.it l'inoltro lo attiva il portale su richiesta. L'inoltro
+                email invece l'agenzia lo configura da sola, nella propria
+                casella, senza chiedere niente a nessuno: per questo è la
+                scheda aperta per prima. */}
+            <div className="rounded-lg border border-border">
+              <div
+                role="tablist"
+                aria-label="Modo di collegare i portali"
+                className="flex gap-1 border-b border-border p-1"
+              >
+                {(
+                  [
+                    { id: "email", label: "Inoltro email", icon: Mail },
+                    { id: "webhook", label: "Webhook o gestionale", icon: Link2 },
+                  ] as const
+                ).map((voce) => {
+                  const Icona = voce.icon;
+                  const attiva = portalTab === voce.id;
+                  return (
+                    <button
+                      key={voce.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={attiva}
+                      onClick={() => setPortalTab(voce.id)}
+                      className={cn(
+                        "inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold transition-colors duration-200 sm:h-9",
+                        attiva
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:bg-muted"
+                      )}
+                    >
+                      <Icona className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{voce.label}</span>
+                    </button>
+                  );
+                })}
               </div>
 
-              {config.inboundEmail ? (
-                <>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                    Crea una regola di inoltro automatico nella casella email dell&apos;agenzia,
-                    per mandare a questo indirizzo le notifiche di Immobiliare.it, Idealista e
-                    Casa.it. L&apos;assistente legge il lead e invia subito il messaggio WhatsApp.
-                  </p>
-                  <code className="mt-2 block truncate rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-                    {config.inboundEmail}
-                  </code>
-                  <button
-                    type="button"
-                    onClick={copyInboundEmail}
-                    className="btn-brand mt-2 text-xs"
-                  >
-                    {emailCopied ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <Clipboard className="h-4 w-4" />
-                    )}
-                    {emailCopied ? "Copiato!" : "Copia indirizzo di inoltro"}
-                  </button>
-                </>
-              ) : (
-                /* Nessun indirizzo mostrato finche' il dominio di ricezione non
-                   e' configurato. Un recapito che non riceve fa perdere i lead
-                   IN SILENZIO — nessun rimbalzo, nessun errore in dashboard,
-                   solo contatti che non arrivano mai — ed e' gia' successo con
-                   un dominio segnaposto. */
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  L&apos;inoltro email non e&apos; ancora attivo su questo ambiente. Nel frattempo
-                  usa l&apos;Opzione 2 qui sotto: non mostriamo un recapito prima che sappia
-                  ricevere, perche&apos; i lead inoltrati andrebbero persi senza che tu te ne
-                  accorga.
-                </p>
-              )}
-            </div>
-
-            {/* --- Opzione 2: webhook / gestionale --- */}
-            <div className="rounded-lg border border-border p-3">
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                <Link2 className="h-3.5 w-3.5 text-primary" />
-                Opzione 2 — Webhook o gestionale
-              </span>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Invia questo link al tuo referente commerciale del portale, oppure incollalo nella
-                sezione &laquo;Webhook notifiche in uscita&raquo; del tuo gestionale immobiliare
-                (Miogest, Gestim, Realigro e simili).
-              </p>
-              <code className="mt-2 block truncate rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-                {portalWebhookUrl}
-              </code>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <button type="button" onClick={copyPortalWebhook} className="btn-brand text-xs">
-                  {portalCopied ? (
-                    <Check className="h-4 w-4" />
+              <div className="p-3">
+                {portalTab === "email" ? (
+                  config.inboundEmail ? (
+                    <>
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        Crea una regola di inoltro automatico nella casella email
+                        dell&apos;agenzia, per mandare a questo indirizzo le notifiche di
+                        Immobiliare.it, Idealista e Casa.it. L&apos;assistente legge il lead e
+                        invia subito il messaggio WhatsApp.
+                      </p>
+                      <code className="mt-2 block truncate rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                        {config.inboundEmail}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={copyInboundEmail}
+                        className="btn-brand mt-2 text-xs"
+                      >
+                        {emailCopied ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <Clipboard className="h-4 w-4" />
+                        )}
+                        {emailCopied ? "Copiato!" : "Copia indirizzo di inoltro"}
+                      </button>
+                    </>
                   ) : (
-                    <Clipboard className="h-4 w-4" />
-                  )}
-                  {portalCopied ? "Copiato!" : "Copia Link Webhook Portali"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowPortalSetup(true)}
-                  className="btn-outline text-xs"
-                >
-                  <HelpCircle className="h-3.5 w-3.5" />
-                  Istruzioni di collegamento
-                </button>
+                    /* Nessun indirizzo mostrato finche' il dominio di ricezione
+                       non e' configurato. Un recapito che non riceve fa perdere
+                       i lead IN SILENZIO — nessun rimbalzo, nessun errore in
+                       dashboard, solo contatti che non arrivano mai — ed e' gia'
+                       successo con un dominio segnaposto. */
+                    <>
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        L&apos;inoltro email non è ancora attivo su questo ambiente: non
+                        mostriamo un recapito prima che sappia ricevere, perché i lead
+                        inoltrati andrebbero persi senza che tu te ne accorga.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setPortalTab("webhook")}
+                        className="btn-outline mt-2 text-xs"
+                      >
+                        <Link2 className="h-3.5 w-3.5" />
+                        Usa il webhook
+                      </button>
+                    </>
+                  )
+                ) : (
+                  <>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      Invia questo link al tuo referente commerciale del portale, oppure
+                      incollalo nella sezione &laquo;Webhook notifiche in uscita&raquo; del tuo
+                      gestionale immobiliare (Miogest, Gestim, Realigro e simili).
+                    </p>
+                    <code className="mt-2 block truncate rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                      {portalWebhookUrl}
+                    </code>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={copyPortalWebhook}
+                        className="btn-brand text-xs"
+                      >
+                        {portalCopied ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <Clipboard className="h-4 w-4" />
+                        )}
+                        {portalCopied ? "Copiato!" : "Copia Link Webhook Portali"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowPortalSetup(true)}
+                        className="btn-outline text-xs"
+                      >
+                        <HelpCircle className="h-3.5 w-3.5" />
+                        Istruzioni di collegamento
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 

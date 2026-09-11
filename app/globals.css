@@ -53,6 +53,24 @@
   border-color: hsl(var(--border));
 }
 
+/*
+ * Nessuna altezza fissa su html/body: le pagine pubbliche (vetrina, pagine
+ * legali, guida) scorrono con il documento e devono poter essere più alte
+ * della finestra. L'area riservata non scorre qui — ha il proprio riquadro
+ * in `app-shell.tsx` — quindi bloccare l'altezza a `100%` non servirebbe a
+ * lei e romperebbe le altre.
+ *
+ * `overflow-x: hidden` invece vale ovunque: un elemento che sfora in
+ * larghezza (una tabella larga, un titolo che non va a capo) non deve poter
+ * aprire una barra orizzontale sull'intera pagina, perché su telefono si
+ * traduce in una pagina che si sposta di lato mentre si scorre.
+ */
+html,
+body {
+  margin: 0;
+  overflow-x: hidden;
+}
+
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));

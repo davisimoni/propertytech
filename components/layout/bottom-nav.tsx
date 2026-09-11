@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileSearch2, LayoutDashboard, MessagesSquare, Mic, Radar } from "lucide-react";
+import { FileSearch2, LayoutDashboard, MessagesSquare, Mic, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -10,17 +10,15 @@ import { cn } from "@/lib/utils";
  * raggiungibile dal menu nell'header: qui contano pochi bersagli ampi,
  * usabili con il pollice.
  *
- * Stessa priorità della sidebar (`lib/navigation.ts`): i quattro moduli che
- * pesano di più sul lavoro in mobilità, non i cinque più recenti. Social non
- * c'è: chi genera un post lo fa alla scrivania, non mentre valuta un lotto
- * in macchina, e nei cinque bersagli scarsi del pollice quel posto serve a
- * Due Diligence Aste.
+ * L'ordine rispecchia quello della sidebar (`lib/navigation.ts`), saltando le
+ * voci che sul telefono si usano di rado: restano i cinque moduli che un
+ * agente apre davvero fuori dall'ufficio.
  */
 const BOTTOM_NAV_ITEMS = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
-  { href: "/radar", label: "Aste", icon: Radar },
   { href: "/leads", label: "Lead", icon: MessagesSquare },
   { href: "/documents", label: "Documenti", icon: FileSearch2 },
+  { href: "/social", label: "Social", icon: Share2 },
   { href: "/voice-reports", label: "Report", icon: Mic },
 ];
 
