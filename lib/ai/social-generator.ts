@@ -1,4 +1,5 @@
 import "server-only";
+import { reportAiError } from "@/lib/observability/report-error";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import {
@@ -182,6 +183,7 @@ export async function generateSocialContent(
       ],
     })
     .catch((error) => {
+      reportAiError(error, "social-generator");
       console.error("[social-generator] Anthropic call failed", error);
       throw new SocialGenerationError(
         "Il servizio di generazione contenuti non è al momento disponibile.",

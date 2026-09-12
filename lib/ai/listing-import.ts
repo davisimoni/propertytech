@@ -1,4 +1,5 @@
 import "server-only";
+import { reportAiError } from "@/lib/observability/report-error";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
@@ -153,6 +154,7 @@ export async function importListing(source: {
       ],
     })
     .catch((error) => {
+      reportAiError(error, "listing-import");
       console.error("[listing-import] Anthropic call failed", error);
       throw new ListingImportError("Servizio AI non disponibile.", "upstream_error");
     });

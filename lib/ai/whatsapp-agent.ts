@@ -1,4 +1,5 @@
 import "server-only";
+import { reportAiError } from "@/lib/observability/report-error";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
@@ -579,6 +580,7 @@ export async function generateAgentReply(params: {
       })),
     })
     .catch((error) => {
+      reportAiError(error, "whatsapp-agent");
       console.error("[whatsapp-agent] Anthropic call failed", error);
       throw new WhatsAppAgentError("Servizio AI non disponibile.", "upstream_error");
     });

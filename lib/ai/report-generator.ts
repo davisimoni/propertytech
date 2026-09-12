@@ -1,4 +1,5 @@
 import "server-only";
+import { reportAiError } from "@/lib/observability/report-error";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { voiceReportSchema, type VoiceReportContent } from "./report-schema";
@@ -78,6 +79,7 @@ Genera secondo lo schema entrambi gli output: il report per il proprietario e la
       ],
     })
     .catch((error) => {
+      reportAiError(error, "report-generator");
       console.error("[report-generator] Anthropic call failed", error);
       throw new ReportGenerationError(
         "Il servizio di generazione report non è al momento disponibile.",

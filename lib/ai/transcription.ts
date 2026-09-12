@@ -1,4 +1,5 @@
 import "server-only";
+import { reportAiError } from "@/lib/observability/report-error";
 import { readSecret } from "@/lib/env";
 import { cleanTranscript } from "./transcript-quality";
 
@@ -127,6 +128,7 @@ export async function transcribeAudio(
     });
   } catch (error) {
     const isTimeout = error instanceof DOMException && error.name === "TimeoutError";
+    reportAiError(error, "transcription");
     console.error("[transcription] Request failed", { isTimeout });
     throw new TranscriptionError(
       isTimeout
@@ -139,6 +141,9 @@ export async function transcribeAudio(
   if (!response.ok) {
     // Il corpo della risposta può contenere frammenti della trascrizione:
     // si logga solo lo status, mai il payload (PII di terzi).
+    // Un errore costruito qui, non il corpo della risposta: quel corpo può
+    // contenere frammenti della trascrizione, cioè parole di terzi.
+    reportAiError(new Error(`STT provider returned ${response.status}`), "transcription");
     console.error("[transcription] Provider returned error", { status: response.status });
     throw new TranscriptionError("Trascrizione non riuscita.", "upstream_error");
   }

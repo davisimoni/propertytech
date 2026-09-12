@@ -2,6 +2,7 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { documentExtractionSchema, type DocumentExtractionResult } from "./document-schema";
+import { reportAiError } from "@/lib/observability/report-error";
 
 const client = new Anthropic();
 
@@ -80,6 +81,8 @@ export async function extractDocumentData(pdfBase64: string): Promise<DocumentEx
       // "servizio non disponibile", ma la causa può essere tutt'altro — un
       // timeout della funzione, un PDF rifiutato, un limite di rate — e
       // senza questi campi restano indistinguibili.
+      reportAiError(error, "document-extractor");
+
       const detail = error as { name?: string; message?: string; status?: number };
       console.error("[DOCS-ANALYSIS-ERROR]", {
         name: detail?.name,

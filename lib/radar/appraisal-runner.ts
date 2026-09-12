@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { summariseAuctionAppraisal, AuctionAppraisalError } from "@/lib/ai/auction-appraisal";
 import { evaluateRisk } from "@/lib/radar/risk";
 import { geocodeZona } from "@/lib/radar/geocode";
+import { reportAiError } from "@/lib/observability/report-error";
 
 /**
  * Legge la perizia, scrive l'esito e riporta sulla scheda ciò che il PDF dice.
@@ -194,6 +195,19 @@ export async function runAppraisal(params: {
       error instanceof AuctionAppraisalError
         ? error.message
         : "L'analisi non è riuscita a concludersi nel tempo disponibile. Riprova indicando un intervallo di pagine più ristretto.";
+
+    /*
+     * Solo ciò che non è già stato segnalato alla sorgente.
+     *
+     * Un `AuctionAppraisalError` l'ha già mandato a Sentry
+     * `auction-appraisal.ts`: rifarlo qui produrrebbe due eventi per lo stesso
+     * guasto. Tutto il resto — una scrittura a database fallita, un campo
+     * inatteso — succede solo qui, dentro `after()`, dove la risposta HTTP è
+     * già partita e nessuno se ne accorgerebbe.
+     */
+    if (!(error instanceof AuctionAppraisalError)) {
+      reportAiError(error, "appraisal-runner");
+    }
 
     console.error("[RADAR-APPRAISAL] Analisi non riuscita", {
       organizationId,

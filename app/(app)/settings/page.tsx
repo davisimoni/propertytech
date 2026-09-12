@@ -4,6 +4,7 @@ import { CalendarDays, ChevronRight, ShieldCheck } from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { PlanGrid } from "@/components/billing/plan-grid";
+import { BillingPortalButton } from "@/components/billing/billing-portal-button";
 import { SocialConnectPanel } from "@/components/settings/social-connect-panel";
 import { CheckoutOutcomeBanner } from "@/components/billing/checkout-outcome-banner";
 import { UsageWidget } from "@/components/billing/usage-widget";
@@ -96,10 +97,17 @@ export default async function SettingsPage() {
             <>
               <UsageWidget variant="full" />
               {session?.user?.role === "OWNER" ? (
-                /* PlanGrid legge `?interval=` dalla query: serve un confine Suspense. */
-                <Suspense>
-                  <PlanGrid currentPlanId={currentPlanId} />
-                </Suspense>
+                <>
+                  {/* Sopra il listino: chi apre questa scheda per una fattura
+                      non sta cercando di cambiare piano, e farlo scorrere
+                      oltre quattro colonne di prezzi per trovarla sarebbe il
+                      contrario di ciò che gli serve. */}
+                  <BillingPortalButton />
+                  {/* PlanGrid legge `?interval=` dalla query: serve un confine Suspense. */}
+                  <Suspense>
+                    <PlanGrid currentPlanId={currentPlanId} />
+                  </Suspense>
+                </>
               ) : (
                 <section className="rounded-xl border border-border bg-card p-4">
                   <p className="text-sm font-medium text-foreground">

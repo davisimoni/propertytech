@@ -2,6 +2,7 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { auctionAppraisalSchema, type AuctionAppraisalResult } from "./auction-schema";
+import { reportAiError } from "@/lib/observability/report-error";
 
 /**
  * Sintesi di una perizia giudiziaria.
@@ -100,6 +101,8 @@ export async function summariseAuctionAppraisal(
     })
     .catch((error: unknown) => {
       // `[RADAR-APPRAISAL-ERROR]`: una sola stringa da cercare nei log.
+      reportAiError(error, "auction-appraisal");
+
       const detail = error as { name?: string; message?: string; status?: number };
       console.error("[RADAR-APPRAISAL-ERROR]", {
         name: detail?.name,
