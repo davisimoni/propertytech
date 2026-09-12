@@ -35,6 +35,24 @@ export interface HistoryEntry {
   authorName: string | null;
   /** Vero se il dettaglio si può scaricare in PDF. */
   hasPdf: boolean;
+  /**
+   * Stato dell'invio al proprietario, per i soli report post-visita.
+   *
+   * `null` dove la nozione non esiste — un'estrazione da visura non si
+   * "invia" a nessuno — ed è diverso da `false`, che significa "generato ma
+   * non ancora mandato". In elenco sono due cose diverse, e confonderle
+   * farebbe credere già spedito un report che è ancora fermo.
+   */
+  sent: boolean | null;
+  /**
+   * Immobile e proprietario, tenuti separati oltre che uniti in `title`.
+   *
+   * Il PDF del report li vuole distinti, perché finiscono in due punti
+   * diversi del documento. Ricavarli spezzando il titolo sul trattino
+   * fallirebbe sul primo immobile che ha un trattino nel nome.
+   */
+  propertyRef?: string;
+  sellerName?: string | null;
 }
 
 /** Quante voci per pagina. Basse: l'elenco si scorre, non si studia. */

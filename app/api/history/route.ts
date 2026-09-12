@@ -37,11 +37,38 @@ export async function GET(request: Request) {
   const propertyId = params.get("propertyId");
   const cursor = params.get("cursor");
 
+  /*
+   * Ricerca sul contenuto, non solo su quello che la pagina ha già caricato.
+   *
+   * L'elenco arriva a pagine da venti: filtrare nel browser avrebbe cercato
+   * dentro le prime venti voci e dichiarato "nessun risultato" su una
+   * cronologia che il risultato ce l'ha alla trentesima. Qui il filtro è nel
+   * `where`, quindi il cursore continua a impaginare i soli risultati.
+   *
+   * `mode: "insensitive"` perché nessuno cerca rispettando le maiuscole del
+   * proprio archivio.
+   */
+  const q = (params.get("q") ?? "").trim();
+  const contains = q ? { contains: q, mode: "insensitive" as const } : null;
+
   // I report vocali vivono su `VoiceReport`: sorgente diversa, stessa forma in
   // uscita.
   if (kind === "VOICE_REPORT") {
     const reports = await prisma.voiceReport.findMany({
-      where: { organizationId },
+      where: {
+        organizationId,
+        // Immobile, proprietario e testo della nota: i tre punti da cui un
+        // agente riconosce un report suo.
+        ...(contains
+          ? {
+              OR: [
+                { propertyRef: contains },
+                { sellerName: contains },
+                { transcript: contains },
+              ],
+            }
+          : {}),
+      },
       orderBy: { createdAt: "desc" },
       take: HISTORY_PAGE_SIZE + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
@@ -67,6 +94,9 @@ export async function GET(request: Request) {
       createdAt: report.createdAt.toISOString(),
       authorName: null,
       hasPdf: true,
+      sent: report.sentToSeller,
+      propertyRef: report.propertyRef,
+      sellerName: report.sellerName,
     }));
 
     return NextResponse.json({
@@ -80,6 +110,9 @@ export async function GET(request: Request) {
       organizationId,
       ...(kind ? { kind } : {}),
       ...(propertyId ? { propertyId } : {}),
+      // `output` non è cercabile: è JSON e non un testo. `preview` ne è
+      // l'estratto già pronto, ed è quello che l'agente ha letto in elenco.
+      ...(contains ? { OR: [{ title: contains }, { preview: contains }] } : {}),
     },
     orderBy: { createdAt: "desc" },
     take: HISTORY_PAGE_SIZE + 1,
@@ -106,6 +139,7 @@ export async function GET(request: Request) {
     createdAt: generation.createdAt.toISOString(),
     authorName: authorLabel(generation.createdBy),
     hasPdf: false,
+    sent: null,
   }));
 
   return NextResponse.json({
