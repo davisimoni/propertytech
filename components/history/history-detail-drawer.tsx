@@ -6,7 +6,7 @@ import { HISTORY_KIND_LABELS, type HistoryEntry } from "@/lib/history/entries";
 import { downloadText, fileNameFromTitle, outputToText } from "@/lib/history/output-text";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useToast } from "@/components/shared/toast-provider";
-import { FormattedOutput } from "./formatted-output";
+import { DetailSections } from "./detail-sections";
 
 const DATE_FORMAT = new Intl.DateTimeFormat("it-IT", {
   day: "2-digit",
@@ -41,6 +41,8 @@ export function HistoryDetailDrawer({
   onDeleted: () => void;
 }) {
   const [output, setOutput] = useState<unknown>(null);
+  /** Solo per i report post-visita: il dettato originale, mostrato in fondo. */
+  const [transcript, setTranscript] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -56,8 +58,10 @@ export function HistoryDetailDrawer({
 
     fetch(`/api/history/${entry.id}`)
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error())))
-      .then((detail: { output: unknown }) => {
-        if (!annullato) setOutput(detail.output);
+      .then((detail: { output: unknown; transcript?: string | null }) => {
+        if (annullato) return;
+        setOutput(detail.output);
+        setTranscript(detail.transcript ?? null);
       })
       .catch(() => {
         // Errore dichiarato e non contenuto vuoto: davanti a "nessun testo"
@@ -192,7 +196,7 @@ export function HistoryDetailDrawer({
               Non è stato possibile caricare questa elaborazione. Chiudi e riapri il dettaglio.
             </p>
           ) : (
-            <FormattedOutput output={output} />
+            <DetailSections output={output} kind={entry.kind} transcript={transcript} />
           )}
 
           {actionError ? (

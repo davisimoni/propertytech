@@ -60,6 +60,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       propertyRef: true,
       sellerName: true,
       report: true,
+      // Serve alla sezione "Trascrizione della nota" del pannello di
+      // dettaglio: è il dettato originale, l'unico punto in cui l'agente
+      // controlla che cosa il modello ha riformulato.
+      transcript: true,
       createdAt: true,
     },
   });
@@ -78,6 +82,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     // qui contro lo schema di oggi dichiarerebbe non validi report
     // perfettamente buoni, generati la settimana prima.
     output: report.report,
+    // Campo a sé e non dentro `output`: quell'oggetto alimenta il PDF del
+    // report, e infilarci dentro la trascrizione la farebbe comparire nel
+    // documento che esce dall'agenzia verso il proprietario.
+    transcript: report.transcript,
     createdAt: report.createdAt.toISOString(),
   });
 }

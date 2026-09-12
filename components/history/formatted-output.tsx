@@ -148,7 +148,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * visura, "Rendita catastale: —" dice che il dato non è stato estratto, mentre
  * la riga assente lascia credere che nessuno l'abbia cercato.
  */
-function Strutturato({ value, livello = 0 }: { value: unknown; livello?: number }) {
+export function Strutturato({ value, livello = 0 }: { value: unknown; livello?: number }) {
   if (Array.isArray(value)) {
     if (value.length === 0) return <p className="text-sm text-muted-foreground">Nessuna voce.</p>;
 
