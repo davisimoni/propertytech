@@ -23,6 +23,7 @@ import { AUCTION_STATUS_CLASSES, AUCTION_STATUS_LABELS } from "@/lib/radar/tags"
 import { buildSocialCopy, type CopyVariant } from "@/lib/radar/social-copy";
 import { downloadPdf, fetchPdfBranding } from "@/lib/pdf/client";
 import { RadarDashboard } from "@/components/radar/radar-dashboard";
+import { useToast } from "@/components/shared/toast-provider";
 import { cn } from "@/lib/utils";
 import type { RadarItem } from "./radar-board";
 import { AppraisalPanel } from "./appraisal-panel";
@@ -69,9 +70,16 @@ export function RadarDetail({
   const [inCorso, setInCorso] = useState(false);
   const [inStampa, setInStampa] = useState(false);
   const [conferma, setConferma] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [avviso, setAvviso] = useState<string | null>(null);
   const [copiato, setCopiato] = useState<CopyVariant | null>(null);
+  /*
+   * Esiti delle azioni nei toast, non in fondo alla scheda.
+   *
+   * Le conferme comparivano sotto l'intestazione, cioè sopra tre schede e un
+   * simulatore: archiviando un lotto dal fondo della pagina l'agente non
+   * vedeva niente e ripremeva. Il toast sta sempre nello stesso posto, che è
+   * la ragione per cui esiste un provider unico per tutta l'area riservata.
+   */
+  const { showToast } = useToast();
 
   const pronta = item.appraisal?.status === "PRONTA";
   const roiDisponibile = item.marketValueEur !== null || item.monthlyRentEur !== null;
@@ -98,8 +106,6 @@ export function RadarDetail({
 
   async function patch(body: Record<string, unknown>, messaggio: string) {
     setInCorso(true);
-    setError(null);
-    setAvviso(null);
     try {
       const response = await fetch(`/api/radar/properties/${item.id}`, {
         method: "PATCH",
@@ -107,13 +113,13 @@ export function RadarDetail({
         body: JSON.stringify(body),
       });
       if (!response.ok) {
-        setError("Operazione non riuscita.");
+        showToast("Operazione non riuscita.", "error");
         return;
       }
-      setAvviso(messaggio);
+      showToast(messaggio, "success");
       onChanged();
     } catch {
-      setError("Errore di rete.");
+      showToast("Errore di rete.", "error");
     } finally {
       setInCorso(false);
     }
@@ -128,7 +134,6 @@ export function RadarDetail({
    */
   async function scaricaReport() {
     setInStampa(true);
-    setError(null);
     try {
       const [branding, perizia] = await Promise.all([
         fetchPdfBranding(),
@@ -162,7 +167,7 @@ export function RadarDetail({
         `radar-${item.comune.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`
       );
     } catch {
-      setError("Non è stato possibile generare il report.");
+      showToast("Non è stato possibile generare il report.", "error");
     } finally {
       setInStampa(false);
     }
@@ -179,7 +184,6 @@ export function RadarDetail({
    * pubblica su un immobile significherebbe risponderne.
    */
   async function copiaCopy(variant: CopyVariant) {
-    setError(null);
     const testo = buildSocialCopy(
       {
         kind: item.kind,
@@ -207,7 +211,10 @@ export function RadarDetail({
     } catch {
       // Gli appunti richiedono un contesto sicuro e il permesso: se manca,
       // meglio dirlo che lasciare l'agente a chiedersi se ha copiato.
-      setError("Il browser non ha concesso l'accesso agli appunti. Copia il testo a mano.");
+      showToast(
+        "Il browser non ha concesso l'accesso agli appunti. Copia il testo a mano.",
+        "error"
+      );
     }
   }
 
@@ -218,13 +225,14 @@ export function RadarDetail({
         method: "DELETE",
       });
       if (!response.ok) {
-        setError("Eliminazione non riuscita.");
+        showToast("Eliminazione non riuscita.", "error");
         return;
       }
       setConferma(false);
+      showToast("Lotto eliminato.", "success");
       onDeleted();
     } catch {
-      setError("Errore di rete.");
+      showToast("Errore di rete.", "error");
     } finally {
       setInCorso(false);
     }
@@ -372,13 +380,6 @@ export function RadarDetail({
             </button>
           </div>
         </div>
-      )}
-
-      {avviso && <p className="text-xs text-status-qualified">{avviso}</p>}
-      {error && (
-        <p role="alert" className="text-xs text-status-blocked">
-          {error}
-        </p>
       )}
 
       {/* --- I tre indicatori, sopra le schede ---

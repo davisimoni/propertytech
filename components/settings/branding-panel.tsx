@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { UserRole } from "@prisma/client";
 import Image from "next/image";
-import { Check, ImageUp, Loader2, Palette, Trash2 } from "lucide-react";
+import { Check, ImageUp, Palette, Trash2 } from "lucide-react";
+import { SkeletonList } from "@/components/shared/skeleton";
 
 interface BrandingView {
   agencyName: string;
@@ -89,8 +90,8 @@ export function BrandingPanel({ currentRole }: { currentRole: UserRole }) {
 
   if (isLoading) {
     return (
-      <section className="flex items-center justify-center rounded-xl border border-border bg-card p-8">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      <section className="rounded-xl border border-border bg-card p-4 md:p-5">
+        <SkeletonList rows={3} label="Caricamento dell'intestazione dei documenti" />
       </section>
     );
   }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { UserRole } from "@prisma/client";
 import { Bot, Check, Loader2 } from "lucide-react";
 import { useToast } from "@/components/shared/toast-provider";
+import { SkeletonList } from "@/components/shared/skeleton";
 
 interface AgencyProfile {
   address: string | null;
@@ -119,8 +120,8 @@ export function AgencyProfilePanel({ currentRole }: { currentRole: UserRole }) {
 
   if (isLoading) {
     return (
-      <section className="flex items-center justify-center rounded-xl border border-border bg-card p-8">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      <section className="rounded-xl border border-border bg-card p-4 md:p-5">
+        <SkeletonList rows={3} label="Caricamento della scheda agenzia" />
       </section>
     );
   }

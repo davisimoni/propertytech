@@ -9,6 +9,7 @@ import { RISK_CLASSES, RISK_LABELS, OCCUPANCY_LABELS } from "@/lib/radar/risk";
 import { RadarDrawer } from "./radar-drawer";
 import { RadarDetail } from "./radar-detail";
 import { EmptyStateCard } from "@/components/shared/empty-state-card";
+import { SkeletonList } from "@/components/shared/skeleton";
 import { AUCTION_STATUS_CLASSES, AUCTION_STATUS_LABELS, RADAR_TAGS } from "@/lib/radar/tags";
 import { AI_DISCLAIMER } from "@/lib/compliance";
 import { cn } from "@/lib/utils";
@@ -463,7 +464,10 @@ export function RadarBoard({ nomeAgenzia }: { nomeAgenzia: string }) {
         </p>
       )}
 
-      {isLoading && <p className="text-sm text-muted-foreground">Caricamento…</p>}
+      {/* Sagome al posto della scritta "Caricamento…": l'elenco dei lotti
+          arriva con una fetch, e lo spazio va occupato subito perche' la
+          pagina non salti quando i dati entrano. */}
+      {isLoading && <SkeletonList rows={4} label="Caricamento delle opportunità" />}
 
       {/* Due vuoti diversi, perche' sono due situazioni diverse.
 

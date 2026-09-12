@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Clipboard, Gift, Loader2, Users } from "lucide-react";
+import { Check, Clipboard, Gift, Users } from "lucide-react";
+import { SkeletonList } from "@/components/shared/skeleton";
 import type { ReferralStatsResponse } from "@/app/api/referrals/route";
 import { cn } from "@/lib/utils";
 
@@ -47,8 +48,8 @@ export function ReferralPanel() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center rounded-xl border border-border bg-card p-8">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      <div className="rounded-xl border border-border bg-card p-4 md:p-5">
+        <SkeletonList rows={2} label="Caricamento del programma inviti" />
       </div>
     );
   }

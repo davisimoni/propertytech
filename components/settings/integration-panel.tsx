@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import {
   BellRing,
   Download,
-  Loader2,
   Plug,
 } from "lucide-react";
+import { SkeletonList } from "@/components/shared/skeleton";
 import { SELLER_CATEGORY_LABELS } from "@/lib/whatsapp/portfolio";
 import { CrmConnector } from "@/components/settings/crm-connector";
 import { CrmListingImport } from "@/components/settings/crm-listing-import";
@@ -103,8 +103,8 @@ export function IntegrationPanel() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center rounded-xl border border-border bg-card p-8">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      <div className="rounded-xl border border-border bg-card p-4 md:p-5">
+        <SkeletonList rows={3} label="Caricamento delle integrazioni" />
       </div>
     );
   }
