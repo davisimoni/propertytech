@@ -82,11 +82,34 @@ const ETICHETTE = {
    * ogni richiesta inoltrata a mano — cioe' la maggioranza — perdeva il nome
    * del cliente e finiva in pipeline come "Richiesta dal portale".
    */
-  nome: ["nome e cognome", "nome completo", "nominativo", "nome", "utente", "richiedente"],
+  nome: [
+    "nome e cognome",
+    "nome completo",
+    "nominativo",
+    "nome",
+    "utente",
+    "richiedente",
+    // Idealista scrive "Nome cliente:", e il confronto e' sulla chiave
+    // INTERA: senza queste varianti il nome andava perso e il contatto
+    // finiva in pipeline come "Richiesta dal portale".
+    "nome cliente",
+    "nome del cliente",
+    "cliente",
+    "contatto",
+  ],
   telefono: ["telefono", "cellulare", "cell", "tel", "recapito telefonico", "numero di telefono", "phone"],
   email: ["email", "e-mail", "indirizzo email", "mail"],
   riferimento: ["riferimento", "rif", "codice immobile", "codice annuncio", "annuncio", "immobile", "id annuncio"],
-  messaggio: ["messaggio", "richiesta", "note", "testo", "commento"],
+  messaggio: [
+    "messaggio",
+    "richiesta",
+    "note",
+    "testo",
+    "commento",
+    "messaggio del cliente",
+    "richiesta del cliente",
+    "testo del messaggio",
+  ],
 } as const;
 
 /**
@@ -97,7 +120,8 @@ const ETICHETTE = {
  * l'agenzia si ritroverebbe a scriversi da sola.
  */
 function valoreEtichetta(righe: string[], etichette: readonly string[]): string | null {
-  for (const riga of righe) {
+  for (let i = 0; i < righe.length; i++) {
+    const riga = righe[i]!;
     const separatore = riga.indexOf(":");
     if (separatore === -1) continue;
 
@@ -112,8 +136,35 @@ function valoreEtichetta(righe: string[], etichette: readonly string[]): string 
 
     const valore = riga.slice(separatore + 1).trim();
     if (valore) return valore;
+
+    /*
+     * Etichetta sola, valore sulla riga dopo.
+     *
+     * Immobiliare.it scrive "Messaggio del cliente:" e va a capo. Leggendo
+     * solo la stessa riga, il messaggio del cliente andava perso per intero.
+     *
+     * La riga successiva si prende solo se non e' a sua volta un'etichetta:
+     * altrimenti un campo vuoto si mangerebbe il valore del campo seguente,
+     * che e' un errore peggiore di un campo mancante.
+     */
+    const successiva = righe[i + 1];
+    if (successiva && !/^[^:]{1,30}:/.test(successiva)) return successiva;
   }
   return null;
+}
+
+/**
+ * Riferimento dell'annuncio scritto in linea, non come riga etichettata.
+ *
+ * I portali lo mettono nell'oggetto o fra parentesi nel testo — "(Rif. V-340)",
+ * "Rif. Asta 2026-992" — dove non esiste nessuna coppia `Etichetta: valore` da
+ * cui pescarlo. Senza questo, il riferimento si perdeva su due portali su tre,
+ * e l'agente riceveva una scheda senza sapere di quale immobile parli.
+ */
+export function trovaRiferimento(testo: string): string | null {
+  const trovato = testo.match(/\brif\.?\s*(?:immobile|annuncio)?\s*:?\s*([^)\n,;]{1,40})/i);
+  const valore = trovato?.[1]?.trim().replace(/[.\s]+$/, "");
+  return valore || null;
 }
 
 /**
@@ -275,7 +326,10 @@ export function parsePortalEmail(params: {
   const emailRiga = valoreEtichetta(righe, ETICHETTE.email);
   const clientEmail = (emailRiga && trovaEmail(emailRiga)) ?? trovaEmail(corpo);
 
-  const riferimento = valoreEtichetta(righe, ETICHETTE.riferimento);
+  // Prima la riga etichettata, poi il "Rif. X" scritto in linea nell'oggetto
+  // o fra parentesi: il primo e' piu' affidabile, il secondo copre i portali
+  // che una riga dedicata non ce l'hanno.
+  const riferimento = valoreEtichetta(righe, ETICHETTE.riferimento) ?? trovaRiferimento(corpo);
   const messaggio = valoreEtichetta(righe, ETICHETTE.messaggio);
 
   return {
