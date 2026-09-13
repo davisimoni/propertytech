@@ -117,23 +117,110 @@ function valoreEtichetta(righe: string[], etichette: readonly string[]): string 
 }
 
 /**
- * Primo numero di telefono italiano plausibile nel testo.
+ * Etichette che NON introducono mai un recapito, per quanto il numero che le
+ * segue somigli a un telefono.
  *
- * Ripiego per quando l'email non ha una riga "Telefono:" — succede con i
- * moduli del sito dell'agenzia, che scrivono tutto di seguito.
- *
- * Vincoli stretti di proposito: 9-11 cifre dopo l'eventuale prefisso. Senza,
- * un codice annuncio o una partita IVA verrebbero presi per un numero, e il
- * primo messaggio partirebbe verso il nulla a nome dell'agenzia.
+ * Una partita IVA italiana e' di undici cifre e comincia spesso per zero:
+ * ha esattamente la forma di un numero fisso. Nel piede di ogni email di
+ * agenzia ce n'e' una, e senza questo filtro diventava il "telefono" del
+ * cliente ogni volta che l'email non aveva una riga "Telefono:" — con un
+ * messaggio WhatsApp spedito nel nulla e un credito consumato.
  */
-export function trovaTelefono(testo: string): string | null {
-  const candidati = testo.match(/(?:\+39[\s.-]?|0039[\s.-]?)?(?:3\d{2}|0\d{1,3})[\s.-]?\d{3}[\s.-]?\d{3,4}/g);
-  if (!candidati) return null;
+const ETICHETTE_VIETATE = [
+  "p.iva",
+  "piva",
+  "partita iva",
+  "vat",
+  "c.f.",
+  "cf",
+  "codice fiscale",
+  "rif",
+  "rif.",
+  "riferimento",
+  "pratica",
+  "protocollo",
+  "codice",
+  "annuncio",
+  "fax",
+  "iban",
+  "tel. fisso",
+  "telefono fisso",
+  "fisso",
+];
 
-  for (const grezzo of candidati) {
-    const cifre = grezzo.replace(/\D/g, "").replace(/^0039/, "").replace(/^39(?=\d{9,})/, "");
-    if (cifre.length >= 9 && cifre.length <= 11) return cifre;
+/** Quanti caratteri prima del numero si guardano per capire cosa lo introduce. */
+const FINESTRA_CONTESTO = 30;
+
+function introdottoDaEtichettaVietata(testo: string, posizione: number): boolean {
+  const prima = testo.slice(Math.max(0, posizione - FINESTRA_CONTESTO), posizione).toLowerCase();
+  return ETICHETTE_VIETATE.some((etichetta) => prima.includes(etichetta));
+}
+
+/**
+ * Normalizza un candidato in sole cifre, sciogliendo i prefissi internazionali.
+ * Torna `null` se non resta un numero di lunghezza plausibile.
+ */
+function soloCifre(grezzo: string): string | null {
+  const cifre = grezzo.replace(/\D/g, "").replace(/^0039/, "39");
+  if (cifre.length < 9 || cifre.length > 15) return null;
+  return cifre;
+}
+
+/** Un numero italiano da cui si puo' sperare una risposta su WhatsApp. */
+function eCellulareItaliano(cifre: string): boolean {
+  const senzaPrefisso = cifre.replace(/^39/, "");
+  return /^3\d{8,9}$/.test(senzaPrefisso);
+}
+
+export type OrigineTelefono = "etichetta" | "testo";
+
+/**
+ * Primo numero di telefono plausibile nel testo.
+ *
+ * # I due regimi, e perche' sono diversi
+ *
+ * Da una riga `Telefono:` il portale ha gia' dichiarato che quello e' il
+ * recapito: si accetta anche un fisso, perche' rifiutarlo butterebbe via un
+ * contatto vero per una preferenza nostra.
+ *
+ * Pescato dal testo libero, invece, non lo ha dichiarato nessuno: li' si
+ * pretende un cellulare italiano oppure un numero internazionale esplicito
+ * (con `+` o `00`), perche' e' l'unico modo di distinguere un recapito da una
+ * qualunque sequenza di cifre presente nell'email.
+ *
+ * I separatori sono liberi: punti, spazi e trattini in qualsiasi
+ * combinazione — `347.123.45.67` e `347 123 4567` sono lo stesso numero, e
+ * prima il secondo passava e il primo no.
+ */
+export function trovaTelefono(
+  testo: string,
+  origine: OrigineTelefono = "testo"
+): string | null {
+  /*
+   * Sequenze di cifre con separatori liberi, invece di uno schema fisso di
+   * gruppi. Lo schema precedente pretendeva gruppi finali da 3-4 cifre e
+   * scartava i cellulari scritti a coppie, che sono comunissimi.
+   */
+  const candidati = testo.matchAll(/(\+|00)?\d[\d\s.\-/]{7,20}\d/g);
+
+  for (const candidato of candidati) {
+    const grezzo = candidato[0];
+    const posizione = candidato.index ?? 0;
+
+    if (introdottoDaEtichettaVietata(testo, posizione)) continue;
+
+    const cifre = soloCifre(grezzo);
+    if (!cifre) continue;
+
+    if (origine === "etichetta") return cifre;
+
+    // Testo libero: solo cellulari italiani o numeri internazionali dichiarati.
+    const internazionaleEsplicito = /^(\+|00)/.test(grezzo.trim());
+    if (eCellulareItaliano(cifre) || (internazionaleEsplicito && cifre.length >= 10)) {
+      return cifre;
+    }
   }
+
   return null;
 }
 
@@ -173,7 +260,10 @@ export function parsePortalEmail(params: {
   const righe = corpo.split(/\r?\n/).map((r) => r.trim()).filter(Boolean);
 
   const telefono = valoreEtichetta(righe, ETICHETTE.telefono) ?? "";
-  const clientPhone = trovaTelefono(telefono) ?? trovaTelefono(corpo);
+  // Prima la riga dichiarata dal portale, poi il testo libero con le regole
+  // strette: vedi i due regimi in `trovaTelefono`.
+  const clientPhone =
+    (telefono ? trovaTelefono(telefono, "etichetta") : null) ?? trovaTelefono(corpo, "testo");
   if (!clientPhone) return null;
 
   const nomeGrezzo = valoreEtichetta(righe, ETICHETTE.nome);

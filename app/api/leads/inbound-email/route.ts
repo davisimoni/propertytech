@@ -5,7 +5,15 @@ import { readSecret } from "@/lib/env";
 import { checkUsageLimit } from "@/lib/usage";
 import { normalizePhone } from "@/lib/whatsapp/types";
 import { startConversation } from "@/lib/whatsapp/conversation";
-import { organizationIdFromAddress, parsePortalEmail } from "@/lib/leads/portal-email";
+import {
+  detectPortal,
+  organizationIdFromAddress,
+  parsePortalEmail,
+  trovaEmail,
+  trovaTelefono,
+} from "@/lib/leads/portal-email";
+import { estraiLeadDaEmail } from "@/lib/ai/inbound-email-parser";
+import { notifyUnparsedEmail } from "@/lib/notifications/unparsed-email";
 
 /**
  * Richieste dei portali che arrivano per email.
@@ -149,11 +157,54 @@ export async function POST(request: Request) {
     return NextResponse.json({ status: "ignored" });
   }
 
-  const estratto = parsePortalEmail(testo(payload));
+  const contenuto = testo(payload);
+
+  /*
+   * Prima le regole, il modello solo se falliscono.
+   *
+   * Sulle email dei portali italiani le regole vincono su tutta la linea —
+   * gratis, immediate e senza margine d'errore su una forma fissa. Il modello
+   * serve dove quelle tornano a mani vuote: un portale straniero, un modulo
+   * scritto in prosa. Mandargli anche le email che le regole leggono bene
+   * sarebbe spesa e latenza in cambio di niente.
+   */
+  let estratto = parsePortalEmail(contenuto);
+
   if (!estratto) {
-    // Non riconosciuta: nessuna scheda. Meglio una richiesta che l'agente
-    // trova nella propria casella che una scheda col nome sbagliato.
+    const aiuto = await estraiLeadDaEmail(contenuto);
+    // Il numero del modello passa dallo stesso vaglio del testo libero:
+    // cellulare italiano o internazionale dichiarato. Un modello che "trova"
+    // un recapito dove non c'e' e' il modo piu' facile di far partire un
+    // messaggio verso uno sconosciuto.
+    const telefono = aiuto ? trovaTelefono(aiuto.telefono, "testo") : null;
+
+    if (aiuto && telefono) {
+      estratto = {
+        clientName: aiuto.nome ?? "Richiesta dal portale",
+        clientPhone: telefono,
+        clientEmail: trovaEmail(contenuto.text),
+        propertyRef: aiuto.riferimentoImmobile?.slice(0, 200) ?? null,
+        portalSource: detectPortal(contenuto.from, `${contenuto.subject}\n${contenuto.text}`),
+        message: aiuto.messaggio?.slice(0, 2000) ?? null,
+      };
+      console.info("[INBOUND-EMAIL] Riconosciuta dal ripiego AI", { organizationId });
+    }
+  }
+
+  if (!estratto) {
+    /*
+     * Nessuna scheda, ma non piu' in silenzio.
+     *
+     * Resta giusto non creare un lead senza recapito — una scheda che nessuno
+     * puo' lavorare e' peggio di nessuna scheda. Quello che mancava era dirlo
+     * all'agenzia: prima questa richiesta spariva in una riga di log.
+     */
     console.info("[INBOUND-EMAIL] Email non riconosciuta", { organizationId });
+    await notifyUnparsedEmail({
+      organizationId,
+      from: contenuto.from,
+      subject: contenuto.subject,
+    });
     return NextResponse.json({ status: "unparsed" });
   }
 
