@@ -27,3 +27,32 @@ import * as Sentry from "@sentry/nextjs";
 export function reportAiError(error: unknown, modulo: string): void {
   Sentry.captureException(error, { tags: { area: "ai", modulo } });
 }
+
+/**
+ * Manda a Sentry un guasto di un webhook transazionale.
+ *
+ * # Perché i webhook a parte
+ *
+ * Perché qui l'errore non lo vede nessuno, per costruzione: dall'altro capo
+ * c'è Stripe o Meta, non una persona davanti a una schermata. Un `catch` che
+ * si limita a un `console.error` trasforma un pagamento non registrato o una
+ * risposta mai inviata in una riga d'archivio che nessuno legge.
+ *
+ * Stessa regola dei percorsi AI — **solo etichette, nessun payload**, e qui
+ * pesa di più: il corpo di un webhook WhatsApp contiene il numero e il testo
+ * di un cliente finale, quello di Stripe gli identificativi del cliente
+ * pagante. Nessuno dei due è un dato che un servizio di monitoraggio debba
+ * ricevere.
+ *
+ * `dettaglio` è per distinguere *dove* dentro lo stesso webhook (quale evento
+ * Stripe, quale passaggio): resta un'etichetta breve e non un contenuto.
+ */
+export function reportWebhookError(
+  error: unknown,
+  webhook: string,
+  dettaglio?: string
+): void {
+  Sentry.captureException(error, {
+    tags: { area: "webhook", webhook, ...(dettaglio ? { dettaglio } : {}) },
+  });
+}

@@ -8,6 +8,7 @@ import {
   readPlanFromMetadata,
 } from "@/lib/billing/stripe";
 import { readSecret } from "@/lib/env";
+import { reportWebhookError } from "@/lib/observability/report-error";
 import { activateRefereeReferral, expireRefereeReferral } from "@/lib/referrals/lifecycle";
 import {
   notifyPaymentFailed,
@@ -172,6 +173,9 @@ async function syncExtraSeats(
 
     console.info("[BILLING-SEATS-SYNC]", { organizationId, extraSeats: quantita });
   } catch (error) {
+    // Effetto collaterale non bloccante, quindi invisibile: l'agenzia paga per
+    // N postazioni e ne ha un numero diverso, e nessuno se ne accorge.
+    reportWebhookError(error, "stripe", "seats-sync");
     console.error("[api/stripe/webhook] Riallineamento postazioni non riuscito", {
       organizationId,
       error,
@@ -333,8 +337,17 @@ export async function POST(request: Request) {
         break;
     }
   } catch (error) {
-    // Un 500 fa ritentare Stripe: corretto per un errore transitorio del
-    // database, dato che le operazioni sono idempotenti.
+    /*
+     * Il guasto più costoso della piattaforma, e finora il più silenzioso.
+     *
+     * Qui è già arrivato un evento di pagamento e non siamo riusciti a
+     * registrarlo: lo stato dell'abbonamento diverge da quello che il cliente
+     * ha pagato. Stripe ritenta, quindi spesso si ricuce da solo — ma se non
+     * si ricuce nessuno lo scopre, perché dall'altro capo non c'è una persona
+     * davanti a una schermata. L'etichetta porta il tipo di evento, che è la
+     * prima cosa da sapere e non è un dato personale.
+     */
+    reportWebhookError(error, "stripe", event.type);
     console.error("[api/stripe/webhook] Handler failed", { type: event.type, error });
     return NextResponse.json({ error: "handler_failed" }, { status: 500 });
   }

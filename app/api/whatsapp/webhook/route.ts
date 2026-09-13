@@ -10,6 +10,7 @@ import { transcribeVoiceNote } from "@/lib/whatsapp/voice-note";
 import { decryptAccessToken } from "@/lib/whatsapp/credentials";
 import { sendWhatsAppMessage } from "@/lib/whatsapp/client";
 import { readSecret } from "@/lib/env";
+import { reportWebhookError } from "@/lib/observability/report-error";
 
 /**
  * La rotta più esposta al timeout dell'intera applicazione: un solo messaggio
@@ -231,6 +232,10 @@ export async function POST(request: Request) {
                 message.from,
                 outcome.reply
               ).catch((error) => {
+                // Il cliente ha mandato un vocale e non riceve risposta: per
+                // lui il numero sembra morto, e qui l'errore non lo vede
+                // nessuno perché dall'altro capo c'è Meta, non una persona.
+                reportWebhookError(error, "whatsapp", "risposta-vocale");
                 console.error("[api/whatsapp/webhook] Risposta al vocale non inviata", error);
               });
             }
@@ -250,6 +255,7 @@ export async function POST(request: Request) {
             organizationId: config.organizationId,
             fromPhone: message.from,
           }).catch((error) => {
+            reportWebhookError(error, "whatsapp", "invito-a-scrivere");
             console.error("[api/whatsapp/webhook] Invito a scrivere non inviato", error);
           });
 

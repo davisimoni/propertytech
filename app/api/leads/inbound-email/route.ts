@@ -14,6 +14,7 @@ import {
 } from "@/lib/leads/portal-email";
 import { estraiLeadDaEmail } from "@/lib/ai/inbound-email-parser";
 import { notifyUnparsedEmail } from "@/lib/notifications/unparsed-email";
+import { reportWebhookError } from "@/lib/observability/report-error";
 
 /**
  * Richieste dei portali che arrivano per email.
@@ -275,7 +276,15 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ status: "engaged", leadId: lead.id });
   } catch (error) {
-    // Il lead resta: l'agente lo vede in pipeline e lo riprende a mano.
+    /*
+     * Il lead resta: l'agente lo vede in pipeline e lo riprende a mano.
+     *
+     * Ma il primo messaggio non è partito, ed è l'intero punto del modulo —
+     * "speed to lead". Il contatto c'è e sembra tutto a posto, quindi senza
+     * segnalazione un guasto del canale WhatsApp si nota solo dal calo delle
+     * conversazioni, settimane dopo.
+     */
+    reportWebhookError(error, "inbound-email", "ingaggio");
     console.error("[INBOUND-EMAIL] Ingaggio fallito", { organizationId, leadId: lead.id, error });
     return NextResponse.json({ status: "saved_engage_failed", leadId: lead.id });
   }
