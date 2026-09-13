@@ -238,6 +238,15 @@ export function PropertyPortfolio({ currentRole }: { currentRole: UserRole }) {
               property.images.length === 0
           ).length
         }
+        // Solo i pubblicati: su una bozza il CAP mancante non fa danno, perche'
+        // quella scheda non esce nel feed.
+        missingCap={
+          properties.filter(
+            (property) =>
+              (PUBLISHED_STATUSES as readonly PropertyStatus[]).includes(property.status) &&
+              !property.cap?.trim()
+          ).length
+        }
         publishedCount={
           properties.filter((property) =>
             (PUBLISHED_STATUSES as readonly PropertyStatus[]).includes(property.status)

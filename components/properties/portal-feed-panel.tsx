@@ -23,11 +23,18 @@ export function PortalFeedPanel({
    * l'agenzia ha finito di caricarle.
    */
   missingPhotos,
+  /**
+   * Quanti immobili nel feed non hanno il CAP. Stesso criterio delle foto:
+   * contati sui soli pubblicati, cosi' l'avviso sparisce da solo quando
+   * l'agenzia ha finito di compilarli.
+   */
+  missingCap = 0,
   publishedCount,
   draftCount,
   currentRole,
 }: {
   missingPhotos: number;
+  missingCap?: number;
   /** Immobili che il feed esporta davvero. */
   publishedCount?: number;
   /** Immobili in bozza: fuori dal feed finche' l'agente non li pubblica. */
@@ -292,17 +299,38 @@ export function PortalFeedPanel({
         <FeedSetupDialog feedUrl={feedUrl} onClose={() => setShowSetup(false)} />
       )}
 
-      {missingPhotos > 0 ? (
-        <p className="mt-4 flex items-start gap-2 rounded-lg border border-status-pending/40 bg-status-pending/10 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-pending" />
-          <span>
-            {missingPhotos === 1
-              ? "Un immobile pubblicato non ha fotografie"
-              : `${missingPhotos} immobili pubblicati non hanno fotografie`}
-            : sui portali l&apos;annuncio compare in ricerca senza immagine e viene aperto molto
-            meno. Puoi aggiungerle dalla scheda, qui sotto.
-          </span>
-        </p>
+      {/* Un riquadro solo per tutto cio' che indebolisce gli annunci nel feed,
+          una riga per problema. Due riquadri ambra impilati si leggono come
+          rumore, e il secondo non viene letto affatto. */}
+      {missingPhotos > 0 || missingCap > 0 ? (
+        <div className="mt-4 space-y-2 rounded-lg border border-status-pending/40 bg-status-pending/10 px-3 py-2">
+          {missingCap > 0 ? (
+            <p className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
+              <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-pending" />
+              <span>
+                {missingCap === 1
+                  ? "Un immobile pubblicato non ha il CAP"
+                  : `${missingCap} immobili pubblicati non hanno il CAP`}
+                : i portali lo richiedono di norma e senza di esso possono scartare
+                l&apos;annuncio — il resto del feed resta valido. Lo compili dalla scheda, qui
+                sotto.
+              </span>
+            </p>
+          ) : null}
+
+          {missingPhotos > 0 ? (
+            <p className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
+              <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-pending" />
+              <span>
+                {missingPhotos === 1
+                  ? "Un immobile pubblicato non ha fotografie"
+                  : `${missingPhotos} immobili pubblicati non hanno fotografie`}
+                : sui portali l&apos;annuncio compare in ricerca senza immagine e viene aperto
+                molto meno. Puoi aggiungerle dalla scheda, qui sotto.
+              </span>
+            </p>
+          ) : null}
+        </div>
       ) : null}
     </section>
   );
