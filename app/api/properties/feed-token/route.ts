@@ -43,10 +43,27 @@ export async function GET() {
  * finito di configurare sul portale.
  */
 export async function POST() {
-  const organizationId = await requireOrganizationId();
-  if (!organizationId) {
+  const session = await auth();
+  if (!session?.user?.organizationId) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+
+  /*
+   * Anche l'attivazione è del titolare, come revoca e rotazione.
+   *
+   * Mancava: l'interfaccia nascondeva già il pulsante a un collaboratore
+   * ("Il feed verso i portali lo attiva il titolare"), ma la rotta accettava
+   * la chiamata diretta. Nascondere un comando non è autorizzarlo, e qui il
+   * comando pubblica l'intero portafoglio dell'agenzia verso l'esterno.
+   */
+  if (session.user.role !== "OWNER") {
+    return NextResponse.json(
+      { error: "forbidden", message: "Solo il titolare puo' attivare il feed verso i portali." },
+      { status: 403 }
+    );
+  }
+
+  const organizationId = session.user.organizationId;
 
   const existing = await prisma.organization.findUnique({
     where: { id: organizationId },
