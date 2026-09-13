@@ -99,6 +99,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         ...rest,
         reference,
         provincia: rest.provincia || null,
+        cap: rest.cap || null,
         zona: rest.zona || null,
         indirizzo: rest.indirizzo || null,
         floor: rest.floor || null,

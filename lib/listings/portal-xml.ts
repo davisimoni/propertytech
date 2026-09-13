@@ -24,6 +24,8 @@ export interface PortalListingInput {
   type: PropertyType;
   comune: string;
   provincia?: string | null;
+  /** CAP: i tracciati dei portali italiani lo richiedono di norma. */
+  cap?: string | null;
   zona?: string | null;
   indirizzo?: string | null;
   priceEur: number;
@@ -133,6 +135,7 @@ function listingXml(listing: PortalListingInput, origin: string): string {
     tag("classeEnergetica", listing.energyClass),
     tag("comune", listing.comune),
     tag("provincia", listing.provincia),
+    tag("cap", listing.cap),
     tag("zona", listing.zona),
     tag("indirizzo", listing.indirizzo),
   ].filter(Boolean);

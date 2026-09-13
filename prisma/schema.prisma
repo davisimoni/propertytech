@@ -969,6 +969,10 @@ model Property {
 
   comune    String
   provincia String?
+  /// CAP, cinque cifre. Facoltativo qui perché una scheda si apre spesso prima
+  /// di avere l'indirizzo completo, ma i tracciati dei portali italiani lo
+  /// richiedono di norma: senza, il portale può rifiutare il singolo annuncio.
+  cap       String?
   /// Quartiere o zona, il criterio con cui gli acquirenti cercano davvero.
   zona      String?
   indirizzo String?

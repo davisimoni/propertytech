@@ -31,6 +31,7 @@ export interface PropertyCsvColumn {
     | "type"
     | "comune"
     | "provincia"
+    | "cap"
     | "zona"
     | "indirizzo"
     | "priceEur"
@@ -52,6 +53,7 @@ export const PROPERTY_CSV_COLUMNS: PropertyCsvColumn[] = [
   { key: "type", label: "Tipologia", required: true, example: "Appartamento" },
   { key: "comune", label: "Comune", required: true, example: "Vignola" },
   { key: "provincia", label: "Provincia", required: false, example: "MO" },
+  { key: "cap", label: "CAP", required: false, example: "41058" },
   { key: "zona", label: "Zona", required: false, example: "Centro" },
   { key: "indirizzo", label: "Indirizzo", required: false, example: "Via Roma 12" },
   { key: "priceEur", label: "Prezzo", required: true, example: "185000" },
@@ -286,6 +288,7 @@ export function parsePropertyCsv(rawText: string): PropertyCsvParseResult {
       type,
       comune: cell(row, "comune"),
       provincia: cell(row, "provincia") || undefined,
+      cap: cell(row, "cap") || undefined,
       zona: cell(row, "zona") || undefined,
       indirizzo: cell(row, "indirizzo") || undefined,
       priceEur: parseNumberCell(cell(row, "priceEur")) ?? undefined,

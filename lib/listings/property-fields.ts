@@ -140,6 +140,19 @@ export const propertyFieldsSchema = z.object({
   ),
   comune: z.string().trim().min(2, "Inserisci il comune").max(80),
   provincia: z.string().trim().max(40).optional(),
+  /**
+   * CAP: cinque cifre, oppure niente.
+   *
+   * La stringa vuota è ammessa accanto al formato valido perché il modulo
+   * spedisce tutti i campi, anche quelli che l'agente non ha toccato: un CAP
+   * facoltativo che rifiuta il vuoto bloccherebbe il salvataggio di ogni
+   * scheda in cui non è stato compilato. Un valore parziale invece si rifiuta:
+   * un CAP di quattro cifre sul feed è un annuncio che il portale scarta, e
+   * scoprirlo lì costa più che correggerlo qui.
+   */
+  cap: z
+    .union([z.literal(""), z.string().trim().regex(/^\d{5}$/, "Il CAP è di 5 cifre")])
+    .optional(),
   zona: z.string().trim().max(80).optional(),
   indirizzo: z.string().trim().max(160).optional(),
   /**

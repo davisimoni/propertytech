@@ -3,7 +3,7 @@
 import type { UserRole } from "@prisma/client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, Clipboard, HelpCircle, Loader2, Rss, TriangleAlert } from "lucide-react";
+import { Check, Clipboard, HelpCircle, Loader2, RefreshCw, Rss, TriangleAlert } from "lucide-react";
 import { FeedSetupDialog } from "@/components/properties/feed-setup-dialog";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useToast } from "@/components/shared/toast-provider";
@@ -46,6 +46,8 @@ export function PortalFeedPanel({
   const [origin, setOrigin] = useState("");
   /** Revoca in attesa di conferma: spegne il feed su tutti i portali. */
   const [confirmingRevoke, setConfirmingRevoke] = useState(false);
+  /** Rigenerazione in attesa di conferma: il vecchio indirizzo smette di valere. */
+  const [confirmingRotate, setConfirmingRotate] = useState(false);
   /** Istruzioni per i portali, aperte su richiesta. */
   const [showSetup, setShowSetup] = useState(false);
   const { showToast } = useToast();
@@ -71,7 +73,19 @@ export function PortalFeedPanel({
     void load();
   }, [load]);
 
-  async function mutate(method: "POST" | "DELETE") {
+  const ESITI = {
+    POST: { ok: "Feed attivato.", ko: "Attivazione non riuscita. Riprova." },
+    PUT: {
+      ok: "Indirizzo rigenerato: aggiornalo sui portali.",
+      ko: "Rigenerazione non riuscita. Riprova.",
+    },
+    DELETE: {
+      ok: "Feed revocato: l'indirizzo non risponde più.",
+      ko: "Revoca non riuscita. Riprova.",
+    },
+  } as const;
+
+  async function mutate(method: "POST" | "PUT" | "DELETE") {
     setIsWorking(true);
     setError(null);
     try {
@@ -79,20 +93,14 @@ export function PortalFeedPanel({
       if (!response.ok) throw new Error();
       const data = (await response.json()) as { token: string | null };
       setToken(data.token);
-      showToast(
-        method === "POST" ? "Feed attivato." : "Feed revocato: l'indirizzo non risponde più.",
-        "success"
-      );
+      showToast(ESITI[method].ok, "success");
     } catch {
-      setError(
-        method === "POST"
-          ? "Attivazione non riuscita. Riprova."
-          : "Revoca non riuscita. Riprova."
-      );
+      setError(ESITI[method].ko);
       showToast("Operazione non riuscita. Riprova.", "error");
     } finally {
       setIsWorking(false);
       setConfirmingRevoke(false);
+      setConfirmingRotate(false);
     }
   }
 
@@ -196,14 +204,28 @@ export function PortalFeedPanel({
           </p>
 
           {isOwner ? (
-            <button
-              type="button"
-              onClick={() => setConfirmingRevoke(true)}
-              disabled={isWorking}
-              className="text-xs font-medium text-muted-foreground underline underline-offset-4 transition-colors hover:text-status-blocked disabled:opacity-50"
-            >
-              {isWorking ? "Revoca in corso…" : "Revoca l'indirizzo"}
-            </button>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              {/* Rigenera prima di Revoca: e' l'azione che si cerca dopo una
+                  fuga di notizie, e l'altra spegne la sincronizzazione. */}
+              <button
+                type="button"
+                onClick={() => setConfirmingRotate(true)}
+                disabled={isWorking}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground disabled:opacity-50"
+              >
+                <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                Rigenera Token / URL
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setConfirmingRevoke(true)}
+                disabled={isWorking}
+                className="text-xs font-medium text-muted-foreground underline underline-offset-4 transition-colors hover:text-status-blocked disabled:opacity-50"
+              >
+                {isWorking ? "Operazione in corso…" : "Revoca l'indirizzo"}
+              </button>
+            </div>
           ) : null}
         </div>
       ) : (
@@ -251,6 +273,18 @@ export function PortalFeedPanel({
           isWorking={isWorking}
           onConfirm={() => mutate("DELETE")}
           onCancel={() => setConfirmingRevoke(false)}
+        />
+      )}
+
+      {confirmingRotate && (
+        <ConfirmDialog
+          title="Rigenerare l'indirizzo del feed?"
+          description="Il nuovo indirizzo funziona subito, ma il vecchio smette di valere nello stesso istante: i portali che hanno ancora quello ricevono un errore e alla rilettura successiva ritirano gli annunci. Rigeneralo solo se il link è stato divulgato, e appena fatto consegna il nuovo a ogni portale che lo usa."
+          confirmLabel="Rigenera l'indirizzo"
+          cancelLabel="Torna indietro"
+          isWorking={isWorking}
+          onConfirm={() => mutate("PUT")}
+          onCancel={() => setConfirmingRotate(false)}
         />
       )}
 

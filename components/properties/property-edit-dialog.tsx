@@ -21,6 +21,7 @@ export interface EditableProperty {
   type: PropertyType;
   comune: string;
   provincia: string | null;
+  cap: string | null;
   zona: string | null;
   indirizzo: string | null;
   priceEur: number;
@@ -120,6 +121,7 @@ export function PropertyEditDialog({
     type: property?.type ?? ("APPARTAMENTO" as PropertyType),
     comune: property?.comune ?? "",
     provincia: property?.provincia ?? "",
+    cap: property?.cap ?? "",
     zona: property?.zona ?? "",
     indirizzo: property?.indirizzo ?? "",
     priceEur: property ? String(property.priceEur) : "",
@@ -178,6 +180,7 @@ export function PropertyEditDialog({
           type: form.type,
           comune: form.comune.trim(),
           provincia: toText(form.provincia),
+          cap: toText(form.cap),
           zona: toText(form.zona),
           indirizzo: toText(form.indirizzo),
           priceEur: toNumber(form.priceEur),
@@ -384,6 +387,26 @@ export function PropertyEditDialog({
                 value={form.provincia}
                 onChange={(e) => set("provincia", e.target.value)}
               />
+            </div>
+
+            <div>
+              <label htmlFor="ed-cap" className="text-xs font-medium text-foreground">
+                CAP
+              </label>
+              <input
+                id="ed-cap"
+                className="input-field mt-1"
+                placeholder="41058"
+                inputMode="numeric"
+                maxLength={5}
+                value={form.cap}
+                onChange={(e) => set("cap", e.target.value)}
+              />
+              {/* Detto qui e non solo in caso d'errore: e' il campo che i
+                  portali pretendono e che nessuno ricorda di compilare. */}
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Richiesto dai portali per pubblicare l&apos;annuncio.
+              </p>
             </div>
 
             <div>

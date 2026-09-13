@@ -39,6 +39,7 @@ export async function GET() {
       type: property.type,
       comune: property.comune,
       provincia: property.provincia,
+      cap: property.cap,
       zona: property.zona,
       indirizzo: property.indirizzo,
       priceEur: property.priceEur,

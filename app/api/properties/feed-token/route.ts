@@ -67,12 +67,51 @@ export async function POST() {
 }
 
 /**
- * Revoca il token: l'URL diventa immediatamente 401.
+ * Ruota il token in un colpo: il vecchio URL diventa 401, il nuovo funziona.
  *
- * È anche il modo di ruotarlo dopo una fuga di notizie — si revoca e si
- * riattiva, ottenendo un segreto nuovo. Due passaggi anziché un pulsante
- * "rigenera" perché la conseguenza sia esplicita: finché non si aggiorna il
- * pannello del portale, il feed resta muto e gli annunci vengono ritirati.
+ * # Perché un passaggio e non due
+ *
+ * Prima la rotazione si faceva revocando e riattivando, e quei due passaggi
+ * erano una scelta: rendere esplicita la conseguenza. Ma fra i due c'è una
+ * finestra in cui il feed non risponde ad alcun token, e un feed che non
+ * risponde **non "blocca" l'agenzia: le fa ritirare gli annunci** alla prima
+ * rilettura del portale. Il pericolo da sventare non era la fretta di chi
+ * clicca, era quella finestra. Una sola `update` non ce l'ha, e l'avviso
+ * esplicito è passato dov'è utile: nella conferma in interfaccia.
+ *
+ * Niente controllo di collisione sul valore generato: 24 byte casuali sono
+ * 192 bit, e il vincolo unico sulla colonna farebbe comunque fallire la
+ * scrittura invece di sovrascrivere il token di qualcun altro.
+ */
+export async function PUT() {
+  const session = await auth();
+  if (!session?.user?.organizationId) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  // Stessa ragione della revoca: cambiare il token ferma il feed di TUTTA
+  // l'agenzia finché il pannello del portale non viene aggiornato.
+  if (session.user.role !== "OWNER") {
+    return NextResponse.json(
+      { error: "forbidden", message: "Solo il titolare puo' rigenerare il feed verso i portali." },
+      { status: 403 }
+    );
+  }
+
+  const updated = await prisma.organization.update({
+    where: { id: session.user.organizationId },
+    data: { listingFeedToken: generateFeedToken() },
+    select: { listingFeedToken: true },
+  });
+
+  return NextResponse.json({ token: updated.listingFeedToken });
+}
+
+/**
+ * Revoca il token: l'URL diventa immediatamente 401 e il feed tace.
+ *
+ * Serve a spegnere la sincronizzazione, non a ruotare il segreto — per quello
+ * c'è `PUT`, che non lascia il feed muto nel frattempo.
  */
 export async function DELETE() {
   const session = await auth();

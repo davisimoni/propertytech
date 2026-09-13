@@ -67,6 +67,7 @@ interface PropertyView {
   // Campi che la finestra di modifica scrive: erano gia' restituiti dall'API,
   // mancavano solo qui.
   provincia: string | null;
+  cap: string | null;
   indirizzo: string | null;
   bathrooms: number | null;
   floor: string | null;
