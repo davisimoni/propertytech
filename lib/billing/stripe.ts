@@ -53,6 +53,21 @@ export function getExtraSeatPriceId(): string | null {
   return readSecret(EXTRA_SEAT_PRICE_ENV) ?? null;
 }
 
+/**
+ * Prezzo del pacchetto di conversazioni WhatsApp aggiuntive.
+ *
+ * È un pagamento **una tantum**, non un abbonamento: l'agenzia che esaurisce
+ * i crediti a metà mese compra un pacchetto e riparte, senza cambiare piano e
+ * senza impegni ricorrenti. Per questo la sessione di Checkout va creata in
+ * `mode: "payment"` e non `"subscription"`.
+ */
+const EXTRA_CREDITS_PRICE_ENV = "STRIPE_PRICE_ID_EXTRA_CREDITS";
+
+/** Prezzo Stripe del pacchetto crediti, o `null` se non configurato. */
+export function getExtraCreditsPriceId(): string | null {
+  return readSecret(EXTRA_CREDITS_PRICE_ENV) ?? null;
+}
+
 export function isStripeEnabled(): boolean {
   return isConfiguredSecret(process.env.STRIPE_SECRET_KEY);
 }

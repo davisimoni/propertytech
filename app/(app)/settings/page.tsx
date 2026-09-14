@@ -95,7 +95,7 @@ export default async function SettingsPage() {
              * conversazioni restano serve a chi lavora, non a chi paga.
              */
             <>
-              <UsageWidget variant="full" />
+              <UsageWidget variant="full" canPurchase={session?.user?.role === "OWNER"} />
               {session?.user?.role === "OWNER" ? (
                 <>
                   {/* Sopra il listino: chi apre questa scheda per una fattura

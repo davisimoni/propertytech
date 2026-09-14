@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
+import { accreditaRicarica } from "@/lib/billing/credit-recharge";
 import {
   getExtraSeatPriceId,
   getStripe,
@@ -217,6 +218,19 @@ export async function POST(request: Request) {
       case "checkout.session.completed": {
         const session = event.data.object;
         const organizationId = session.metadata?.organizationId;
+
+        /*
+         * Ricarica crediti: si riconosce dai metadati e si gestisce prima.
+         *
+         * Una sessione di ricarica non porta un `planId`, quindi senza questo
+         * ramo finirebbe nell'errore "metadati mancanti" qui sotto e i crediti
+         * pagati non verrebbero mai accreditati.
+         */
+        if (session.metadata?.type === "credit_recharge") {
+          await accreditaRicarica(session);
+          break;
+        }
+
         const planId = readPlanFromMetadata(session.metadata);
 
         if (!organizationId || !planId) {

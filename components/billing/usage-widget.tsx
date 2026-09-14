@@ -1,10 +1,26 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, MessageSquarePlus } from "lucide-react";
 import { useUsageStats } from "@/hooks/use-usage-stats";
 import { formatCount } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 import type { UsageMetric } from "@/lib/usage-types";
+import { RechargeCreditsDialog } from "@/components/billing/recharge-credits-dialog";
+
+/**
+ * Da quale consumo in su si propone la ricarica.
+ *
+ * Non solo a limite raggiunto: a quel punto l'assistente ha già smesso di
+ * rispondere ai nuovi contatti, e i lead persi nel frattempo non tornano.
+ * All'80% c'è ancora margine per comprare prima che si fermi.
+ */
+const SOGLIA_AVVISO = 0.8;
+
+function quasiEsaurito(metric: UsageMetric): boolean {
+  if (metric.limit === null) return false;
+  return metric.isLimitReached || metric.used / metric.limit >= SOGLIA_AVVISO;
+}
 
 /** Come nel listino: "1.500" e non "1500", stessa cifra scritta allo stesso modo ovunque compaia. */
 function formatLimit(limit: number | null): string {
@@ -51,10 +67,19 @@ function UsageBar({ label, metric }: { label: string; metric: UsageMetric }) {
 
 interface UsageWidgetProps {
   variant?: "full" | "compact";
+  /**
+   * Se mostrare l'acquisto di crediti. Acquistare impegna l'agenzia, quindi
+   * vale la regola delle altre rotte di pagamento: solo il titolare. Il
+   * pulsante non compare a un collaboratore invece di comparire e rispondere
+   * 403 — nascondere non autorizza, ma mostrare un comando che non funziona
+   * è un difetto in più, non uno in meno.
+   */
+  canPurchase?: boolean;
 }
 
-export function UsageWidget({ variant = "full" }: UsageWidgetProps) {
+export function UsageWidget({ variant = "full", canPurchase = false }: UsageWidgetProps) {
   const { data, isLoading } = useUsageStats();
+  const [ricaricaAperta, setRicaricaAperta] = useState(false);
 
   if (isLoading || !data) {
     return <div className={cn("animate-pulse rounded-xl bg-muted", variant === "compact" ? "h-5 w-40" : "h-24")} />;
@@ -91,6 +116,31 @@ export function UsageWidget({ variant = "full" }: UsageWidgetProps) {
       <UsageBar label="Crediti WhatsApp" metric={data.whatsapp} />
       <UsageBar label="Crediti Documenti" metric={data.documents} />
       {data.voice.limit !== 0 && <UsageBar label="Note Vocali" metric={data.voice} />}
+
+      {/* La ricarica riguarda le sole conversazioni WhatsApp: documenti e note
+          vocali non hanno un pacchetto da comprare, e mostrare qui un pulsante
+          generico farebbe credere il contrario. */}
+      {canPurchase && quasiEsaurito(data.whatsapp) && (
+        <button
+          type="button"
+          onClick={() => setRicaricaAperta(true)}
+          className="btn-outline w-full text-xs"
+        >
+          <MessageSquarePlus className="h-3.5 w-3.5" aria-hidden="true" />
+          Acquista crediti extra
+        </button>
+      )}
+
+      {ricaricaAperta && (
+        <RechargeCreditsDialog
+          restanti={
+            data.whatsapp.limit === null
+              ? null
+              : Math.max(0, data.whatsapp.limit - data.whatsapp.used)
+          }
+          onClose={() => setRicaricaAperta(false)}
+        />
+      )}
     </div>
   );
 }

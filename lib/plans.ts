@@ -61,6 +61,28 @@ export interface Plan {
  */
 export const EXTRA_SEAT_PRICE_EUR = 29;
 
+/**
+ * Conversazioni WhatsApp contenute in un pacchetto di ricarica.
+ *
+ * Vive qui e non nella rotta perché lo mostra anche l'interfaccia ("pacchetto
+ * da 100 conversazioni") e i due numeri non devono poter divergere. Il
+ * **prezzo** invece non sta qui: lo conosce solo Stripe, e Checkout lo mostra
+ * all'agente prima di pagare. Scriverlo anche da questa parte significherebbe
+ * poterlo cambiare su Stripe e continuare a mostrarne un altro in pagina.
+ */
+export const EXTRA_CREDITS_PACK_SIZE = 100;
+
+/**
+ * I piani su cui ha senso ricaricare.
+ *
+ * Non il Trial: chi è in prova non deve comprare crediti per una prova, deve
+ * passare a un piano. Offrirgli una ricarica sarebbe vendergli il pezzo
+ * sbagliato.
+ */
+export function canRechargeCredits(planId: PlanId): boolean {
+  return planId !== "trial";
+}
+
 /** I piani su cui si possono comprare postazioni in piu'. */
 export const PLANS_WITH_EXTRA_SEATS: PlanId[] = ["pro"];
 

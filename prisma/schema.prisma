@@ -486,6 +486,7 @@ model Organization {
   agencyDocuments      AgencyDocument[]
   aiGenerations        AiGeneration[]
   cancellationFeedback CancellationFeedback[]
+  creditRecharges      CreditRecharge[]
   /// Referral in cui questa agenzia è l'invitante (può essere molti).
   referralsSent        Referral[]             @relation("ReferralsSent")
   /// Referral in cui questa agenzia è l'invitata (al massimo uno: non si può
@@ -1942,4 +1943,36 @@ model RadarZoneDemand {
 
   @@unique([organizationId, zoneKey])
   @@index([organizationId])
+}
+
+/// Ricarica di conversazioni WhatsApp acquistata una tantum.
+///
+/// # Perché questa tabella esiste
+///
+/// Non per l'archivio — quello è un effetto collaterale gradito — ma per
+/// l'**idempotenza**. Stripe può recapitare lo stesso evento più di una volta,
+/// e tutti gli altri handler del webhook lo reggono perché scrivono un valore
+/// (`status = "pro"` due volte resta "pro"). Una ricarica invece *incrementa*:
+/// una seconda consegna regalerebbe altri cento crediti.
+///
+/// `stripeSessionId` è unico, e la creazione avviene nella stessa transazione
+/// dell'incremento: alla seconda consegna la `create` viola il vincolo, la
+/// transazione si annulla per intero e i crediti restano quelli giusti.
+model CreditRecharge {
+  id String @id @default(cuid())
+
+  /// Sessione di Checkout che ha pagato: è la chiave di idempotenza.
+  stripeSessionId String @unique
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Conversazioni accreditate. Storicizzate qui e non ricavate dal pacchetto
+  /// corrente: se un giorno il pacchetto cambia dimensione, le ricariche già
+  /// fatte devono continuare a raccontare quante ne portarono davvero.
+  credits Int
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId, createdAt])
 }
