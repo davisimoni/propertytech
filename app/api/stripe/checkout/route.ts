@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { conClienteValido } from "@/lib/billing/customer";
 import { PLANS } from "@/lib/plans";
 import {
   getOrCreateRefereeCoupon,
@@ -81,24 +82,6 @@ export async function POST(request: Request) {
   try {
     const stripe = getStripe();
 
-    // Riusa il customer esistente, così i pagamenti successivi restano
-    // aggregati sotto la stessa anagrafica anziché creare duplicati.
-    let customerId = organization.subscription?.stripeCustomerId ?? undefined;
-
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: organization.email,
-        name: organization.agencyName,
-        metadata: { organizationId },
-      });
-      customerId = customer.id;
-
-      await prisma.subscription.update({
-        where: { organizationId },
-        data: { stripeCustomerId: customerId },
-      });
-    }
-
     // Sconto di benvenuto del Programma Referral: solo se questa
     // organizzazione è un'invitata e non l'ha già consumato (una tantum, per
     // sempre — vedi `Referral.refereeWelcomeDiscountAppliedAt`). Applicato
@@ -112,24 +95,40 @@ export async function POST(request: Request) {
     });
     const eligibleForWelcomeDiscount = referral !== null && !referral.refereeWelcomeDiscountAppliedAt;
 
-    const checkoutSession = await stripe.checkout.sessions.create(
-      {
-        mode: "subscription",
-        customer: customerId,
-        line_items: [{ price: priceId, quantity: 1 }],
-        // I metadati sono l'unico canale affidabile per far arrivare al webhook
-        // organizzazione e piano: il webhook non ha una sessione utente.
-        metadata: { organizationId, planId: plan, interval },
-        subscription_data: { metadata: { organizationId, planId: plan, interval } },
-        success_url: `${SITE_URL}/settings?checkout=success`,
-        cancel_url: `${SITE_URL}/settings?checkout=cancelled`,
-        locale: "it",
-        ...(eligibleForWelcomeDiscount && {
-          discounts: [{ coupon: await getOrCreateRefereeCoupon(stripe) }],
-        }),
-      },
-      // Evita doppi addebiti se l'utente fa doppio clic o la rete ritenta.
-      { idempotencyKey: `checkout_${organizationId}_${plan}_${interval}_${Date.now()}` }
+    const coupon = eligibleForWelcomeDiscount ? await getOrCreateRefereeCoupon(stripe) : null;
+
+    /*
+     * Il cliente Stripe passa da `conClienteValido`.
+     *
+     * Un `stripeCustomerId` salvato può non esistere più sull'account — è il
+     * caso di un id creato in ambiente test e ritrovato in live. Lì Stripe
+     * risponde "No such customer" e l'agenzia resta bloccata davanti a un
+     * errore che non può risolvere: l'helper azzera il riferimento, ne crea
+     * uno nuovo e riprova una volta sola.
+     */
+    const checkoutSession = await conClienteValido(organizationId, (customerId, tentativo) =>
+      stripe.checkout.sessions.create(
+        {
+          mode: "subscription",
+          customer: customerId,
+          line_items: [{ price: priceId, quantity: 1 }],
+          // I metadati sono l'unico canale affidabile per far arrivare al webhook
+          // organizzazione e piano: il webhook non ha una sessione utente.
+          metadata: { organizationId, planId: plan, interval },
+          subscription_data: { metadata: { organizationId, planId: plan, interval } },
+          success_url: `${SITE_URL}/settings?checkout=success`,
+          cancel_url: `${SITE_URL}/settings?checkout=cancelled`,
+          locale: "it",
+          ...(coupon && { discounts: [{ coupon }] }),
+        },
+        // Evita doppi addebiti se l'utente fa doppio clic o la rete ritenta.
+        // `tentativo` fa parte della chiave: al secondo giro ne serve una
+        // diversa, o Stripe restituirebbe la risposta memorizzata del primo —
+        // cioè proprio l'errore da cui stiamo uscendo.
+        {
+          idempotencyKey: `checkout_${organizationId}_${plan}_${interval}_${Date.now()}_${tentativo}`,
+        }
+      )
     );
 
     if (!checkoutSession.url) {

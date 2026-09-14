@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getStripe, isStripeEnabled } from "@/lib/billing/stripe";
+import { conClienteValido } from "@/lib/billing/customer";
 import { SITE_URL } from "@/lib/seo";
 
 /**
@@ -66,10 +67,17 @@ export async function POST() {
 
   try {
     const stripe = getStripe();
-    const portale = await stripe.billingPortal.sessions.create({
-      customer: subscription.stripeCustomerId,
-      return_url: `${SITE_URL}/settings`,
-    });
+
+    // Anche qui il cliente salvato può essere obsoleto: `conClienteValido` lo
+    // rigenera invece di lasciare l'agenzia davanti a "No such customer".
+    // Su un cliente appena creato il portale è vuoto, ed è corretto: non ci
+    // sono fatture perché quelle vecchie stavano sull'account precedente.
+    const portale = await conClienteValido(session.user.organizationId, (customerId) =>
+      stripe.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: `${SITE_URL}/settings`,
+      })
+    );
 
     return NextResponse.json({ url: portale.url });
   } catch (error) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getExtraCreditsPriceId, getStripe, isStripeEnabled } from "@/lib/billing/stripe";
+import { conClienteValido } from "@/lib/billing/customer";
 import { canRechargeCredits, EXTRA_CREDITS_PACK_SIZE } from "@/lib/plans";
 import { getPlanId } from "@/lib/feature-access";
 import { SITE_URL } from "@/lib/seo";
@@ -85,49 +86,39 @@ export async function POST() {
   try {
     const stripe = getStripe();
 
-    // Stesso criterio del checkout dei piani: si riusa il customer esistente,
-    // così acquisti e abbonamento restano sotto un'unica anagrafica invece di
-    // sparpagliarsi su duplicati che poi nessuno riesce a riconciliare.
-    let customerId = organization.subscription?.stripeCustomerId ?? undefined;
-
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: organization.email,
-        name: organization.agencyName,
-        metadata: { organizationId },
-      });
-      customerId = customer.id;
-
-      await prisma.subscription.update({
-        where: { organizationId },
-        data: { stripeCustomerId: customerId },
-      });
-    }
-
-    const checkoutSession = await stripe.checkout.sessions.create(
-      {
-        mode: "payment",
-        customer: customerId,
-        line_items: [{ price: priceId, quantity: 1 }],
-        /*
-         * I metadati sono l'unico canale verso il webhook, che non ha una
-         * sessione utente. `type` distingue questa sessione da quelle di
-         * abbonamento — senza, il webhook proverebbe ad attivare un piano che
-         * qui non esiste. `credits` viaggia insieme perché il webhook accrediti
-         * quanto è stato comprato *allora*, anche se un domani il pacchetto
-         * cambiasse dimensione.
-         */
-        metadata: {
-          type: "credit_recharge",
-          organizationId,
-          credits: String(EXTRA_CREDITS_PACK_SIZE),
+    /*
+     * Stesso criterio del checkout dei piani: il cliente si riusa fra un
+     * acquisto e l'altro, e `conClienteValido` lo rigenera se l'id salvato non
+     * esiste più sull'account Stripe (tipico di un id creato in test e
+     * ritrovato in live).
+     */
+    const checkoutSession = await conClienteValido(organizationId, (customerId, tentativo) =>
+      stripe.checkout.sessions.create(
+        {
+          mode: "payment",
+          customer: customerId,
+          line_items: [{ price: priceId, quantity: 1 }],
+          /*
+           * I metadati sono l'unico canale verso il webhook, che non ha una
+           * sessione utente. `type` distingue questa sessione da quelle di
+           * abbonamento — senza, il webhook proverebbe ad attivare un piano che
+           * qui non esiste. `credits` viaggia insieme perché il webhook accrediti
+           * quanto è stato comprato *allora*, anche se un domani il pacchetto
+           * cambiasse dimensione.
+           */
+          metadata: {
+            type: "credit_recharge",
+            organizationId,
+            credits: String(EXTRA_CREDITS_PACK_SIZE),
+          },
+          success_url: `${SITE_URL}/settings?ricarica=ok`,
+          cancel_url: `${SITE_URL}/settings?ricarica=annullata`,
+          locale: "it",
         },
-        success_url: `${SITE_URL}/settings?ricarica=ok`,
-        cancel_url: `${SITE_URL}/settings?ricarica=annullata`,
-        locale: "it",
-      },
-      // Doppio clic o ritentativo di rete non devono produrre due addebiti.
-      { idempotencyKey: `recharge_${organizationId}_${Date.now()}` }
+        // Doppio clic o ritentativo di rete non devono produrre due addebiti.
+        // `tentativo` nella chiave: al secondo giro ne serve una diversa.
+        { idempotencyKey: `recharge_${organizationId}_${Date.now()}_${tentativo}` }
+      )
     );
 
     return NextResponse.json({ url: checkoutSession.url });
