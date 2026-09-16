@@ -58,8 +58,16 @@ export interface Plan {
  * Professional porta con se', e vendergli tre postazioni su un piano da 150
  * chat al mese significa vendergli un limite che raggiungera' il mese dopo.
  * Sull'Enterprise nemmeno: li' le postazioni si concordano.
+ *
+ * # Deve coincidere con il prezzo su Stripe
+ *
+ * Questo numero è quello che l'agenzia legge prima di comprare (pannello Team
+ * e riepilogo del costo mensile), mentre l'addebito lo fa il prezzo Stripe
+ * indicato da `STRIPE_PRICE_ID_EXTRA_SEAT`. I due non sono collegati da nulla
+ * se non da questa riga: stava a 29 € mentre Stripe ne addebitava 19, e
+ * nessun errore lo segnalava. Se cambi il prezzo su Stripe, cambialo qui.
  */
-export const EXTRA_SEAT_PRICE_EUR = 29;
+export const EXTRA_SEAT_PRICE_EUR = 19;
 
 /**
  * Conversazioni WhatsApp contenute in un pacchetto di ricarica.

@@ -197,7 +197,7 @@ export async function POST(request: Request) {
          * `canBuyMore` dice alla UI se offrire il pulsante. Un'agenzia di
          * quattro persone che ha finito le tre postazioni del Professional non
          * deve passare all'Enterprise per una persona sola: venderle il salto
-         * di piano quando le basta una postazione da 29 euro e' il modo di
+         * di piano quando le basta una postazione in piu' e' il modo di
          * farle sembrare caro un prodotto che non lo e'.
          */
         canBuyExtraSeat: seats.canBuyMore,
