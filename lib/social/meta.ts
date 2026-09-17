@@ -35,13 +35,22 @@ import { SITE_URL } from "@/lib/seo";
 const GRAPH_API_VERSION = "v21.0";
 const GRAPH = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
 
-/** Permessi richiesti al consenso. Meno di questi e la pubblicazione non parte. */
+/**
+ * Permessi richiesti al consenso. Meno di questi e la pubblicazione non parte.
+ *
+ * `business_management` serve alle Pagine possedute da un Portfolio Business
+ * (Business Manager): senza, `/me/accounts` può restituire un elenco vuoto
+ * anche a chi ha il controllo completo della Pagina, e `/me/businesses` non
+ * è leggibile. Per gli utenti senza un ruolo sull'app Meta richiede l'accesso
+ * avanzato (App Review), come gli altri permessi della pubblicazione.
+ */
 export const META_SCOPES = [
   "pages_show_list",
-  "pages_manage_posts",
   "pages_read_engagement",
+  "pages_manage_posts",
   "instagram_basic",
   "instagram_content_publish",
+  "business_management",
 ].join(",");
 
 export function getMetaAppId(): string | null {
@@ -107,6 +116,9 @@ export function buildMetaAuthUrl(state: string): string | null {
   url.searchParams.set("redirect_uri", `${SITE_URL}${META_REDIRECT_PATH}`);
   url.searchParams.set("scope", META_SCOPES);
   url.searchParams.set("response_type", "code");
+  // Ripropone i permessi rifiutati in un consenso precedente: senza, Meta
+  // ricorda il rifiuto e il nuovo tentativo fallisce allo stesso modo.
+  url.searchParams.set("auth_type", "rerequest");
   // `state` lega il ritorno all'agenzia che ha aperto il consenso: senza,
   // chiunque potrebbe far atterrare un callback su un'altra organizzazione.
   url.searchParams.set("state", state);
@@ -122,17 +134,256 @@ export interface MetaPageConnection {
 }
 
 /**
+ * Esito del collegamento, con il motivo quando non riesce.
+ *
+ * Prima ogni fallimento diventava "Nessuna Pagina Facebook trovata", anche
+ * quando a fallire era lo scambio del codice: il messaggio mandava a cercare
+ * il problema nella Pagina quando stava altrove.
+ */
+export type EsitoCollegamentoMeta =
+  | { ok: true; page: MetaPageConnection }
+  | {
+      ok: false;
+      motivo: "scambio_codice" | "lettura_pagine" | "nessuna_pagina" | "permessi_mancanti";
+    };
+
+interface PaginaMeta {
+  id: string;
+  name: string;
+  access_token?: string;
+  tasks?: string[];
+  instagram_business_account?: { id: string; username?: string };
+}
+
+interface ErroreMeta {
+  message?: string;
+  type?: string;
+  code?: number;
+  error_subcode?: number;
+  fbtrace_id?: string;
+}
+
+interface RispostaGraph<T> {
+  ok: boolean;
+  status: number;
+  dati: T | null;
+  errore: ErroreMeta | null;
+}
+
+const CAMPI_PAGINA = "id,name,access_token,tasks,instagram_business_account{id,username}";
+/** Tetto ai giri di paginazione: nessuna agenzia amministra migliaia di Pagine. */
+const MAX_PAGINE_RISULTATI = 10;
+const MAX_BUSINESS = 10;
+const MAX_PAGINE_BUSINESS = 25;
+
+/**
+ * `appsecret_proof`: HMAC del token con il segreto dell'app.
+ *
+ * Se nelle impostazioni dell'app Meta è attivo "Require App Secret", le
+ * chiamate senza questa prova vengono rifiutate; se non lo è, la prova è
+ * ignorata. Inviarla sempre rende il codice indipendente da quell'impostazione
+ * e impedisce di usare un token sottratto da un'altra app.
+ */
+function appSecretProof(token: string, appSecret: string): string {
+  return createHmac("sha256", appSecret).update(token).digest("hex");
+}
+
+async function graphGet<T>(url: URL | string): Promise<RispostaGraph<T>> {
+  try {
+    const risposta = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+    const corpo = (await risposta.json().catch(() => null)) as (T & { error?: ErroreMeta }) | null;
+    return {
+      ok: risposta.ok && !corpo?.error,
+      status: risposta.status,
+      dati: corpo,
+      errore: corpo?.error ?? null,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      dati: null,
+      errore: { message: error instanceof Error ? error.message : "errore di rete" },
+    };
+  }
+}
+
+function urlGraph(
+  percorso: string,
+  token: string,
+  appSecret: string,
+  parametri: Record<string, string> = {}
+): URL {
+  const url = new URL(`${GRAPH}/${percorso}`);
+  for (const [chiave, valore] of Object.entries(parametri)) url.searchParams.set(chiave, valore);
+  url.searchParams.set("access_token", token);
+  url.searchParams.set("appsecret_proof", appSecretProof(token, appSecret));
+  return url;
+}
+
+function conProva(indirizzo: string | null, appSecret: string): string | null {
+  if (!indirizzo) return null;
+  const url = new URL(indirizzo);
+  const token = url.searchParams.get("access_token");
+  if (token && !url.searchParams.has("appsecret_proof")) {
+    url.searchParams.set("appsecret_proof", appSecretProof(token, appSecret));
+  }
+  return url.toString();
+}
+
+/** Tutti i risultati di un elenco Graph, seguendo `paging.next`. */
+async function elencoCompleto<T>(
+  primo: URL,
+  appSecret: string
+): Promise<{ elementi: T[]; status: number; errore: ErroreMeta | null }> {
+  const elementi: T[] = [];
+  let prossimo: string | null = primo.toString();
+  let status = 0;
+
+  for (let giro = 0; prossimo && giro < MAX_PAGINE_RISULTATI; giro++) {
+    const risposta: RispostaGraph<{ data?: T[]; paging?: { next?: string } }> =
+      await graphGet(prossimo);
+    status = risposta.status;
+    if (!risposta.ok) return { elementi, status, errore: risposta.errore };
+    elementi.push(...(risposta.dati?.data ?? []));
+    // `paging.next` porta già token e parametri della richiesta originale;
+    // la prova del segreto si ricalcola se Meta non la riporta.
+    prossimo = conProva(risposta.dati?.paging?.next ?? null, appSecret);
+  }
+
+  return { elementi, status, errore: null };
+}
+
+/**
+ * Una Pagina è collegabile se ha il proprio token e permette di pubblicare.
+ *
+ * `tasks` assente è accettato: non tutte le risposte lo includono, e
+ * scartare la Pagina per un campo mancante sarebbe peggio che provarci.
+ */
+function collegabile(pagina: PaginaMeta): boolean {
+  if (!pagina.access_token) return false;
+  return !pagina.tasks || pagina.tasks.includes("CREATE_CONTENT") || pagina.tasks.includes("MANAGE");
+}
+
+/**
+ * Riepilogo di una Pagina per i log: MAI il token.
+ *
+ * Un Page Access Token nei log di Vercel permetterebbe a chiunque li legga di
+ * pubblicare a nome dell'agenzia. Si registra solo se c'era.
+ */
+function perLog(pagina: PaginaMeta) {
+  return {
+    id: pagina.id,
+    nome: pagina.name,
+    tasks: pagina.tasks ?? null,
+    token: Boolean(pagina.access_token),
+    instagram: Boolean(pagina.instagram_business_account),
+  };
+}
+
+/**
+ * Pagine di un Portfolio Business, quando `/me/accounts` non le restituisce.
+ *
+ * Una Pagina posseduta da un Portfolio Business (Business Manager) spesso non
+ * compare in `/me/accounts` anche se la persona la gestisce: la si legge dal
+ * Business (`owned_pages`, e `client_pages` per quelle di clienti), poi si
+ * chiede a ciascuna il proprio token con il token dell'utente. Richiede il
+ * permesso `business_management`.
+ */
+async function pagineDaiBusiness(
+  userToken: string,
+  appSecret: string
+): Promise<{ pagine: PaginaMeta[]; diagnostica: Record<string, unknown> }> {
+  const business = await elencoCompleto<{ id: string; name: string }>(
+    urlGraph("me/businesses", userToken, appSecret, { fields: "id,name", limit: "50" }),
+    appSecret
+  );
+  const diagnostica: Record<string, unknown> = {
+    status: business.status,
+    errore: business.errore,
+    portfolio: business.elementi.map((b) => ({ id: b.id, nome: b.name })),
+  };
+  if (business.errore || business.elementi.length === 0) return { pagine: [], diagnostica };
+
+  const trovate = new Map<string, PaginaMeta>();
+  for (const b of business.elementi.slice(0, MAX_BUSINESS)) {
+    for (const bordo of ["owned_pages", "client_pages"]) {
+      const elenco = await elencoCompleto<PaginaMeta>(
+        urlGraph(`${b.id}/${bordo}`, userToken, appSecret, {
+          fields: "id,name,instagram_business_account{id,username}",
+          limit: "50",
+        }),
+        appSecret
+      );
+      for (const pagina of elenco.elementi) trovate.set(pagina.id, pagina);
+    }
+  }
+
+  // Il token di ogni Pagina, letto con il token dell'utente: arriva solo se
+  // la persona ha un ruolo su quella Pagina nel Business.
+  const pagine: PaginaMeta[] = [];
+  for (const pagina of [...trovate.values()].slice(0, MAX_PAGINE_BUSINESS)) {
+    const dettaglio = await graphGet<PaginaMeta>(
+      urlGraph(pagina.id, userToken, appSecret, { fields: CAMPI_PAGINA })
+    );
+    pagine.push(dettaglio.ok && dettaglio.dati ? { ...pagina, ...dettaglio.dati } : pagina);
+  }
+
+  diagnostica.pagine = pagine.map(perLog);
+  return { pagine, diagnostica };
+}
+
+/** Permessi concessi e rifiutati nel consenso, per capire cosa manca. */
+async function permessiConcessi(userToken: string, appSecret: string) {
+  const risposta = await graphGet<{ data?: { permission: string; status: string }[] }>(
+    urlGraph("me/permissions", userToken, appSecret)
+  );
+  const voci = risposta.dati?.data ?? [];
+  return {
+    concessi: voci.filter((v) => v.status === "granted").map((v) => v.permission),
+    rifiutati: voci.filter((v) => v.status !== "granted").map((v) => v.permission),
+    errore: risposta.errore,
+  };
+}
+
+/**
+ * Pagine selezionate nel consenso (granular scopes).
+ *
+ * Nel dialogo Meta la persona sceglie a quali Pagine dare accesso: una Pagina
+ * non spuntata non compare da nessuna parte, anche se la gestisce. `debug_token`
+ * con il token dell'app dice quali id sono stati concessi per ogni permesso.
+ */
+async function pagineConcesseNelConsenso(userToken: string, appId: string, appSecret: string) {
+  const url = new URL(`${GRAPH}/debug_token`);
+  url.searchParams.set("input_token", userToken);
+  url.searchParams.set("access_token", `${appId}|${appSecret}`);
+  const risposta = await graphGet<{
+    data?: { granular_scopes?: { scope: string; target_ids?: string[] }[] };
+  }>(url);
+  return {
+    perPermesso: (risposta.dati?.data?.granular_scopes ?? []).map((g) => ({
+      permesso: g.scope,
+      idConcessi: g.target_ids ?? "tutti",
+    })),
+    errore: risposta.errore,
+  };
+}
+
+/**
  * Dal codice del consenso alla Pagina collegabile.
  *
- * Tre passaggi, tutti obbligatori: il codice diventa un token utente, il token
- * utente elenca le Pagine che quella persona amministra, e ogni Pagina porta
- * il PROPRIO token — che è quello con cui si pubblica. Usare il token utente
- * per pubblicare non funziona, ed è l'errore che si scopre solo al primo post.
+ * Il codice diventa un token utente; il token utente elenca le Pagine che la
+ * persona gestisce; ogni Pagina porta il PROPRIO token, che è quello con cui
+ * si pubblica. Le Pagine si cercano prima in `/me/accounts` (con paginazione)
+ * e, se lì non ce n'è una collegabile, nei Portfolio Business della persona.
+ *
+ * Se non si trova nulla si registra cosa ha risposto Meta — permessi, Pagine
+ * concesse nel consenso, risultati di entrambe le ricerche — senza token.
  */
-export async function exchangeCodeForPage(code: string): Promise<MetaPageConnection | null> {
+export async function exchangeCodeForPage(code: string): Promise<EsitoCollegamentoMeta> {
   const appId = getMetaAppId();
   const appSecret = getMetaAppSecret();
-  if (!appId || !appSecret) return null;
+  if (!appId || !appSecret) return { ok: false, motivo: "scambio_codice" };
 
   const tokenUrl = new URL(`${GRAPH}/oauth/access_token`);
   tokenUrl.searchParams.set("client_id", appId);
@@ -140,54 +391,71 @@ export async function exchangeCodeForPage(code: string): Promise<MetaPageConnect
   tokenUrl.searchParams.set("redirect_uri", `${SITE_URL}${META_REDIRECT_PATH}`);
   tokenUrl.searchParams.set("code", code);
 
-  const tokenResponse = await fetch(tokenUrl, { signal: AbortSignal.timeout(15_000) });
-  if (!tokenResponse.ok) {
-    console.error("[social/meta] Scambio del codice non riuscito", { status: tokenResponse.status });
-    return null;
+  const scambio = await graphGet<{ access_token?: string }>(tokenUrl);
+  const userToken = scambio.dati?.access_token;
+  if (!scambio.ok || !userToken) {
+    console.error("[social/meta] Scambio del codice non riuscito", {
+      status: scambio.status,
+      errore: scambio.errore,
+    });
+    return { ok: false, motivo: "scambio_codice" };
   }
 
-  const { access_token: userToken } = (await tokenResponse.json()) as { access_token?: string };
-  if (!userToken) return null;
+  const account = await elencoCompleto<PaginaMeta>(
+    urlGraph("me/accounts", userToken, appSecret, { fields: CAMPI_PAGINA, limit: "50" }),
+    appSecret
+  );
 
-  // Le Pagine amministrate, col token di ciascuna e l'eventuale profilo
-  // Instagram agganciato: si chiede tutto in una volta perche' ogni giro in
-  // piu' e' un'attesa dentro un callback che l'utente sta guardando.
-  const pagesUrl = new URL(`${GRAPH}/me/accounts`);
-  pagesUrl.searchParams.set("fields", "id,name,access_token,instagram_business_account{id,username}");
-  pagesUrl.searchParams.set("access_token", userToken);
+  let scelta = account.elementi.find(collegabile);
+  let daBusiness: Awaited<ReturnType<typeof pagineDaiBusiness>> | null = null;
 
-  const pagesResponse = await fetch(pagesUrl, { signal: AbortSignal.timeout(15_000) });
-  if (!pagesResponse.ok) {
-    console.error("[social/meta] Lettura delle Pagine non riuscita", { status: pagesResponse.status });
-    return null;
+  if (!scelta) {
+    daBusiness = await pagineDaiBusiness(userToken, appSecret);
+    scelta = daBusiness.pagine.find(collegabile);
   }
 
-  const dati = (await pagesResponse.json()) as {
-    data?: Array<{
-      id: string;
-      name: string;
-      access_token: string;
-      instagram_business_account?: { id: string; username?: string };
-    }>;
-  };
+  if (!scelta) {
+    const [permessi, consenso] = await Promise.all([
+      permessiConcessi(userToken, appSecret),
+      pagineConcesseNelConsenso(userToken, appId, appSecret),
+    ]);
 
-  /*
-   * La prima Pagina, non una scelta.
-   *
-   * Quasi tutte le agenzie ne amministrano una sola, e chiederle di sceglierne
-   * una in un elenco di uno e' un passaggio in piu' per niente. Chi ne ha piu'
-   * di una scollega e ricollega selezionando quella giusta nel consenso Meta,
-   * che e' dove la scelta va fatta davvero.
-   */
-  const pagina = dati.data?.[0];
-  if (!pagina) return null;
+    // Diagnostica completa di cosa ha restituito Meta, senza token.
+    console.warn("[social/meta] Nessuna Pagina collegabile: risposta di Meta", {
+      permessi,
+      pagineConcesseNelConsenso: consenso,
+      meAccounts: {
+        status: account.status,
+        errore: account.errore,
+        pagine: account.elementi.map(perLog),
+      },
+      portfolioBusiness: daBusiness?.diagnostica ?? null,
+    });
+
+    if (account.errore && (!daBusiness || daBusiness.diagnostica.errore)) {
+      return { ok: false, motivo: "lettura_pagine" };
+    }
+    const mancano = ["pages_show_list", "pages_manage_posts"].some(
+      (permesso) => !permessi.concessi.includes(permesso)
+    );
+    return { ok: false, motivo: mancano ? "permessi_mancanti" : "nessuna_pagina" };
+  }
+
+  console.info("[social/meta] Pagina trovata", {
+    origine: account.elementi.includes(scelta) ? "me/accounts" : "portfolio business",
+    pagina: perLog(scelta),
+    pagineViste: account.elementi.length + (daBusiness?.pagine.length ?? 0),
+  });
 
   return {
-    facebookPageId: pagina.id,
-    facebookPageName: pagina.name,
-    instagramUserId: pagina.instagram_business_account?.id ?? null,
-    instagramUsername: pagina.instagram_business_account?.username ?? null,
-    accessToken: pagina.access_token,
+    ok: true,
+    page: {
+      facebookPageId: scelta.id,
+      facebookPageName: scelta.name,
+      instagramUserId: scelta.instagram_business_account?.id ?? null,
+      instagramUsername: scelta.instagram_business_account?.username ?? null,
+      accessToken: scelta.access_token as string,
+    },
   };
 }
 

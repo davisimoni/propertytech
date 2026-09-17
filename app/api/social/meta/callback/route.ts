@@ -42,12 +42,26 @@ export async function GET(request: Request) {
   }
 
   try {
-    const page = await exchangeCodeForPage(code);
+    const esito = await exchangeCodeForPage(code);
 
-    if (!page) {
-      return redirect("nessuna-pagina");
+    // Un esito per causa: "nessuna Pagina" solo quando le Pagine sono state
+    // davvero cercate e non trovate. Il dettaglio di cosa ha risposto Meta è
+    // nei log (`[social/meta] Nessuna Pagina collegabile`).
+    if (!esito.ok) {
+      console.warn("[api/social/meta/callback] Collegamento non riuscito", {
+        organizationId,
+        motivo: esito.motivo,
+      });
+      const ESITO_PER_MOTIVO = {
+        scambio_codice: "errore",
+        lettura_pagine: "errore-meta",
+        permessi_mancanti: "permessi-mancanti",
+        nessuna_pagina: "nessuna-pagina",
+      } as const;
+      return redirect(ESITO_PER_MOTIVO[esito.motivo]);
     }
 
+    const page = esito.page;
     await saveConnection(organizationId, page);
 
     console.info("[SOCIAL-CONNECTED]", {

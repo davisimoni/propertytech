@@ -91,7 +91,17 @@ export function SocialConnectPanel({ currentRole }: { currentRole: UserRole }) {
       connesso: { testo: "Pagina collegata.", tipo: "success" },
       annullato: { testo: "Collegamento annullato.", tipo: "error" },
       "nessuna-pagina": {
-        testo: "Nessuna Pagina Facebook trovata su quell'account.",
+        testo:
+          "Nessuna Pagina utilizzabile. Nel consenso Meta scegli «Modifica impostazioni» e seleziona la Pagina e il profilo Instagram; se la Pagina è di un Portfolio Business, verifica in Impostazioni business di avere accesso alla Pagina con permesso di creare contenuti.",
+        tipo: "error",
+      },
+      "permessi-mancanti": {
+        testo:
+          "Mancano i permessi per pubblicare. Ricollega e, nel consenso Meta, lascia attivi tutti i permessi richiesti.",
+        tipo: "error",
+      },
+      "errore-meta": {
+        testo: "Meta non ha restituito l'elenco delle Pagine. Riprova tra qualche minuto.",
         tipo: "error",
       },
       errore: { testo: "Collegamento non riuscito. Riprova.", tipo: "error" },
