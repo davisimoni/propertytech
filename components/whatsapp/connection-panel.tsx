@@ -9,6 +9,7 @@ import {
   Link2,
   Loader2,
   Mail,
+  Mic,
   Smartphone,
   Unplug,
   HelpCircle,
@@ -761,6 +762,31 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                 value={`${origin}${WHATSAPP_PROVIDERS.generic.webhookPathHint}?token=${config.inboundToken}`}
                 icon={Link2}
               />
+            )}
+
+            {/* I vocali funzionano su Meta, Twilio e QR, ma solo con un
+                servizio di trascrizione configurato: senza, il cliente riceve
+                la richiesta di scrivere e l'agenzia non saprebbe perché. */}
+            {provider !== "generic" && (
+              <p className="flex items-start gap-1.5 border-t border-border pt-3 text-xs text-muted-foreground">
+                <Mic className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <span>
+                  Note vocali:{" "}
+                  {config.transcriptionReady ? (
+                    <strong className="font-semibold text-foreground">
+                      trascrizione attiva su questo ambiente
+                    </strong>
+                  ) : (
+                    <strong className="font-semibold text-status-pending">
+                      trascrizione non configurata
+                    </strong>
+                  )}
+                  .{" "}
+                  {config.transcriptionReady
+                    ? "I messaggi vocali dei clienti vengono trascritti e qualificati come i messaggi scritti."
+                    : "Ai vocali l'assistente risponde chiedendo di scrivere. Scrivici per attivare la trascrizione."}
+                </span>
+              </p>
             )}
           </div>
 

@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { readSecret } from "@/lib/env";
+import { isTranscriptionConfigured } from "@/lib/ai/transcription";
 import { hasUsableAccessToken } from "./credentials";
 import { isWhatsAppProviderId, type WhatsAppProviderId } from "./provider";
 
@@ -79,5 +80,10 @@ export function toPublicWhatsAppConfig(config: Awaited<ReturnType<typeof getOrCr
     inboundToken: config.inboundToken,
     inboundEmail: inboundEmailAddress(config.organizationId),
     webhookVerifyToken: config.webhookVerifyToken,
+    // Stato dell'ambiente, non dell'agenzia: senza un provider Speech-to-Text
+    // i vocali in arrivo ricevono la risposta di cortesia invece di essere
+    // trascritti, e questo è l'unico posto in cui l'agenzia se ne accorge
+    // prima che succeda.
+    transcriptionReady: isTranscriptionConfigured(),
   };
 }

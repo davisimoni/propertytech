@@ -36,6 +36,17 @@ export const STT_WEBHOOK_TIMEOUT_MS = 25_000;
 
 export const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
 
+/**
+ * Tetto per i vocali che arrivano da un webhook.
+ *
+ * Più basso del limite del fornitore (`MAX_AUDIO_BYTES`) perché qui il tempo è
+ * quello di una risposta che il cliente sta aspettando in chat: un file da
+ * venti megabyte si scaricherebbe e trascriverebbe oltre la durata massima
+ * della funzione, e il cliente non riceverebbe nulla. Sei megabyte sono
+ * diversi minuti di parlato: oltre, si chiede di riassumere.
+ */
+export const MAX_WEBHOOK_AUDIO_BYTES = 6 * 1024 * 1024;
+
 export const SUPPORTED_AUDIO_TYPES = [
   "audio/mpeg",
   "audio/mp3",

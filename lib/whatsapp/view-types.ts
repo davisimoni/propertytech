@@ -93,6 +93,14 @@ export interface WhatsAppConfigView {
    */
   inboundEmail: string | null;
   webhookVerifyToken: string | null;
+  /**
+   * Se su questo ambiente è configurato un servizio di trascrizione.
+   *
+   * Dipende dall'ambiente e non dall'agenzia, ma si mostra qui perché è qui
+   * che si vede la conseguenza: senza, a un vocale l'assistente risponde
+   * chiedendo di scrivere invece di qualificarlo.
+   */
+  transcriptionReady: boolean;
 }
 
 /** Classi Tailwind del badge di stato, allineate al codice colore del Modulo 1. */
