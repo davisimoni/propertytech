@@ -35,6 +35,17 @@ export const BRAND = {
    * altri dati identificativi così ce n'è una copia sola.
    */
   vatNumber: "04259570366",
+  /**
+   * Profili social ufficiali, linkati dal footer dell'area pubblica.
+   *
+   * Qui e non nel footer per lo stesso motivo dell'email: sono dati
+   * identificativi del marchio, e il giorno in cui servono anche altrove (dati
+   * strutturati, pagina contatti) devono esistere in una copia sola.
+   */
+  social: {
+    facebook: "https://www.facebook.com/propertytechsolutions",
+    instagram: "https://www.instagram.com/propertytechsolutions/",
+  },
   colors: {
     navy: "#031735",
     blue: "#0066FF",

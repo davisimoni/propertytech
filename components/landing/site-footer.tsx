@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Facebook, Instagram, type LucideIcon } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { ReferralFooterLink } from "@/components/referrals/referral-footer-link";
 import { ReferralPromo } from "@/components/referrals/referral-promo";
@@ -66,6 +67,11 @@ const COLUMNS: FooterColumn[] = [
   },
 ];
 
+const SOCIAL_LINKS: { label: string; href: string; Icon: LucideIcon }[] = [
+  { label: "Instagram", href: BRAND.social.instagram, Icon: Instagram },
+  { label: "Facebook", href: BRAND.social.facebook, Icon: Facebook },
+];
+
 const LINK_CLASS =
   "text-sm text-muted-foreground transition-colors hover:text-foreground";
 
@@ -119,11 +125,45 @@ export function LandingFooter() {
           ))}
         </div>
 
-        <div className="mt-14 flex flex-col gap-3 border-t border-border pt-8 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-muted-foreground">
-            © {year} {BRAND.name}. Tutti i diritti riservati. · P.IVA {BRAND.vatNumber}
+        {/*
+          Tre blocchi: copyright, social, contatto.
+
+          Su desktop i due laterali hanno `flex-1` con base zero: occupano
+          esattamente lo stesso spazio qualunque sia la lunghezza del testo, ed
+          è questo che tiene le icone al centro della riga e non al centro dello
+          spazio avanzato. Con il solo `justify-between` le icone si sarebbero
+          spostate verso il testo più corto.
+
+          Su mobile si impilano centrati: un copyright allineato a sinistra
+          sopra due icone centrate sembra un errore di impaginazione.
+        */}
+        <div className="mt-14 flex flex-col items-center gap-4 border-t border-border pt-8 md:flex-row md:gap-6">
+          <p className="text-center text-xs text-muted-foreground md:flex-1 md:basis-0 md:text-left">
+            © {year} {BRAND.name}. Tutti i diritti riservati. ·{" "}
+            {/* Etichetta e numero sulla stessa riga: "P.IVA" a fine riga e il
+                numero sotto si leggono come due dati diversi. */}
+            <span className="whitespace-nowrap">P.IVA {BRAND.vatNumber}</span>
           </p>
-          <p className="inline-flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+
+          <div className="flex items-center justify-center gap-4">
+            {SOCIAL_LINKS.map(({ label, href, Icon }) => (
+              <a
+                key={label}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${BRAND.name} su ${label} (si apre in una nuova scheda)`}
+                title={label}
+                // Area cliccabile di 40px attorno a un'icona da 20: sul
+                // telefono un bersaglio grande quanto l'icona si manca.
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <Icon className="h-5 w-5" aria-hidden="true" />
+              </a>
+            ))}
+          </div>
+
+          <p className="inline-flex flex-wrap items-center justify-center gap-1.5 text-xs text-muted-foreground md:flex-1 md:basis-0 md:justify-end">
             <span className="font-medium text-foreground">{BRAND.name}</span>
             <span aria-hidden="true">·</span>
             <a
