@@ -29,25 +29,3 @@ export async function resolveOwner(organizationId: string): Promise<Notification
     orderBy: { createdAt: "asc" },
   });
 }
-
-/**
- * Destinatario operativo di un lead: l'agente assegnato, altrimenti il
- * titolare.
- *
- * L'agente assegnato ha la precedenza perché è chi ha in carico quel contatto
- * e chi può agire subito; il titolare è il ripiego che c'è sempre.
- */
-export async function resolveLeadOwner(
-  organizationId: string,
-  assignedToId: string | null
-): Promise<NotificationRecipient | null> {
-  if (assignedToId) {
-    const assegnato = await prisma.user.findFirst({
-      where: { id: assignedToId, organizationId, acceptedAt: { not: null } },
-      select: { email: true, firstName: true },
-    });
-    if (assegnato) return assegnato;
-  }
-
-  return resolveOwner(organizationId);
-}

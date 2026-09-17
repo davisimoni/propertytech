@@ -62,11 +62,41 @@ export interface EmailMessage {
    * essendo arrivata.
    */
   replyTo?: string;
+  /**
+   * Solo per la newsletter: indirizzo di disiscrizione in un clic.
+   *
+   * La sua presenza è ciò che distingue un invio di marketing. Diventa le
+   * intestazioni `List-Unsubscribe` e `List-Unsubscribe-Post` (RFC 8058), che
+   * Gmail e Yahoo richiedono ai mittenti di posta promozionale e che mostrano
+   * il comando "Annulla iscrizione" accanto al mittente. Le email di servizio
+   * non la portano mai: non sono revocabili dal destinatario, e un comando di
+   * disiscrizione accanto a "Sessione WhatsApp disconnessa" farebbe credere di
+   * poterle spegnere.
+   */
+  unsubscribeUrl?: string;
 }
 
 /** Vero quando il seam e' configurato: la UI puo' dire se le notifiche partiranno. */
 export function isEmailConfigured(): boolean {
   return Boolean(readSecret("RESEND_API_KEY") && readSecret("NOTIFICATIONS_FROM_EMAIL"));
+}
+
+/**
+ * Mittente di un invio.
+ *
+ * # Due flussi, due mittenti quando possibile
+ *
+ * La reputazione di invio si costruisce per indirizzo e dominio. Una
+ * newsletter segnata come spam da qualche destinatario abbassa la reputazione
+ * di chi la spedisce, e se il mittente è lo stesso delle email di servizio la
+ * prossima "Sessione WhatsApp disconnessa" finisce nella stessa cartella.
+ * `NEWSLETTER_FROM_EMAIL` (idealmente su un sottodominio dedicato) tiene le
+ * due reputazioni separate; senza, la newsletter usa il mittente di servizio.
+ */
+function mittente(marketing: boolean): string | undefined {
+  const servizio = readSecret("NOTIFICATIONS_FROM_EMAIL");
+  if (!marketing) return servizio;
+  return readSecret("NEWSLETTER_FROM_EMAIL") ?? servizio;
 }
 
 /**
@@ -77,7 +107,8 @@ export function isEmailConfigured(): boolean {
  */
 export async function sendEmail(message: EmailMessage): Promise<EmailOutcome> {
   const apiKey = readSecret("RESEND_API_KEY");
-  const from = readSecret("NOTIFICATIONS_FROM_EMAIL");
+  const marketing = Boolean(message.unsubscribeUrl);
+  const from = mittente(marketing);
 
   if (!apiKey || !from) {
     console.warn("[notifications/email] Non configurato: notifica non inviata", {
@@ -102,6 +133,14 @@ export async function sendEmail(message: EmailMessage): Promise<EmailOutcome> {
         text: message.text,
         ...(message.html ? { html: message.html } : {}),
         ...(message.replyTo ? { reply_to: message.replyTo } : {}),
+        ...(message.unsubscribeUrl
+          ? {
+              headers: {
+                "List-Unsubscribe": `<${message.unsubscribeUrl}>`,
+                "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+              },
+            }
+          : {}),
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });

@@ -11,7 +11,21 @@ import {
 } from "@/lib/email/transactional";
 
 /**
- * Avvisi di crediti in esaurimento.
+ * Avvisi di crediti operativi in esaurimento: 80% e 100%.
+ *
+ * # Perché due soglie e non tre
+ *
+ * L'80% lascia margine per acquistare un pacchetto o cambiare piano; il 100%
+ * dice che la funzione si è fermata. Un avviso intermedio al 90% ripeteva il
+ * primo senza aggiungere un'azione diversa, e ogni email di sistema in più
+ * abitua a ignorare le successive.
+ *
+ * # Perché la dotazione comprende i pacchetti
+ *
+ * Per le conversazioni WhatsApp la dotazione è quella del piano **più** i
+ * crediti acquistati (`bonusWhatsappCredits`), come per il gate. Calcolata sul
+ * solo piano, un'agenzia che ha appena comprato cento conversazioni riceveva
+ * "crediti esauriti" mentre ne aveva ancora cento.
  *
  * # Perché serve una memoria
  *
@@ -32,7 +46,7 @@ import {
  * ne accorge.
  */
 
-const SOGLIE = [90, 80] as const;
+const SOGLIE = [80] as const;
 
 const CAMPO_CONTATORE = {
   whatsapp: "whatsappCreditsUsed",
@@ -65,7 +79,7 @@ export async function checkCreditThresholds(
   kind: CreditKind
 ): Promise<number | null> {
   try {
-    const [tracker, subscription] = await Promise.all([
+    const [tracker, subscription, organization] = await Promise.all([
       prisma.usageTracker.findUnique({
         where: { organizationId },
         select: {
@@ -83,6 +97,10 @@ export async function checkCreditThresholds(
         where: { organizationId },
         select: { status: true, stripeCustomerId: true, stripeOverageItemId: true },
       }),
+      prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { bonusWhatsappCredits: true },
+      }),
     ]);
 
     if (!tracker) return null;
@@ -95,10 +113,13 @@ export async function checkCreditThresholds(
         : undefined;
 
     const plan = PLANS[(subscription?.status ?? "trial") as PlanId];
-    const limite = plan[CAMPO_LIMITE[kind]];
+    const limitePiano = plan[CAMPO_LIMITE[kind]];
 
     // `null` significa illimitato: non esiste una percentuale di infinito.
-    if (limite === null || limite <= 0) return null;
+    if (limitePiano === null || limitePiano <= 0) return null;
+
+    const limite =
+      kind === "whatsapp" ? limitePiano + (organization?.bonusWhatsappCredits ?? 0) : limitePiano;
 
     const usati = tracker[CAMPO_CONTATORE[kind]];
     const giaAnnunciata = tracker[CAMPO_NOTIFICA[kind]];
@@ -143,7 +164,6 @@ export async function checkCreditThresholds(
             kind,
             used: usati,
             limit: limite,
-            percent: soglia as 80 | 90,
             aConsumo,
           });
 

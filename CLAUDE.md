@@ -229,6 +229,29 @@ Questi vincoli sono non negoziabili e vanno rispettati in ogni implementazione, 
 - **Accordo sul trattamento (DPA)**: l'agenzia accetta l'accordo ex art. 28 GDPR alla registrazione. Si registrano **istante e versione** (`dpaAcceptedAt`, `dpaAcceptedVersion`), non un booleano: revisionando il testo, senza versione non sarebbe dimostrabile quale accordo sia stato accettato. Gli account creati via OAuth non passano dal form: devono accettare esplicitamente dalla Dashboard, e il provisioning **non deve mai precompilare** quei campi.
 - **Dati Vocali (Modulo 4 — Note Vocali)**: le registrazioni audio possono contenere dati personali di terzi (venditori, acquirenti) e vanno trattate come dato sensibile. Conservare l'audio grezzo solo per il tempo necessario a generare il report, poi eliminarlo mantenendo la sola trascrizione testuale; storage e processing esclusivamente in UE, coerentemente con la Data Residency.
 
+### Email: comunicazioni di servizio e newsletter
+
+Due flussi separati, con regole diverse. Il confine è nel trasporto (`lib/notifications/email.ts`): un invio con `unsubscribeUrl` è marketing, senza è servizio.
+
+**Email di servizio** (`lib/email/transactional.ts`) — solo quattro categorie di eventi critici dell'account:
+1. **Sessione WhatsApp disconnessa** (l'assistente IA è fermo).
+2. **Crediti operativi all'80% e al 100%**, calcolati sulla dotazione reale (piano + pacchetti acquistati); per l'Enterprise a consumo, avviso di tariffazione a consumo attiva. La memoria delle soglie si azzera a ogni ricarica.
+3. **Pubblicazione social non riuscita** su Facebook/Instagram (`lib/notifications/social-publish.ts`).
+4. **Iscrizione e abbonamento**: conferma di iscrizione, attivazione, cambio piano, rinnovo, pagamento non riuscito, disdetta.
+
+Restano fuori dalle notifiche ma attive, perché parti di un flusso e non avvisi: reimpostazione e modifica password, accesso da nuovo dispositivo, invito collaboratori, richiesta dal modulo di contatto (verso l'assistenza), conferma appuntamento **al cliente finale** (forma "lei", testo semplice a nome dell'agenzia). **Non si aggiungono email per altri eventi** (lead qualificato, abbinamenti, conversazione in pausa, incarichi in scadenza, collaboratore entrato, email portale non riconosciuta): sono state tolte il 17/09/2026 perché ogni avviso in più abitua a ignorare il mittente, e quelle informazioni sono già visibili nell'applicazione.
+
+Regole di copy: nessuna emoji in oggetto e corpo, tono sobrio, lessico del settore (lead, richieste di informazioni, immobili, visure, crediti operativi, sessione WhatsApp), registro "tu" verso l'agente. Il piè di pagina dichiara che si tratta di una comunicazione di servizio non legata alle preferenze newsletter.
+
+**Newsletter** (`lib/newsletter/`) — martedì e giovedì, `vercel.json` → `/api/cron/weekly-newsletter` alle 07:00 UTC (09:00 in ora legale, 08:00 in ora solare; un solo invio al giorno per restare compatibile con i cron del piano Hobby). La rotta verifica comunque il giorno in Italia.
+- **Destinatari**: utenti con `acceptedAt` valorizzato, Trial compresi, senza `User.newsletterOptOutAt`.
+- **Contenuti** (`editorial.ts`): tre pilastri a rotazione per progressivo di invio — Automazioni, Casi operativi, Conversione dei lead. **Nessuna agenzia, cifra o risultato inventato presentato come reale**: i casi operativi sono dichiarati come scenari esemplificativi. Solo funzioni esistenti, con il piano che le include.
+- **Upsell** (`upsell.ts`): riquadro con i vantaggi del piano successivo (Trial → Starter → Professional → Enterprise), calcolati da `PLANS`, **solo al titolare** e solo se almeno un contatore supera l'80%.
+- **Idempotenza**: `NewsletterCampaign.sendDate` unico (una campagna al giorno), `NewsletterDelivery` unico per `[campaignId, userId]` e prenotato prima dell'invio. Il giro si ferma a 45 secondi; `daily-checks` completa le campagne rimaste aperte.
+- **Disiscrizione**: token HMAC senza scadenza (`unsubscribe-token.ts`); intestazioni `List-Unsubscribe` + `List-Unsubscribe-Post` (RFC 8058, richieste da Gmail e Yahoo); il link nel piè di pagina porta a `/newsletter/disiscrizione`, che **non disiscrive con un GET** (i filtri antispam aprono i link) ma chiede conferma. Preference center in Impostazioni → Privacy & Normativa (`/api/account/email-preferences`).
+- **Priorità del servizio**: le email di servizio non leggono `newsletterOptOutAt` e non passano `unsubscribeUrl`; `NEWSLETTER_FROM_EMAIL` (opzionale, su un sottodominio dedicato) separa la reputazione di invio della newsletter da quella delle email di servizio.
+- **Base giuridica**: legittimo interesse e art. 130, comma 4, Codice Privacy per servizi analoghi, dichiarati nell'informativa (§4) con il diritto di opposizione.
+
 ---
 
 ## 6. Linee Guida di Codifica & Style Guide

@@ -1,27 +1,55 @@
 import "server-only";
 import { sendEmail, type EmailOutcome } from "@/lib/notifications/email";
+import { EXTRA_CREDITS_PACK_SIZE, formatCount, PLANS } from "@/lib/plans";
 import { SITE_URL } from "@/lib/seo";
 import { escapeHtml, renderEmail, renderEmailText, type EmailLayoutInput } from "./layout";
 
 /**
- * Email transazionali di PropertyTech.
+ * Email di servizio di PropertyTech.
  *
- * Una funzione tipizzata per evento, tutte sopra lo stesso seam (`sendEmail`)
- * e la stessa impaginazione. Il chiamante passa dati, non HTML: un template
- * costruito nel punto in cui avviene l'evento finisce per divergere dagli
- * altri al primo ritocco.
+ * # Solo eventi che richiedono un'azione o documentano un impegno
+ *
+ * L'agente riceve già decine di email al giorno dai portali. Un avviso per
+ * ogni lead qualificato, ogni abbinamento o ogni collaboratore entrato in team
+ * abitua a ignorare il mittente, e il giorno in cui arriva "sessione WhatsApp
+ * disconnessa" finisce nello stesso mucchio. Per questo le email di sistema
+ * sono limitate a quattro categorie, e ciò che non vi rientra si consulta
+ * nell'applicazione:
+ *
+ * 1. **Sessione WhatsApp** — disconnessione: l'assistente IA è fermo.
+ * 2. **Crediti operativi** — 80% e 100% della dotazione (pacchetti compresi).
+ * 3. **Pubblicazione social** — pubblicazione non riuscita su Facebook/Instagram.
+ * 4. **Iscrizione e abbonamento** — conferma di iscrizione, attivazione, cambio
+ *    piano, rinnovo, pagamento non riuscito, disdetta.
+ *
+ * Fuori da queste categorie, e non per dimenticanza, restano tre gruppi che
+ * non sono notifiche ma parti di un flusso: **accesso e sicurezza**
+ * (reimpostazione e modifica della password, accesso da un nuovo dispositivo),
+ * l'**invito** di un collaboratore (`lib/team/invite-email.ts`) e la
+ * **richiesta dal modulo di contatto**, diretta alla nostra assistenza. Senza
+ * le prime due non si recupera un account né si invita nessuno; senza gli
+ * avvisi di sicurezza un accesso non autorizzato passa inosservato.
+ *
+ * # Priorità sulle preferenze
+ *
+ * Queste funzioni non leggono `User.newsletterOptOutAt` e non passano
+ * `unsubscribeUrl` al trasporto: la disiscrizione dalla newsletter non può
+ * spegnerle, per costruzione e non per un controllo che qualcuno potrebbe
+ * invertire.
+ *
+ * # Tono
+ *
+ * Sobrio e diretto, lessico del settore (lead, richieste di informazioni,
+ * immobili, visure, crediti operativi, sessione WhatsApp). Nessuna emoji in
+ * oggetto e corpo: in una casella professionale un'icona nell'oggetto è il
+ * segnale tipico della posta promozionale. Registro "tu", come tutta
+ * l'interfaccia rivolta all'agente (CLAUDE.md §1).
  *
  * # Fail-safe, sempre
  *
- * Nessuna di queste funzioni lancia. Sono tutte effetti collaterali di
- * un'azione che è già riuscita — un pagamento incassato, un account creato, un
- * credito consumato — e far fallire quell'azione perché un fornitore di posta
- * non risponde sarebbe il tipo di accoppiamento che trasforma un disservizio
- * di terzi in un guasto nostro.
- *
- * `sendEmail` non lancia già di suo e torna `not_configured` senza chiave. Qui
- * si aggiunge la rete su tutto il resto: composizione, dati mancanti, errori
- * imprevisti.
+ * Nessuna di queste funzioni lancia: sono effetti collaterali di un'azione
+ * già riuscita, e un fornitore di posta che non risponde non deve farla
+ * fallire.
  */
 
 async function invia(
@@ -31,11 +59,12 @@ async function invia(
   options?: { replyTo?: string }
 ): Promise<EmailOutcome> {
   try {
+    const conPiede: EmailLayoutInput = { ...layout, footer: { tipo: "servizio" } };
     return await sendEmail({
       to,
       subject,
-      text: renderEmailText(layout),
-      html: renderEmail(layout),
+      text: renderEmailText(conPiede),
+      html: renderEmail(conPiede),
       ...(options?.replyTo ? { replyTo: options.replyTo } : {}),
     });
   } catch (error) {
@@ -47,77 +76,53 @@ async function invia(
   }
 }
 
-const saluto = (nome?: string | null) => (nome?.trim() ? `Ciao ${escapeHtml(nome.trim())},` : "Ciao,");
+const saluto = (nome?: string | null) =>
+  nome?.trim() ? `Buongiorno ${escapeHtml(nome.trim())},` : "Buongiorno,";
 
-// --- A. Onboarding e account -------------------------------------------------
+const DATA = new Intl.DateTimeFormat("it-IT", { dateStyle: "long", timeZone: "Europe/Rome" });
+const DATA_ORA = new Intl.DateTimeFormat("it-IT", {
+  dateStyle: "long",
+  timeStyle: "short",
+  timeZone: "Europe/Rome",
+});
+
+const BILLING_URL = `${SITE_URL}/settings?tab=billing`;
+
+// --- 4. Iscrizione e abbonamento ---------------------------------------------
 
 export function sendWelcomeEmail(params: {
   to: string;
   firstName?: string | null;
   agencyName: string;
 }): Promise<EmailOutcome> {
-  return invia(params.to, `Benvenuto su PropertyTech, ${params.agencyName}!`, {
-    heading: "Il tuo account è attivo",
+  const trial = PLANS.trial;
+
+  return invia(params.to, `Conferma di iscrizione a PropertyTech – ${params.agencyName}`, {
+    heading: "Iscrizione completata",
+    preheader: "Account attivo in prova gratuita, senza metodo di pagamento.",
     greeting: saluto(params.firstName),
     blocks: [
       {
-        text: `Hai creato l'account di <strong>${escapeHtml(params.agencyName)}</strong>. Da qui in avanti l'assistente lavora per te: qualifica i lead su WhatsApp, legge le visure e prepara i report post-visita.`,
+        text: `L'account di <strong>${escapeHtml(params.agencyName)}</strong> è attivo con il piano Free Trial. Non è richiesto alcun metodo di pagamento e non è previsto alcun addebito automatico al termine della prova.`,
       },
-      {
-        text: "Per partire, tre cose nell'ordine in cui contano:",
-      },
-      {
-        list: [
-          "<strong>Collega WhatsApp</strong>: è il modulo che risponde ai lead 24 ore su 24, anche mentre sei in visita.",
-          "<strong>Carica una visura</strong>: vedi in trenta secondi cosa l'assistente estrae da un documento.",
-          "<strong>Invita i collaboratori</strong>: ognuno vede i lead che gli sono assegnati.",
-        ],
-      },
-    ],
-    cta: { label: "Apri la dashboard", url: `${SITE_URL}/dashboard` },
-    footnote:
-      "Sei in prova gratuita: nessuna carta richiesta, e i crediti inclusi bastano per valutare il prodotto sul lavoro vero.",
-  });
-}
-
-export function sendNewDeviceEmail(params: {
-  to: string;
-  firstName?: string | null;
-  device: string;
-  when: Date;
-}): Promise<EmailOutcome> {
-  const quando = new Intl.DateTimeFormat("it-IT", {
-    dateStyle: "long",
-    timeStyle: "short",
-    timeZone: "Europe/Rome",
-  }).format(params.when);
-
-  return invia(params.to, "Nuovo accesso al tuo account PropertyTech", {
-    heading: "Accesso da un dispositivo nuovo",
-    greeting: saluto(params.firstName),
-    blocks: [
-      { text: "Il tuo account è stato usato da un dispositivo che non avevamo mai visto." },
       {
         rows: [
-          { label: "Quando", value: escapeHtml(quando) },
-          { label: "Dispositivo", value: escapeHtml(params.device) },
+          { label: "Conversazioni WhatsApp incluse", value: formatCount(trial.waConversationsLimit) },
+          { label: "Analisi documentali incluse", value: formatCount(trial.ocrDocumentsLimit ?? 0) },
         ],
       },
+      { text: "Per rendere operativo l'account si consiglia questa sequenza:" },
       {
-        notice: {
-          tone: "info",
-          text: "Se sei stato tu, non devi fare nulla: questo messaggio arriva una volta sola per dispositivo.",
-        },
-      },
-      {
-        text: "Se <strong>non</strong> sei stato tu, cambia subito la password e scollega gli altri accessi.",
+        list: [
+          "<strong>Collegare la sessione WhatsApp</strong>: l'assistente IA risponde alle richieste di informazioni e qualifica i lead anche fuori orario.",
+          "<strong>Attivare l'inoltro delle richieste dai portali</strong>: i contatti di Immobiliare.it, Idealista e Casa.it entrano in pipeline senza inserimento manuale.",
+          "<strong>Caricare una visura catastale o un atto</strong>: i dati vengono estratti e strutturati per la scheda dell'immobile.",
+        ],
       },
     ],
-    cta: { label: "Rivedi la sicurezza dell'account", url: `${SITE_URL}/settings` },
+    cta: { label: "Accedi alla dashboard", url: `${SITE_URL}/dashboard` },
   });
 }
-
-// --- B. Abbonamenti e pagamenti ---------------------------------------------
 
 export function sendSubscriptionActivatedEmail(params: {
   to: string;
@@ -126,29 +131,28 @@ export function sendSubscriptionActivatedEmail(params: {
   amountLabel: string;
   renewsOn?: Date | null;
 }): Promise<EmailOutcome> {
-  const rinnovo = params.renewsOn
-    ? new Intl.DateTimeFormat("it-IT", { dateStyle: "long", timeZone: "Europe/Rome" }).format(
-        params.renewsOn
-      )
-    : null;
-
-  return invia(params.to, `Piano ${params.planName} attivo`, {
-    heading: `Il piano ${params.planName} è attivo`,
+  return invia(params.to, `Conferma attivazione del piano ${params.planName}`, {
+    heading: `Piano ${params.planName} attivo`,
+    preheader: "Pagamento registrato, funzioni del piano disponibili.",
     greeting: saluto(params.firstName),
     blocks: [
-      { text: "Il pagamento è andato a buon fine e le funzioni del piano sono già disponibili." },
+      {
+        text: "Il pagamento è stato registrato e le funzioni e i crediti operativi del piano sono disponibili da subito.",
+      },
       {
         rows: [
           { label: "Piano", value: escapeHtml(params.planName) },
           { label: "Importo", value: escapeHtml(params.amountLabel) },
-          ...(rinnovo ? [{ label: "Prossimo rinnovo", value: escapeHtml(rinnovo) }] : []),
+          ...(params.renewsOn
+            ? [{ label: "Prossimo rinnovo", value: escapeHtml(DATA.format(params.renewsOn)) }]
+            : []),
         ],
       },
       {
-        text: "Ricevute e fatture sono sempre disponibili nella sezione fatturazione, insieme ai dati di pagamento.",
+        text: "Fatture, ricevute e metodo di pagamento sono consultabili nella sezione Piani e Fatturazione.",
       },
     ],
-    cta: { label: "Vedi fatture e ricevute", url: `${SITE_URL}/settings?tab=billing` },
+    cta: { label: "Apri Piani e Fatturazione", url: BILLING_URL },
   });
 }
 
@@ -159,71 +163,68 @@ export function sendPlanChangedEmail(params: {
   newPlan: string;
   isUpgrade: boolean;
 }): Promise<EmailOutcome> {
-  return invia(
-    params.to,
-    params.isUpgrade ? `Sei passato a ${params.newPlan}` : `Piano aggiornato a ${params.newPlan}`,
-    {
-      heading: params.isUpgrade
-        ? `Ora sei su ${params.newPlan}`
-        : `Il tuo piano è ora ${params.newPlan}`,
-      greeting: saluto(params.firstName),
-      blocks: [
-        {
-          text: params.isUpgrade
-            ? `Il passaggio da <strong>${escapeHtml(params.previousPlan)}</strong> a <strong>${escapeHtml(params.newPlan)}</strong> è attivo: i nuovi limiti e le funzioni aggiuntive valgono da subito.`
-            : `Il piano è stato aggiornato da <strong>${escapeHtml(params.previousPlan)}</strong> a <strong>${escapeHtml(params.newPlan)}</strong>.`,
-        },
-        // Detto esplicitamente su un downgrade: i limiti si abbassano, e
-        // scoprirlo davanti a un blocco durante una conversazione con un
-        // cliente è il modo peggiore.
-        ...(params.isUpgrade
-          ? []
-          : [
-              {
-                notice: {
-                  tone: "warning" as const,
-                  text: "I limiti del nuovo piano sono più bassi: controlla i crediti residui prima di avviare nuove conversazioni.",
-                },
-              },
-            ]),
-      ],
-      cta: { label: "Vedi il tuo piano", url: `${SITE_URL}/settings?tab=billing` },
-    }
-  );
-}
-
-export function sendSubscriptionCancelledEmail(params: {
-  to: string;
-  firstName?: string | null;
-  planName: string;
-  activeUntil?: Date | null;
-}): Promise<EmailOutcome> {
-  const fino = params.activeUntil
-    ? new Intl.DateTimeFormat("it-IT", { dateStyle: "long", timeZone: "Europe/Rome" }).format(
-        params.activeUntil
-      )
-    : null;
-
-  return invia(params.to, "Disdetta registrata", {
-    heading: "Abbiamo registrato la disdetta",
+  return invia(params.to, `Cambio piano confermato: ${params.newPlan}`, {
+    heading: "Cambio piano confermato",
+    preheader: `Il piano dell'agenzia è ora ${params.newPlan}.`,
     greeting: saluto(params.firstName),
     blocks: [
       {
-        text: fino
-          ? `Il piano <strong>${escapeHtml(params.planName)}</strong> resta attivo fino al <strong>${escapeHtml(fino)}</strong>. Fino a quel giorno non cambia nulla: crediti, funzioni e dati restano al loro posto.`
-          : `Il piano <strong>${escapeHtml(params.planName)}</strong> è stato disdetto.`,
+        rows: [
+          { label: "Piano precedente", value: escapeHtml(params.previousPlan) },
+          { label: "Piano attuale", value: escapeHtml(params.newPlan) },
+        ],
       },
       {
-        text: "Dopo quella data l'account passa alle funzioni gratuite. <strong>I lead, gli immobili e i documenti restano nel tuo archivio</strong>: non viene cancellato nulla.",
+        text: params.isUpgrade
+          ? "Limiti e funzioni del nuovo piano sono attivi da subito. I crediti operativi ripartono con la dotazione piena del nuovo piano."
+          : "Il nuovo piano è attivo e i crediti operativi ripartono con la sua dotazione.",
       },
+      // Detto esplicitamente su un passaggio a un piano inferiore: scoprire i
+      // limiti ridotti durante una conversazione con un cliente è il modo
+      // peggiore.
+      ...(params.isUpgrade
+        ? []
+        : [
+            {
+              notice: {
+                tone: "warning" as const,
+                text: "I limiti del nuovo piano sono inferiori ai precedenti: verifica conversazioni WhatsApp, postazioni e agende disponibili prima di avviare nuove attività.",
+              },
+            },
+          ]),
+    ],
+    cta: { label: "Verifica il piano", url: BILLING_URL },
+  });
+}
+
+export function sendRenewalPaidEmail(params: {
+  to: string;
+  firstName?: string | null;
+  planName: string;
+  amountLabel: string;
+  periodEnd?: Date | null;
+  invoiceUrl?: string | null;
+}): Promise<EmailOutcome> {
+  return invia(params.to, `Rinnovo del piano ${params.planName} confermato`, {
+    heading: "Rinnovo confermato",
+    preheader: "Pagamento del rinnovo registrato.",
+    greeting: saluto(params.firstName),
+    blocks: [
+      { text: "Il pagamento del rinnovo è stato registrato. Non è richiesta alcuna azione." },
       {
-        notice: {
-          tone: "info",
-          text: "Puoi riattivare quando vuoi, anche dopo la scadenza: riparti da dove avevi lasciato, senza reinserire nulla.",
-        },
+        rows: [
+          { label: "Piano", value: escapeHtml(params.planName) },
+          { label: "Importo addebitato", value: escapeHtml(params.amountLabel) },
+          ...(params.periodEnd
+            ? [{ label: "Prossimo rinnovo", value: escapeHtml(DATA.format(params.periodEnd)) }]
+            : []),
+        ],
       },
     ],
-    cta: { label: "Riattiva il piano", url: `${SITE_URL}/settings?tab=billing` },
+    cta: {
+      label: params.invoiceUrl ? "Scarica la ricevuta" : "Apri Piani e Fatturazione",
+      url: params.invoiceUrl || BILLING_URL,
+    },
   });
 }
 
@@ -234,39 +235,77 @@ export function sendPaymentFailedEmail(params: {
   amountLabel: string;
   updateUrl?: string | null;
 }): Promise<EmailOutcome> {
-  return invia(params.to, "Pagamento non riuscito — aggiorna il metodo", {
-    heading: "Non siamo riusciti a incassare il rinnovo",
+  return invia(params.to, "Pagamento del rinnovo non riuscito: aggiorna il metodo di pagamento", {
+    heading: "Pagamento del rinnovo non riuscito",
+    preheader: "Aggiorna il metodo di pagamento per evitare la sospensione dell'assistente IA.",
     greeting: saluto(params.firstName),
     blocks: [
       {
-        text: `Il pagamento di <strong>${escapeHtml(params.amountLabel)}</strong> per il piano <strong>${escapeHtml(params.planName)}</strong> è stato rifiutato. Succede spesso per una carta scaduta o un massimale.`,
+        text: `L'addebito di <strong>${escapeHtml(params.amountLabel)}</strong> per il piano <strong>${escapeHtml(params.planName)}</strong> è stato rifiutato. Le cause più frequenti sono una carta scaduta o il raggiungimento del massimale.`,
       },
       {
         notice: {
           tone: "danger",
-          text: "Riproveremo automaticamente nei prossimi giorni. Se non va a buon fine, le funzioni AI si fermano: l'assistente smette di rispondere ai lead su WhatsApp.",
+          text: "Il pagamento verrà ritentato automaticamente nei prossimi giorni. In caso di esito negativo il piano viene sospeso: l'assistente IA smette di rispondere alle richieste di informazioni su WhatsApp.",
         },
       },
-      { text: "Aggiornare il metodo di pagamento richiede meno di un minuto." },
     ],
-    cta: {
-      label: "Aggiorna il metodo di pagamento",
-      url: params.updateUrl || `${SITE_URL}/settings?tab=billing`,
-    },
+    cta: { label: "Aggiorna il metodo di pagamento", url: params.updateUrl || BILLING_URL },
   });
 }
 
-// --- C. Crediti --------------------------------------------------------------
+export function sendSubscriptionCancelledEmail(params: {
+  to: string;
+  firstName?: string | null;
+  planName: string;
+  activeUntil?: Date | null;
+}): Promise<EmailOutcome> {
+  const fino = params.activeUntil ? DATA.format(params.activeUntil) : null;
 
-/** Etichette leggibili dei contatori: nell'email non compare mai un nome di campo. */
+  return invia(params.to, "Disdetta dell'abbonamento registrata", {
+    heading: "Disdetta registrata",
+    preheader: fino ? `Il piano resta attivo fino al ${fino}.` : "La disdetta è stata registrata.",
+    greeting: saluto(params.firstName),
+    blocks: [
+      {
+        text: fino
+          ? `Il piano <strong>${escapeHtml(params.planName)}</strong> resta attivo fino al <strong>${escapeHtml(fino)}</strong>, con crediti operativi e funzioni invariati.`
+          : `Il piano <strong>${escapeHtml(params.planName)}</strong> è stato disdetto.`,
+      },
+      {
+        text: "Alla scadenza l'account passa al piano gratuito. Lead, immobili, visure e documenti restano in archivio e non vengono cancellati.",
+      },
+      {
+        notice: {
+          tone: "info",
+          text: "Il piano può essere riattivato in qualsiasi momento, anche dopo la scadenza, senza reinserire dati.",
+        },
+      },
+    ],
+    cta: { label: "Riattiva il piano", url: BILLING_URL },
+  });
+}
+
+// --- 2. Crediti operativi ----------------------------------------------------
+
+/** Etichette dei contatori: nell'email non compare mai un nome di campo. */
 export const CREDIT_LABELS = {
   whatsapp: "conversazioni WhatsApp",
-  documents: "analisi documenti",
-  voice: "note vocali",
-  radar: "analisi perizia del Radar",
+  documents: "analisi documentali",
+  voice: "report vocali post-visita",
+  radar: "analisi di perizie d'asta",
 } as const;
 
 export type CreditKind = keyof typeof CREDIT_LABELS;
+
+/** Cosa si ferma al 100%, detto in termini operativi e non di contatore. */
+const EFFETTO_ESAURIMENTO: Record<CreditKind, string> = {
+  whatsapp:
+    "L'assistente IA non risponde più alle nuove richieste di informazioni: i lead continuano a essere registrati in pipeline, ma senza risposta automatica.",
+  documents: "Il caricamento di nuove visure, atti e planimetrie da analizzare è sospeso.",
+  voice: "La generazione di nuovi report vocali per i proprietari è sospesa.",
+  radar: "L'analisi di nuove perizie d'asta è sospesa.",
+};
 
 export function sendCreditsWarningEmail(params: {
   to: string;
@@ -274,56 +313,36 @@ export function sendCreditsWarningEmail(params: {
   kind: CreditKind;
   used: number;
   limit: number;
-  percent: 80 | 90;
   /**
-   * Presente quando oltre il limite si prosegue a pagamento (Enterprise).
-   * Cambia il senso dell'avviso: non "stai per fermarti" ma "da lì si paga".
+   * Presente quando oltre il limite si prosegue a pagamento (Enterprise
+   * mensile). Cambia il senso dell'avviso: non "stai per fermarti" ma
+   * "da lì si paga a consumo".
    */
   aConsumo?: { prezzoUnitario: string };
 }): Promise<EmailOutcome> {
   const cosa = CREDIT_LABELS[params.kind];
+  const residui = Math.max(0, params.limit - params.used);
 
-  // "l'80%" e non "il 80%": ottanta comincia per vocale. E' il genere di
-  // dettaglio che tradisce un'interfaccia tradotta invece che scritta.
-  const articolo = params.percent === 80 ? "l'80%" : `il ${params.percent}%`;
-
-  if (params.aConsumo) {
-    return invia(params.to, `Hai usato ${articolo} delle ${cosa} incluse`, {
-      heading: `${cosa.charAt(0).toUpperCase()}${cosa.slice(1)}: sei al ${params.percent}%`,
-      greeting: saluto(params.firstName),
-      blocks: [
-        {
-          rows: [
-            { label: "Utilizzate", value: `${params.used} su ${params.limit}` },
-            { label: "Incluse residue", value: String(Math.max(0, params.limit - params.used)) },
-          ],
-        },
-        {
-          text: `Superato il limite l'assistente <strong>continua a rispondere</strong>: ogni conversazione in più costa ${params.aConsumo.prezzoUnitario} e compare nella fattura del prossimo rinnovo.`,
-        },
-      ],
-      cta: { label: "Vedi i consumi", url: `${SITE_URL}/settings?tab=billing` },
-    });
-  }
-
-  return invia(params.to, `Hai usato ${articolo} delle ${cosa}`, {
-    heading: `${cosa.charAt(0).toUpperCase()}${cosa.slice(1)}: sei al ${params.percent}%`,
+  return invia(params.to, `Crediti operativi all'80%: ${cosa}`, {
+    heading: `Crediti operativi all'80%: ${cosa}`,
+    preheader: `Residue ${formatCount(residui)} su ${formatCount(params.limit)}.`,
     greeting: saluto(params.firstName),
     blocks: [
       {
         rows: [
-          { label: "Utilizzate", value: `${params.used} su ${params.limit}` },
-          { label: "Residue", value: String(Math.max(0, params.limit - params.used)) },
+          { label: "Utilizzate", value: `${formatCount(params.used)} su ${formatCount(params.limit)}` },
+          { label: "Residue", value: formatCount(residui) },
         ],
       },
-      {
-        text:
-          params.percent >= 90
-            ? "Al raggiungimento del limite l'assistente <strong>smette di rispondere</strong> ai nuovi messaggi. I lead continuano ad arrivare, ma nessuno risponde finché non aumenti il piano."
-            : "Ti avvisiamo adesso perché tu possa decidere con calma, invece di scoprirlo a limite raggiunto.",
-      },
+      params.aConsumo
+        ? {
+            text: `Superata la dotazione inclusa l'assistente IA continua a operare: ogni conversazione aggiuntiva è addebitata a consumo a ${params.aConsumo.prezzoUnitario} nella fattura del rinnovo successivo.`,
+          }
+        : {
+            text: `${EFFETTO_ESAURIMENTO[params.kind]} Questo avviso arriva con margine sufficiente per acquistare un pacchetto di crediti o passare a un piano superiore prima dell'esaurimento.`,
+          },
     ],
-    cta: { label: "Aumenta il piano", url: `${SITE_URL}/settings?tab=billing` },
+    cta: { label: params.aConsumo ? "Verifica i consumi" : "Gestisci piano e crediti", url: BILLING_URL },
   });
 }
 
@@ -335,29 +354,33 @@ export function sendCreditsExhaustedEmail(params: {
 }): Promise<EmailOutcome> {
   const cosa = CREDIT_LABELS[params.kind];
 
-  return invia(params.to, `Crediti esauriti: ${cosa}`, {
-    heading: `Hai esaurito le ${cosa}`,
+  return invia(params.to, `Crediti operativi esauriti: ${cosa}`, {
+    heading: `Crediti operativi esauriti: ${cosa}`,
+    preheader: "Funzione sospesa fino a ricarica, cambio piano o nuovo periodo.",
     greeting: saluto(params.firstName),
     blocks: [
       {
         notice: {
           tone: "danger",
-          text: `Hai raggiunto il limite di ${params.limit} del tuo piano. Da adesso l'assistente non risponde più: i messaggi in arrivo restano in attesa nella scheda del lead.`,
+          text: `È stata raggiunta la dotazione di ${formatCount(params.limit)} ${cosa}. ${EFFETTO_ESAURIMENTO[params.kind]}`,
         },
       },
       {
-        text: "<strong>Non si perde nulla</strong>: i contatti continuano a entrare in pipeline e le conversazioni riprendono da dove erano rimaste appena il piano è aggiornato o si rinnova il mese.",
+        text:
+          params.kind === "whatsapp"
+            ? `L'operatività riprende subito con l'acquisto di un pacchetto da ${EXTRA_CREDITS_PACK_SIZE} conversazioni, con il passaggio a un piano superiore o all'inizio del nuovo periodo mensile. Le conversazioni in sospeso riprendono dal punto in cui si erano fermate.`
+            : "L'operatività riprende con il passaggio a un piano superiore o all'inizio del nuovo periodo mensile.",
       },
     ],
-    cta: { label: "Sblocca subito", url: `${SITE_URL}/settings?tab=billing` },
+    cta: { label: "Ripristina l'operatività", url: BILLING_URL },
   });
 }
 
 /**
- * Incluse finite su un piano a consumo: niente si ferma, da qui si paga.
+ * Dotazione esaurita su un piano a consumo: niente si ferma, da qui si paga.
  *
  * Tono informativo e non di allarme: l'agenzia non deve fare nulla perché
- * l'assistente continui. Serve che lo sappia prima di trovarlo in fattura.
+ * l'assistente continui, ma deve saperlo prima di trovarlo in fattura.
  */
 export function sendOverageStartedEmail(params: {
   to: string;
@@ -365,78 +388,131 @@ export function sendOverageStartedEmail(params: {
   limit: number;
   prezzoUnitario: string;
 }): Promise<EmailOutcome> {
-  return invia(params.to, "Conversazioni WhatsApp: da ora a consumo", {
-    heading: "Hai usato tutte le conversazioni incluse",
+  return invia(params.to, "Conversazioni WhatsApp incluse esaurite: tariffazione a consumo attiva", {
+    heading: "Tariffazione a consumo attiva",
+    preheader: "L'assistente IA continua a operare senza interruzioni.",
     greeting: saluto(params.firstName),
     blocks: [
       {
         notice: {
           tone: "info",
-          text: `Hai raggiunto le ${params.limit} conversazioni incluse nel piano. L'assistente continua a rispondere normalmente.`,
+          text: `Sono state utilizzate le ${formatCount(params.limit)} conversazioni WhatsApp incluse nel piano. L'assistente IA continua a rispondere ai lead senza interruzioni.`,
         },
       },
       {
-        text: `Ogni conversazione in più costa <strong>${params.prezzoUnitario}</strong> e compare nella fattura del prossimo rinnovo. Il conteggio riparte da zero con il nuovo periodo.`,
+        text: `Ogni conversazione aggiuntiva è addebitata a <strong>${params.prezzoUnitario}</strong> nella fattura del rinnovo successivo. Il conteggio riparte con il nuovo periodo mensile.`,
       },
     ],
-    cta: { label: "Vedi i consumi", url: `${SITE_URL}/settings?tab=billing` },
+    cta: { label: "Verifica i consumi", url: BILLING_URL },
   });
 }
 
-// --- D. WhatsApp -------------------------------------------------------------
+// --- 1. Sessione WhatsApp ----------------------------------------------------
 
 export function sendWhatsAppDisconnectedEmail(params: {
   to: string;
   firstName?: string | null;
   phoneNumber?: string | null;
 }): Promise<EmailOutcome> {
-  return invia(params.to, "⚠️ WhatsApp scollegato: i lead non ricevono risposta", {
-    heading: "Il tuo numero WhatsApp si è scollegato",
+  return invia(params.to, "Sessione WhatsApp disconnessa: l'assistente IA è in pausa", {
+    heading: "Sessione WhatsApp disconnessa",
+    preheader: "Le richieste di informazioni in arrivo non ricevono risposta.",
     greeting: saluto(params.firstName),
     blocks: [
       {
         notice: {
           tone: "danger",
-          text: "Finché non riconnetti, l'assistente non riceve e non risponde a nessun messaggio. I lead che scrivono adesso non ottengono risposta.",
+          text: "Fino alla riconnessione l'assistente IA non riceve messaggi e non risponde alle richieste di informazioni: i lead che scrivono in questo momento restano senza risposta.",
         },
       },
       {
         text: params.phoneNumber
-          ? `La sessione del numero <strong>${escapeHtml(params.phoneNumber)}</strong> è caduta. Succede quando il telefono resta a lungo offline, o se il collegamento è stato revocato da WhatsApp sul dispositivo.`
-          : "La sessione WhatsApp è caduta. Succede quando il telefono resta a lungo offline, o se il collegamento è stato revocato da WhatsApp sul dispositivo.",
+          ? `La sessione del numero <strong>${escapeHtml(params.phoneNumber)}</strong> è stata interrotta. Le cause più frequenti sono un telefono rimasto a lungo offline o la revoca del dispositivo collegato dall'app WhatsApp.`
+          : "La sessione WhatsApp è stata interrotta. Le cause più frequenti sono un telefono rimasto a lungo offline o la revoca del dispositivo collegato dall'app WhatsApp.",
       },
-      { text: "Riconnetterlo richiede una scansione del codice QR: meno di un minuto." },
+      { text: "La riconnessione richiede la scansione del codice QR dal telefono dell'agenzia." },
     ],
-    cta: { label: "Riconnetti WhatsApp", url: `${SITE_URL}/leads` },
+    cta: { label: "Riconnetti la sessione WhatsApp", url: `${SITE_URL}/leads` },
   });
 }
 
-export function sendAiAutoPausedEmail(params: {
+// --- 3. Pubblicazione social -------------------------------------------------
+
+export interface PubblicazioneFallita {
+  canale: "facebook" | "instagram";
+  motivo: string;
+}
+
+const NOME_CANALE: Record<PubblicazioneFallita["canale"], string> = {
+  facebook: "Facebook",
+  instagram: "Instagram",
+};
+
+export function sendSocialPublishFailedEmail(params: {
   to: string;
   firstName?: string | null;
-  clientName: string;
-  leadId: string;
+  falliti: PubblicazioneFallita[];
+  /** Primi caratteri del testo, per riconoscere l'annuncio. */
+  anteprima?: string | null;
 }): Promise<EmailOutcome> {
-  return invia(params.to, `Assistente in pausa su ${params.clientName}`, {
-    heading: "Una conversazione è passata a gestione manuale",
+  const canali = params.falliti.map((f) => NOME_CANALE[f.canale]).join(" e ");
+  const anteprima = params.anteprima?.trim();
+
+  return invia(params.to, `Pubblicazione dell'annuncio non riuscita su ${canali}`, {
+    heading: "Pubblicazione non riuscita",
+    preheader: `L'annuncio non è stato pubblicato su ${canali}.`,
     greeting: saluto(params.firstName),
     blocks: [
       {
-        text: `L'assistente ha smesso di rispondere a <strong>${escapeHtml(params.clientName)}</strong>: gli ultimi due messaggi non riguardavano immobili, quindi ha lasciato la conversazione a te invece di insistere con le domande di qualificazione.`,
-      },
-      {
         notice: {
-          tone: "info",
-          text: "Se è un contatto vero — un numero nuovo, un messaggio scritto male, un vocale non capito — riattiva l'assistente dalla scheda o scrivi !riprendi nella chat.",
+          tone: "danger",
+          text: `L'annuncio non è stato pubblicato su <strong>${canali}</strong>. Il contenuto non è andato perso ed è disponibile in Social &amp; Annunci.`,
         },
       },
-      { text: "I messaggi arrivati nel frattempo sono tutti in scheda: non si è perso nulla." },
+      {
+        rows: params.falliti.map((f) => ({
+          label: NOME_CANALE[f.canale],
+          value: escapeHtml(f.motivo),
+        })),
+      },
+      ...(anteprima
+        ? [{ text: `Annuncio: <em>${escapeHtml(anteprima.slice(0, 140))}${anteprima.length > 140 ? "…" : ""}</em>` }]
+        : []),
+      {
+        text: "Verifica il collegamento della Pagina Facebook e dell'account Instagram Business in Impostazioni, Integrazioni, quindi ripeti la pubblicazione.",
+      },
     ],
-    cta: { label: "Apri la conversazione", url: `${SITE_URL}/leads?lead=${params.leadId}` },
+    cta: { label: "Apri Social & Annunci", url: `${SITE_URL}/social` },
   });
 }
 
-// --- E. Password -------------------------------------------------------------
+// --- Accesso e sicurezza (fuori dalle notifiche, sempre attive) --------------
+
+export function sendNewDeviceEmail(params: {
+  to: string;
+  firstName?: string | null;
+  device: string;
+  when: Date;
+}): Promise<EmailOutcome> {
+  return invia(params.to, "Nuovo accesso all'account PropertyTech", {
+    heading: "Accesso da un nuovo dispositivo",
+    preheader: "Verifica che l'accesso sia stato effettuato da te.",
+    greeting: saluto(params.firstName),
+    blocks: [
+      { text: "È stato registrato un accesso all'account da un dispositivo non riconosciuto." },
+      {
+        rows: [
+          { label: "Data e ora", value: escapeHtml(DATA_ORA.format(params.when)) },
+          { label: "Dispositivo", value: escapeHtml(params.device) },
+        ],
+      },
+      {
+        text: "Se l'accesso è stato effettuato da te non è necessaria alcuna azione. In caso contrario modifica subito la password.",
+      },
+    ],
+    cta: { label: "Verifica la sicurezza dell'account", url: `${SITE_URL}/settings` },
+  });
+}
 
 export function sendPasswordResetEmail(params: {
   to: string;
@@ -444,23 +520,24 @@ export function sendPasswordResetEmail(params: {
   resetUrl: string;
   expiresInMinutes: number;
 }): Promise<EmailOutcome> {
-  return invia(params.to, "Reimposta la tua password PropertyTech", {
-    heading: "Reimposta la password",
+  return invia(params.to, "Reimpostazione della password PropertyTech", {
+    heading: "Reimpostazione della password",
+    preheader: `Link valido ${params.expiresInMinutes} minuti.`,
     greeting: saluto(params.firstName),
     blocks: [
       {
-        text: `Hai chiesto di reimpostare la password del tuo account. Il link qui sotto vale <strong>${params.expiresInMinutes} minuti</strong> e può essere usato una volta sola.`,
+        text: `È stata richiesta la reimpostazione della password dell'account. Il link è valido per <strong>${params.expiresInMinutes} minuti</strong> e può essere utilizzato una sola volta.`,
       },
       {
         notice: {
           tone: "warning",
-          // Detto qui e non in fondo: chi non ha chiesto il reset deve
-          // leggerlo prima di arrivare al pulsante.
-          text: "Se non sei stato tu a chiederlo, ignora questa email: la password resta quella di prima e nessuno può cambiarla senza aprire questo link.",
+          // Prima del pulsante: chi non ha chiesto il reset deve leggerlo
+          // prima di arrivarci.
+          text: "Se non hai richiesto la reimpostazione, ignora questa email: la password attuale resta valida.",
         },
       },
     ],
-    cta: { label: "Scegli una nuova password", url: params.resetUrl },
+    cta: { label: "Imposta una nuova password", url: params.resetUrl },
   });
 }
 
@@ -469,247 +546,41 @@ export function sendPasswordUpdatedEmail(params: {
   firstName?: string | null;
   when: Date;
 }): Promise<EmailOutcome> {
-  const quando = new Intl.DateTimeFormat("it-IT", {
-    dateStyle: "long",
-    timeStyle: "short",
-    timeZone: "Europe/Rome",
-  }).format(params.when);
-
-  return invia(params.to, "La tua password è stata cambiata", {
-    heading: "Password aggiornata",
+  return invia(params.to, "Password dell'account PropertyTech modificata", {
+    heading: "Password modificata",
+    preheader: "Se non sei stato tu, intervieni subito.",
     greeting: saluto(params.firstName),
     blocks: [
-      { text: `La password del tuo account è stata cambiata il ${escapeHtml(quando)}.` },
+      {
+        text: `La password dell'account è stata modificata il ${escapeHtml(DATA_ORA.format(params.when))}.`,
+      },
       {
         notice: {
           tone: "danger",
-          // È l'unica email di questo gruppo che chiede un'azione urgente: se
-          // non è stato l'utente, qualcuno ha appena preso il controllo
-          // dell'account e ogni minuto conta.
-          text: "Se <strong>non</strong> sei stato tu, il tuo account è compromesso: reimposta subito la password e avvisaci.",
+          text: "Se la modifica <strong>non</strong> è stata effettuata da te, l'account potrebbe essere compromesso: reimposta subito la password e contatta l'assistenza.",
         },
       },
     ],
-    cta: { label: "Vai al tuo account", url: `${SITE_URL}/login` },
+    cta: { label: "Accedi all'account", url: `${SITE_URL}/login` },
   });
 }
 
-// --- F. Team -----------------------------------------------------------------
-
-export function sendInviteAcceptedEmail(params: {
-  to: string;
-  firstName?: string | null;
-  memberName: string;
-  memberEmail: string;
-}): Promise<EmailOutcome> {
-  return invia(params.to, `${params.memberName} è entrato nel team`, {
-    heading: "Un collaboratore ha attivato il suo accesso",
-    greeting: saluto(params.firstName),
-    blocks: [
-      {
-        text: `<strong>${escapeHtml(params.memberName)}</strong> ha accettato l'invito e ora fa parte del team dell'agenzia.`,
-      },
-      {
-        rows: [
-          { label: "Nome", value: escapeHtml(params.memberName) },
-          { label: "Email", value: escapeHtml(params.memberEmail) },
-        ],
-      },
-      {
-        text: "Da adesso vede i lead che gli assegni e può lavorare sugli immobili in portafoglio. Se l'attivazione non ti risulta, rimuovilo dal team: l'accesso decade subito.",
-      },
-    ],
-    cta: { label: "Gestisci il team", url: `${SITE_URL}/settings?tab=team` },
-  });
-}
-
-// --- G. Rinnovi --------------------------------------------------------------
-
-export function sendRenewalPaidEmail(params: {
-  to: string;
-  firstName?: string | null;
-  planName: string;
-  amountLabel: string;
-  periodEnd?: Date | null;
-  invoiceUrl?: string | null;
-}): Promise<EmailOutcome> {
-  const prossimo = params.periodEnd
-    ? new Intl.DateTimeFormat("it-IT", { dateStyle: "long", timeZone: "Europe/Rome" }).format(
-        params.periodEnd
-      )
-    : null;
-
-  return invia(params.to, `Rinnovo ${params.planName} — ricevuta`, {
-    heading: "Rinnovo completato",
-    greeting: saluto(params.firstName),
-    blocks: [
-      { text: "Il rinnovo è andato a buon fine e i crediti del nuovo periodo sono già disponibili." },
-      {
-        rows: [
-          { label: "Piano", value: escapeHtml(params.planName) },
-          { label: "Addebitato", value: escapeHtml(params.amountLabel) },
-          ...(prossimo ? [{ label: "Prossimo rinnovo", value: escapeHtml(prossimo) }] : []),
-        ],
-      },
-    ],
-    cta: {
-      label: params.invoiceUrl ? "Scarica la ricevuta" : "Vedi le fatture",
-      url: params.invoiceUrl || `${SITE_URL}/settings?tab=billing`,
-    },
-  });
-}
-
-// --- H. Lead che richiede attenzione -----------------------------------------
-
-export function sendLeadAttentionRequiredEmail(params: {
-  to: string;
-  firstName?: string | null;
-  clientName: string;
-  clientPhone: string;
-  leadId: string;
-}): Promise<EmailOutcome> {
-  return invia(params.to, `⚠️ ${params.clientName} aspetta una risposta`, {
-    heading: "Una conversazione si è bloccata",
-    greeting: saluto(params.firstName),
-    blocks: [
-      {
-        text: `L'assistente non è riuscito a elaborare l'ultimo messaggio di <strong>${escapeHtml(params.clientName)}</strong> e ha risposto con un messaggio di cortesia: la qualificazione è ferma.`,
-      },
-      {
-        rows: [
-          { label: "Contatto", value: escapeHtml(params.clientName) },
-          { label: "Telefono", value: escapeHtml(params.clientPhone) },
-        ],
-      },
-      {
-        notice: {
-          tone: "warning",
-          text: "Il cliente ha ricevuto \"un nostro agente la ricontatterà\": adesso si aspetta una persona, e l'attesa è già cominciata.",
-        },
-      },
-    ],
-    cta: { label: "Apri la conversazione", url: `${SITE_URL}/leads?lead=${params.leadId}` },
-  });
-}
-
-// --- I. Abbinamenti immobile ↔ lead ------------------------------------------
-
-export function sendMatchFoundEmail(params: {
-  to: string;
-  firstName?: string | null;
-  clientName: string;
-  leadId: string;
-  properties: { reference: string; title: string; price: string; score: number }[];
-}): Promise<EmailOutcome> {
-  const quanti = params.properties.length;
-
-  return invia(
-    params.to,
-    quanti === 1
-      ? `Un immobile per ${params.clientName}`
-      : `${quanti} immobili per ${params.clientName}`,
-    {
-      heading: quanti === 1 ? "Abbiamo un immobile che gli somiglia" : "Immobili compatibili trovati",
-      greeting: saluto(params.firstName),
-      blocks: [
-        {
-          text: `<strong>${escapeHtml(params.clientName)}</strong> ha appena completato la qualificazione, e ${quanti === 1 ? "un immobile in portafoglio corrisponde" : `${quanti} immobili in portafoglio corrispondono`} a quello che cerca.`,
-        },
-        {
-          rows: params.properties.map((p) => ({
-            label: `${p.reference} — ${p.title}`,
-            value: `${p.price} · ${p.score}%`,
-          })),
-        },
-        {
-          text: "Il momento in cui un acquirente finisce di raccontare cosa cerca è quello in cui è più disponibile a fissare una visita.",
-        },
-      ],
-      cta: { label: "Apri la scheda del contatto", url: `${SITE_URL}/leads?lead=${params.leadId}` },
-    }
-  );
-}
-
-// --- L. Incarichi in scadenza ------------------------------------------------
-
-export function sendMandatesExpiringEmail(params: {
-  to: string;
-  firstName?: string | null;
-  entro30: { reference: string; title: string; days: number }[];
-  entro60: { reference: string; title: string; days: number }[];
-  scaduti: { reference: string; title: string }[];
-}): Promise<EmailOutcome> {
-  const totale = params.entro30.length + params.entro60.length + params.scaduti.length;
-
-  const blocks: EmailLayoutInput["blocks"] = [
-    {
-      text: `Controllo settimanale degli incarichi: ${totale === 1 ? "una scheda richiede" : `${totale} schede richiedono`} attenzione.`,
-    },
-  ];
-
-  if (params.scaduti.length > 0) {
-    blocks.push({
-      notice: {
-        tone: "danger",
-        text: `<strong>${params.scaduti.length === 1 ? "Un incarico è scaduto" : `${params.scaduti.length} incarichi sono scaduti`}</strong>: gli immobili sono già usciti dal feed verso i portali. Senza mandato valido non si possono pubblicizzare.`,
-      },
-    });
-    blocks.push({ list: params.scaduti.map((p) => `${escapeHtml(p.reference)} — ${escapeHtml(p.title)}`) });
-  }
-
-  if (params.entro30.length > 0) {
-    blocks.push({
-      notice: {
-        tone: "warning",
-        text: "In scadenza entro 30 giorni: è il momento di parlare del rinnovo con il proprietario.",
-      },
-    });
-    blocks.push({
-      rows: params.entro30.map((p) => ({
-        label: `${p.reference} — ${p.title}`,
-        value: p.days === 0 ? "scade oggi" : p.days === 1 ? "1 giorno" : `${p.days} giorni`,
-      })),
-    });
-  }
-
-  if (params.entro60.length > 0) {
-    blocks.push({ text: "<strong>In scadenza entro 60 giorni</strong>" });
-    blocks.push({
-      rows: params.entro60.map((p) => ({
-        label: `${p.reference} — ${p.title}`,
-        value: `${p.days} giorni`,
-      })),
-    });
-  }
-
-  return invia(params.to, `Incarichi: ${totale} da controllare`, {
-    heading: "Incarichi in scadenza",
-    greeting: saluto(params.firstName),
-    blocks,
-    cta: { label: "Apri il portafoglio", url: `${SITE_URL}/properties` },
-  });
-}
-
-// --- M. Richieste dal modulo di contatto -------------------------------------
+// --- Assistenza interna -------------------------------------------------------
 
 /**
  * Notifica all'assistenza una richiesta arrivata dal modulo pubblico.
  *
  * # Perché il destinatario è fisso e non configurabile
  *
- * Non è una notifica a un'agenzia: è posta interna, diretta alla nostra
- * casella di assistenza. Renderla configurabile dall'ambiente significherebbe
- * che una variabile mancante in produzione fa sparire le richieste dei
- * potenziali clienti senza che nessuno se ne accorga — il guasto peggiore,
- * perché silenzioso e visibile solo dal fatturato che non arriva.
+ * È posta interna, diretta alla nostra casella di assistenza. Renderla
+ * configurabile dall'ambiente significherebbe che una variabile mancante in
+ * produzione fa sparire le richieste dei potenziali clienti senza che nessuno
+ * se ne accorga.
  *
  * # Perché `replyTo` è il campo che conta
  *
- * L'email parte dall'indirizzo di servizio, che nessuno presidia. Chi in
- * assistenza legge la richiesta e preme "Rispondi" deve scrivere all'agenzia
- * che ha compilato il modulo: senza `replyTo` la risposta tornerebbe al
- * mittente automatico e il contatto resterebbe senza risposta pur essendo
- * arrivato.
+ * L'email parte dall'indirizzo di servizio, che nessuno presidia: chi in
+ * assistenza preme "Rispondi" deve scrivere a chi ha compilato il modulo.
  */
 export function sendContactRequestEmail(params: {
   to: string;
@@ -725,9 +596,9 @@ export function sendContactRequestEmail(params: {
 
   return invia(
     params.to,
-    // L'oggetto porta nome e agenzia: in una casella condivisa si decide chi
+    // Nome e agenzia nell'oggetto: in una casella condivisa si decide chi
     // prende in carico una richiesta dall'elenco, senza aprirla.
-    `Richiesta dal sito — ${nome}${agenzia ? ` (${agenzia})` : ""}`,
+    `Richiesta dal sito: ${nome}${agenzia ? ` (${agenzia})` : ""}`,
     {
       heading: "Nuova richiesta dal modulo di contatto",
       blocks: [
@@ -736,20 +607,16 @@ export function sendContactRequestEmail(params: {
             { label: "Nome", value: escapeHtml(nome) },
             ...(agenzia ? [{ label: "Agenzia", value: escapeHtml(agenzia) }] : []),
             { label: "Email", value: escapeHtml(params.email) },
-            // Riga assente e non vuota quando il numero non c'e': una voce
-            // "Telefono:" seguita dal nulla fa pensare a un dato perso.
             ...(params.phone?.trim()
               ? [{ label: "Telefono", value: escapeHtml(params.phone.trim()) }]
               : []),
           ],
         },
-        // Il messaggio è scritto da un estraneo e finisce dentro un'email HTML:
-        // passa da `escapeHtml` come tutto il resto, e gli a capo diventano
-        // `<br>` perché un testo di dieci righe non arrivi in un blocco solo.
+        // Testo scritto da un estraneo dentro un'email HTML: sempre escapato,
+        // con gli a capo convertiti.
         { text: escapeHtml(params.message).replace(/\n/g, "<br>") },
       ],
-      footnote:
-        "Rispondi a questa email per scrivere direttamente a chi ha compilato il modulo.",
+      footnote: "Rispondi a questa email per scrivere direttamente a chi ha compilato il modulo.",
     },
     { replyTo: params.email }
   );

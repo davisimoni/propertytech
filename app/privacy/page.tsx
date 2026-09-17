@@ -18,6 +18,7 @@ export default async function PrivacyPage() {
     <LegalPage
       isLoggedIn={Boolean(session?.user)}
       title="Informativa Privacy"
+      lastUpdated="17 settembre 2026"
       intro={`Questa informativa descrive come ${BRAND.name} tratta i dati personali nell'ambito del servizio SaaS rivolto alle agenzie immobiliari, ai sensi del Regolamento (UE) 2016/679 (GDPR).`}
     >
       <LegalSection title="1. Titolare del trattamento">
@@ -76,8 +77,19 @@ export default async function PrivacyPage() {
             "Fatturazione e adempimenti fiscali — obbligo legale (art. 6.1.c GDPR).",
             "Sicurezza della piattaforma, prevenzione degli abusi e diagnostica — legittimo interesse (art. 6.1.f GDPR).",
             "Trattamento dei dati dei lead e dei documenti — su istruzione documentata dell'agenzia cliente, in qualità di responsabile (art. 28 GDPR).",
+            "Comunicazioni di servizio sull'account (sessione WhatsApp, crediti operativi, pubblicazioni social, abbonamento e fatturazione, sicurezza) — esecuzione del contratto (art. 6.1.b GDPR). Non sono revocabili finché l'account è attivo, perché riguardano il funzionamento del servizio.",
+            "Newsletter agli utenti della piattaforma (martedì e giovedì, su automazioni, casi operativi e gestione dei lead) — legittimo interesse (art. 6.1.f GDPR) e art. 130, comma 4, D.Lgs. 196/2003, per servizi analoghi a quello utilizzato.",
           ]}
         />
+        <p>
+          <strong className="text-foreground">Opposizione alla newsletter.</strong> Puoi opporti
+          in qualsiasi momento e senza costi: dal link presente in ogni numero, dal comando di
+          disiscrizione del tuo programma di posta o dalle impostazioni dell&apos;account, nella
+          sezione Privacy e Normativa. L&apos;opposizione ha effetto dal numero successivo e non
+          interrompe le comunicazioni di servizio. Per la newsletter usiamo i soli dati di account
+          (nome, email, ruolo) e i contatori di consumo del piano, per indicare quando un piano
+          superiore può essere utile al titolare.
+        </p>
       </LegalSection>
 
       <LegalSection title="5. Comunicazione automatizzata via WhatsApp">

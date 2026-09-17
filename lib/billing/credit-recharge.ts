@@ -71,6 +71,14 @@ export async function accreditaRicarica(
         where: { id: organizationId },
         data: { bonusWhatsappCredits: { increment: credits } },
       }),
+      // Gli avvisi di soglia ripartono: con la dotazione aumentata l'agenzia
+      // torna sotto l'80%, e senza azzerare la memoria non riceverebbe né
+      // l'avviso né il "crediti esauriti" quando anche il pacchetto finisce.
+      // `updateMany`: un contatore mancante non deve far fallire l'accredito.
+      prisma.usageTracker.updateMany({
+        where: { organizationId },
+        data: { whatsappNotifiedPct: 0 },
+      }),
     ]);
 
     console.info("[CREDIT-RECHARGE]", { organizationId, credits, sessionId: session.id });

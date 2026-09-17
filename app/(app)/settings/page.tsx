@@ -13,6 +13,7 @@ import { AgencyProfilePanel } from "@/components/settings/agency-profile-panel";
 import { IntegrationPanel } from "@/components/settings/integration-panel";
 import { ReferralPanel } from "@/components/settings/referral-panel";
 import { TeamPanel } from "@/components/settings/team-panel";
+import { EmailPreferencesPanel } from "@/components/settings/email-preferences-panel";
 import { SettingsTabs } from "@/components/settings/settings-tabs";
 import { InfoTip } from "@/components/shared/info-tip";
 import type { PlanId } from "@/lib/plans";
@@ -129,34 +130,37 @@ export default async function SettingsPage() {
             </div>
           }
           privacy={
-            <section className="rounded-xl border border-border bg-card p-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <ShieldCheck className="h-4 w-4" />
+            <div className="space-y-4">
+              <EmailPreferencesPanel />
+              <section className="rounded-xl border border-border bg-card p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <ShieldCheck className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">Trattamento dei dati</p>
+                    {organization?.dpaAcceptedAt ? (
+                      <p className="text-sm text-muted-foreground">
+                        Accordo v{organization.dpaAcceptedVersion} accettato il{" "}
+                        {DATE_FORMAT.format(organization.dpaAcceptedAt)}. I dati che carichi restano di
+                        tua proprietà, risiedono su server UE e sono trattati solo per erogare il
+                        servizio.
+                      </p>
+                    ) : (
+                      <p className="text-sm text-status-pending">
+                        Accordo non ancora accettato: completa l&apos;accettazione dalla Dashboard.
+                      </p>
+                    )}
+                    <Link
+                      href="/dpa"
+                      className="mt-1 inline-block text-sm font-medium text-primary hover:underline"
+                    >
+                      Leggi l&apos;accordo
+                    </Link>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">Trattamento dei dati</p>
-                  {organization?.dpaAcceptedAt ? (
-                    <p className="text-sm text-muted-foreground">
-                      Accordo v{organization.dpaAcceptedVersion} accettato il{" "}
-                      {DATE_FORMAT.format(organization.dpaAcceptedAt)}. I dati che carichi restano di
-                      tua proprietà, risiedono su server UE e sono trattati solo per erogare il
-                      servizio.
-                    </p>
-                  ) : (
-                    <p className="text-sm text-status-pending">
-                      Accordo non ancora accettato: completa l&apos;accettazione dalla Dashboard.
-                    </p>
-                  )}
-                  <Link
-                    href="/dpa"
-                    className="mt-1 inline-block text-sm font-medium text-primary hover:underline"
-                  >
-                    Leggi l&apos;accordo
-                  </Link>
-                </div>
-              </div>
-            </section>
+              </section>
+            </div>
           }
         />
       </Suspense>

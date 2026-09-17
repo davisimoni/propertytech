@@ -5,6 +5,7 @@ import { checkFeatureAccess } from "@/lib/feature-access";
 import { publishToMeta } from "@/lib/social/meta";
 import { parsePublicHttpUrl } from "@/lib/net/safe-url";
 import { MAX_SOCIAL_MEDIA } from "@/lib/social/media-limits";
+import { notificaPubblicazioneFallita } from "@/lib/notifications/social-publish";
 
 /**
  * Pubblica il post generato sulla Pagina Facebook e sul profilo Instagram.
@@ -99,6 +100,14 @@ export async function POST(request: Request) {
   console.info("[SOCIAL-PUBLISH]", {
     organizationId: session.user.organizationId,
     esiti: esiti.map((e) => `${e.target}:${e.ok ? "ok" : e.error}`),
+  });
+
+  // Email di sistema solo se almeno un canale è fallito; non lancia.
+  await notificaPubblicazioneFallita({
+    organizationId: session.user.organizationId,
+    userId: session.user.userId ?? null,
+    esiti,
+    messaggio: message,
   });
 
   /*

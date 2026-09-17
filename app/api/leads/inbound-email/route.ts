@@ -13,7 +13,6 @@ import {
   trovaTelefono,
 } from "@/lib/leads/portal-email";
 import { estraiLeadDaEmail } from "@/lib/ai/inbound-email-parser";
-import { notifyUnparsedEmail } from "@/lib/notifications/unparsed-email";
 import { reportWebhookError } from "@/lib/observability/report-error";
 
 /**
@@ -194,18 +193,12 @@ export async function POST(request: Request) {
 
   if (!estratto) {
     /*
-     * Nessuna scheda, ma non piu' in silenzio.
-     *
-     * Resta giusto non creare un lead senza recapito — una scheda che nessuno
-     * puo' lavorare e' peggio di nessuna scheda. Quello che mancava era dirlo
-     * all'agenzia: prima questa richiesta spariva in una riga di log.
+     * Nessuna scheda: un lead senza recapito è una scheda che nessuno può
+     * lavorare. L'email originale resta comunque nella casella da cui parte
+     * l'inoltro. Non parte più un avviso via email: le email di sistema sono
+     * limitate agli eventi critici dell'account (`lib/email/transactional.ts`).
      */
     console.info("[INBOUND-EMAIL] Email non riconosciuta", { organizationId });
-    await notifyUnparsedEmail({
-      organizationId,
-      from: contenuto.from,
-      subject: contenuto.subject,
-    });
     return NextResponse.json({ status: "unparsed" });
   }
 

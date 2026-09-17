@@ -271,6 +271,11 @@ model User {
   /// `null` finché la persona non ha impostato la propria password.
   acceptedAt      DateTime?
 
+  /// Disiscrizione dalla newsletter (preference center o link nell'email).
+  /// Riguarda SOLO la newsletter: le email di servizio dell'account non la
+  /// leggono, per costruzione (vedi `lib/notifications/email.ts`).
+  newsletterOptOutAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -284,6 +289,7 @@ model User {
   uploadedDocuments   AgencyDocument[]
   aiGenerations       AiGeneration[]
   calendarConnections CalendarConnection[]
+  newsletterDeliveries NewsletterDelivery[]
 
   @@index([organizationId, role])
   leadNotes      LeadNote[]
@@ -2019,4 +2025,43 @@ model MeteredUsageEvent {
 
   @@index([reportedAt, createdAt])
   @@index([organizationId, createdAt])
+}
+
+/// Un numero della newsletter, uno per giorno di invio.
+///
+/// `sendDate` (data italiana, AAAA-MM-GG) è unico: se lo scheduler chiama due
+/// volte nello stesso giorno, la seconda riprende lo stesso numero invece di
+/// crearne un altro. `sequence` decide il pilastro editoriale e il contenuto,
+/// così la rotazione non dipende dal calendario ma da quanti numeri sono usciti.
+model NewsletterCampaign {
+  id          String    @id @default(cuid())
+  sendDate    String    @unique
+  sequence    Int       @unique
+  issueKey    String
+  pillar      String
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  deliveries NewsletterDelivery[]
+}
+
+/// Consegna di un numero a una persona.
+///
+/// La riga si crea PRIMA dell'invio e il vincolo `[campaignId, userId]` la
+/// rende una prenotazione: due esecuzioni parallele non mandano lo stesso
+/// numero due volte alla stessa persona, e un giro interrotto riprende da chi
+/// manca.
+model NewsletterDelivery {
+  id         String             @id @default(cuid())
+  campaignId String
+  campaign   NewsletterCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// pending | sent | failed | not_configured
+  outcome    String             @default("pending")
+  upsell     Boolean            @default(false)
+  createdAt  DateTime           @default(now())
+
+  @@unique([campaignId, userId])
+  @@index([userId])
 }

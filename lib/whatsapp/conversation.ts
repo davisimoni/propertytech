@@ -24,12 +24,9 @@ import {
   type AgencyProfile,
 } from "@/lib/ai/whatsapp-agent";
 import { deliverLeadToCrm } from "@/lib/integrations/crm-webhook";
-import { notifyHotLead } from "@/lib/notifications/hot-lead";
 import { notifyAppointmentConfirmed } from "@/lib/notifications/appointment";
 import { linkLeadToProperty } from "@/lib/leads/resolve-property";
 import { runMatchingForLead } from "@/lib/matching/run-matching";
-import { notifyMatchesForLead } from "@/lib/notifications/match-found";
-import { notifyLeadNeedsAttention } from "@/lib/notifications/lead-attention";
 import { QUALIFICATION_QUESTIONS } from "./questions";
 import { CONTRACT_LABELS, PROPERTY_TYPE_LABELS } from "@/lib/listings/property-fields";
 import {
@@ -534,31 +531,18 @@ export async function handleIncomingMessage(
     lead.waChatJid
   );
 
-  /**
-   * L'assistente non ce l'ha fatta: avvisa chi ha in carico il lead.
-   *
-   * `replyText` e' rimasto il messaggio di ripiego, quindi il cliente si e'
-   * appena sentito dire "un nostro agente la ricontattera'". Da quel momento
-   * aspetta una persona, e senza questo avviso nessuno sa che deve muoversi.
-   *
-   * Si spedisce solo alla PRIMA volta di una serie: se l'ultimo messaggio
-   * dell'assistente era gia' il ripiego, il guasto e' lo stesso e una seconda
-   * email non aggiunge nulla.
-   */
-  if (replyText === AGENT_FALLBACK_MESSAGE) {
-    const ultimoBot = [...history].reverse().find((m) => m.sender === "bot");
-    if (ultimoBot?.text !== AGENT_FALLBACK_MESSAGE) {
-      void notifyLeadNeedsAttention(lead);
-    }
-  }
-
   await appendMessage(lead.id, { sender: "bot", text: replyText, timestamp: nowIso() });
 
   if (Object.keys(leadUpdate).length > 0) {
     const updated = await prisma.lead.update({ where: { id: lead.id }, data: leadUpdate });
 
     /*
-     * Appuntamento appena fissato: partono le due conferme via email.
+     * Appuntamento appena fissato: parte la conferma via email al cliente.
+     *
+     * Solo al cliente, se ne abbiamo l'indirizzo. L'avviso all'agenzia non
+     * parte più: le email di sistema sono limitate agli eventi critici
+     * dell'account (`lib/email/transactional.ts`), e l'appuntamento è già
+     * nell'agenda dell'agente.
      *
      * # Perche' il confronto con lo stato precedente
      *
@@ -598,12 +582,6 @@ export async function handleIncomingMessage(
     ) {
       await deliverLeadToCrm(updated, "lead.qualified");
 
-      // Stessa transizione, stessa regola: non blocca e non lancia. Sequenziale
-      // e non in parallelo perche' il gestionale ha la precedenza — se una
-      // delle due deve arrivare prima e' quella che porta il lead dove
-      // l'agenzia lavora davvero.
-      await notifyHotLead(updated);
-
       /**
        * Il lead ha appena finito di dire cosa cerca: e' il momento in cui il
        * portafoglio va interrogato.
@@ -618,8 +596,7 @@ export async function handleIncomingMessage(
        */
       await linkLeadToProperty(updated);
 
-      const matching = await runMatchingForLead(updated);
-      await notifyMatchesForLead(updated, matching);
+      await runMatchingForLead(updated);
       return;
     }
 
@@ -663,14 +640,7 @@ export async function handleIncomingMessage(
       });
 
       /*
-       * Nessuna notifica qui, a differenza del ramo sopra.
-       *
-       * `notifyMatchesForLead` avvisa l'agente via email degli abbinamenti
-       * forti. Su una conversazione ancora in corso i criteri si assestano
-       * turno dopo turno: mandare un'email a ogni assestamento vorrebbe dire
-       * tre messaggi per lo stesso contatto in cinque minuti, e chi li riceve
-       * smette di leggerli. Gli abbinamenti restano visibili in scheda, e
-       * l'email parte comunque quando il lead si qualifica.
+       * Nessuna email: gli abbinamenti restano visibili nella scheda del lead.
        *
        * Non bloccante: la risposta al cliente è già partita, e un errore del
        * matching non deve trasformare una conversazione riuscita in un errore.

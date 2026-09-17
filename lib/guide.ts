@@ -94,7 +94,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     notes: [
       "Se il contatto risponde con una nota vocale, viene trascritta e la qualificazione prosegue senza interruzioni. Se l'audio non si capisce, l'assistente chiede di scrivere invece di restare in silenzio.",
       "Zona, tipologia, budget e metratura finiscono da soli nelle «Preferenze di ricerca» della scheda, mentre la conversazione va avanti: non devi ribatterli a mano. Se correggi un campo, la tua correzione vince e non viene sovrascritta.",
-      "Appena quei criteri cambiano, gli immobili compatibili in portafoglio si ricalcolano subito. L'email di segnalazione parte però solo a qualificazione conclusa: durante la conversazione i criteri si assestano turno dopo turno, e un avviso a ogni assestamento diventerebbe rumore.",
+      "Appena quei criteri cambiano, gli immobili compatibili in portafoglio si ricalcolano subito e compaiono nella scheda del contatto.",
       "Se il cliente risponde in modo vago l'assistente propone due o tre fasce fra cui scegliere. Dopo la seconda risposta vaga sullo stesso punto lascia perdere e prosegue: insistere una terza volta fa chiudere la conversazione.",
       "Chi scrive per VENDERE viene riconosciuto dal primo messaggio e segue un percorso suo: dove si trova l'immobile, com'e' fatto, entro quando vuole vendere e la disponibilita' per un sopralluogo. A un venditore non viene mai chiesto un budget d'acquisto. In elenco lo riconosci dal badge «Incarico».",
       "L'assistente non da' mai una valutazione, nemmeno indicativa, nemmeno se il proprietario insiste: rimanda al sopralluogo gratuito. Una cifra detta per messaggio diventa l'aspettativa su cui poi ti tocca trattare al ribasso.",
@@ -102,7 +102,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       "L'assistente fissa l'appuntamento da solo. Il cliente puo' scegliere fra gli orari proposti oppure indicarne uno suo (\"domani alle 11:40\"): se cade in una fascia libera viene confermato subito, altrimenti riceve i due o tre orari liberi piu' vicini a quello che aveva chiesto.",
       "Gli orari proposti tengono conto sia delle fasce che hai aperto in Impostazioni → Agende sia degli impegni reali sul tuo Google o Outlook collegato: l'assistente non propone un orario in cui sei gia' occupato.",
       "A visita fissata trovi l'evento sul tuo calendario, la scheda passa a «Visita Programmata» e l'appuntamento compare fra le prossime visite in Dashboard.",
-      "Partono anche due email di conferma: una a te (o all'agente assegnato) con i dati del contatto e le sue preferenze, e una al cliente. Quella al cliente parte solo se conosciamo il suo indirizzo — l'assistente lo raccoglie se il cliente lo scrive, ma non lo chiede apposta: la conferma vera l'ha gia' ricevuta su WhatsApp.",
+      "Al cliente parte anche una email di conferma, solo se conosciamo il suo indirizzo — l'assistente lo raccoglie se il cliente lo scrive, ma non lo chiede apposta: la conferma vera l'ha gia' ricevuta su WhatsApp.",
       "I crediti WhatsApp si consumano all'avvio della conversazione, non a ogni messaggio scambiato.",
     ],
   },
@@ -124,7 +124,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
     ],
     notes: [
-      "Dopo DUE messaggi consecutivi che non riguardano immobili — un messaggio personale, una pubblicità, un numero sbagliato — l'assistente si sospende da solo su quel contatto e ti avvisa via email. Il contatore si azzera a ogni messaggio pertinente.",
+      "Dopo DUE messaggi consecutivi che non riguardano immobili — un messaggio personale, una pubblicità, un numero sbagliato — l'assistente si sospende da solo su quel contatto e la scheda lo segnala come in pausa. Il contatore si azzera a ogni messaggio pertinente.",
       "Il filtro è tarato per lasciar passare nel dubbio: un \"Buongiorno\" o una frase ambigua vengono trattati come richieste vere. Meglio una risposta di troppo che il silenzio davanti a un cliente.",
       "Il comando funziona solo se scritto da solo: una frase che contiene !pausa in mezzo ad altro resta un messaggio normale e viene inviata al cliente.",
     ],
@@ -324,7 +324,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     notes: [
       "Un incarico SCADUTO esce automaticamente dal feed verso i portali, anche se l'immobile risulta ancora in vendita: senza mandato valido l'agenzia non ha titolo per pubblicizzarlo.",
       "Una scheda SENZA data di scadenza non viene toccata. E' un mandato non ancora registrato, non uno scaduto, e trattarli allo stesso modo toglierebbe dai portali immobili perfettamente regolari.",
-      "Nella card compare un avviso: ambra entro trenta giorni, rosso a scadenza superata. Ogni mattina il titolare riceve un riepilogo via email degli incarichi in scadenza a sessanta e trenta giorni.",
+      "Nella card compare un avviso: ambra entro trenta giorni, rosso a scadenza superata.",
       "Sul selettore di stato: \"In vendita\" e \"Sotto proposta\" restano pubblicati — un compromesso non e' un rogito, e ritirare l'annuncio durante la trattativa lascia senza alternative se salta. Bozza, Venduto e Archiviato non vengono pubblicati.",
     ],
   },
@@ -351,7 +351,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
     ],
     notes: [
-      "Sopra l'80% di compatibilita' l'agente assegnato riceve un'email con l'elenco degli immobili, ordinato per punteggio. Solo per gli abbinamenti nuovi: un ricalcolo non ripropone quello che avevi gia' visto.",
+      "Gli immobili compatibili compaiono nella scheda del contatto, ordinati per punteggio di compatibilita'.",
       "L'invio della proposta NON consuma crediti: la conversazione con quel contatto e' gia' stata pagata quando e' stata avviata.",
       "Un immobile venduto, in bozza o con l'incarico scaduto non viene mai proposto.",
       "Un contatto senza preferenze registrate non partecipa al confronto. È voluto: meglio nessun suggerimento che suggerimenti casuali su cui perdere telefonate.",
