@@ -25,6 +25,7 @@ import {
 } from "@/lib/ai/whatsapp-agent";
 import { deliverLeadToCrm } from "@/lib/integrations/crm-webhook";
 import { notifyAppointmentConfirmed } from "@/lib/notifications/appointment";
+import { notifyLeadQualified } from "@/lib/notifications/lead-qualified";
 import { linkLeadToProperty } from "@/lib/leads/resolve-property";
 import { runMatchingForLead } from "@/lib/matching/run-matching";
 import { QUALIFICATION_QUESTIONS } from "./questions";
@@ -581,6 +582,11 @@ export async function handleIncomingMessage(
       lead.qualificationStatus !== "QUALIFIED"
     ) {
       await deliverLeadToCrm(updated, "lead.qualified");
+
+      // Email e push a chi ha in carico il lead. Stessa transizione, stessa
+      // regola: non blocca e non lancia. È l'unico stato della pipeline che
+      // notifica (vedi `lib/notifications/lead-qualified.ts`).
+      await notifyLeadQualified(updated);
 
       /**
        * Il lead ha appena finito di dire cosa cerca: e' il momento in cui il

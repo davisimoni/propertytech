@@ -2,7 +2,14 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { resolveOwner } from "@/lib/email/recipients";
 import { sendSocialPublishFailedEmail } from "@/lib/email/transactional";
+import { pushPubblicazioneNonRiuscita } from "@/lib/push/messages";
+import { inviaPushAUtenti } from "@/lib/push/send";
 import type { PublishResult } from "@/lib/social/meta";
+
+const NOME_CANALE: Record<PublishResult["target"], string> = {
+  facebook: "Facebook",
+  instagram: "Instagram",
+};
 
 /**
  * Avviso di pubblicazione social non riuscita. Non lancia mai.
@@ -33,26 +40,33 @@ export async function notificaPubblicazioneFallita(params: {
             organizationId: params.organizationId,
             acceptedAt: { not: null },
           },
-          select: { email: true, firstName: true },
+          select: { id: true, email: true, firstName: true },
         })
       : null;
     const destinatario = autore ?? (await resolveOwner(params.organizationId));
     if (!destinatario) return;
 
-    const outcome = await sendSocialPublishFailedEmail({
-      to: destinatario.email,
-      firstName: destinatario.firstName,
-      falliti: falliti.map((esito) => ({
-        canale: esito.target,
-        motivo: esito.error ?? "Errore non specificato restituito da Meta.",
-      })),
-      anteprima: params.messaggio,
-    });
+    const [outcome, push] = await Promise.all([
+      sendSocialPublishFailedEmail({
+        to: destinatario.email,
+        firstName: destinatario.firstName,
+        falliti: falliti.map((esito) => ({
+          canale: esito.target,
+          motivo: esito.error ?? "Errore non specificato restituito da Meta.",
+        })),
+        anteprima: params.messaggio,
+      }),
+      inviaPushAUtenti(
+        [destinatario.id],
+        pushPubblicazioneNonRiuscita(falliti.map((esito) => NOME_CANALE[esito.target]))
+      ),
+    ]);
 
     console.info("[SOCIAL-PUBLISH-FAILED-NOTIFY]", {
       organizationId: params.organizationId,
       canali: falliti.map((esito) => esito.target),
       outcome,
+      push: push.inviate,
     });
   } catch (error) {
     console.error("[notifications/social-publish] Avviso non inviato", {

@@ -148,17 +148,25 @@ export async function POST(request: Request) {
       try {
         const { resolveOwner } = await import("@/lib/email/recipients");
         const { sendWhatsAppDisconnectedEmail } = await import("@/lib/email/transactional");
+        const { inviaPushAUtenti } = await import("@/lib/push/send");
+        const { pushSessioneWhatsappDisconnessa } = await import("@/lib/push/messages");
 
         const owner = await resolveOwner(config.organizationId);
         if (owner) {
-          const outcome = await sendWhatsAppDisconnectedEmail({
-            to: owner.email,
-            firstName: owner.firstName,
-            phoneNumber: config.phoneNumber,
-          });
+          // Email e push in parallelo: la push è quella che arriva sul
+          // telefono mentre l'agente è in visita.
+          const [outcome, push] = await Promise.all([
+            sendWhatsAppDisconnectedEmail({
+              to: owner.email,
+              firstName: owner.firstName,
+              phoneNumber: config.phoneNumber,
+            }),
+            inviaPushAUtenti([owner.id], pushSessioneWhatsappDisconnessa()),
+          ]);
           console.info("[WA-DISCONNECTED-NOTIFY]", {
             organizationId: config.organizationId,
             outcome,
+            push: push.inviate,
           });
         }
       } catch (error) {

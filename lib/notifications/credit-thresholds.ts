@@ -4,11 +4,18 @@ import { ENTERPRISE_OVERAGE_PRICE_EUR, formatEurCents, PLANS, type PlanId } from
 import { isOverageBillingActive } from "@/lib/billing/overage";
 import { resolveOwner } from "@/lib/email/recipients";
 import {
+  CREDIT_LABELS,
   sendCreditsExhaustedEmail,
   sendCreditsWarningEmail,
   sendOverageStartedEmail,
   type CreditKind,
 } from "@/lib/email/transactional";
+import {
+  pushCreditiAllOttantaPercento,
+  pushCreditiEsauriti,
+  pushTariffazioneAConsumo,
+} from "@/lib/push/messages";
+import { inviaPushAUtenti } from "@/lib/push/send";
 
 /**
  * Avvisi di crediti operativi in esaurimento: 80% e 100%.
@@ -167,7 +174,17 @@ export async function checkCreditThresholds(
             aConsumo,
           });
 
-    console.info("[CREDITS-THRESHOLD]", { organizationId, kind, soglia, outcome });
+    // Stessa soglia, anche sui dispositivi del titolare. Non lancia.
+    const push = await inviaPushAUtenti(
+      [owner.id],
+      soglia === 100
+        ? aConsumo
+          ? pushTariffazioneAConsumo()
+          : pushCreditiEsauriti(CREDIT_LABELS[kind])
+        : pushCreditiAllOttantaPercento(CREDIT_LABELS[kind], Math.max(0, limite - usati), Boolean(aConsumo))
+    );
+
+    console.info("[CREDITS-THRESHOLD]", { organizationId, kind, soglia, outcome, push: push.inviate });
     return soglia;
   } catch (error) {
     console.error("[notifications/credit-thresholds] Controllo non riuscito", {

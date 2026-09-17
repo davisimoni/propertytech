@@ -290,6 +290,7 @@ model User {
   aiGenerations       AiGeneration[]
   calendarConnections CalendarConnection[]
   newsletterDeliveries NewsletterDelivery[]
+  pushSubscriptions    PushSubscription[]
 
   @@index([organizationId, role])
   leadNotes      LeadNote[]
@@ -2063,5 +2064,32 @@ model NewsletterDelivery {
   createdAt  DateTime           @default(now())
 
   @@unique([campaignId, userId])
+  @@index([userId])
+}
+
+/// Iscrizione di un dispositivo alle notifiche push (Web Push).
+///
+/// Una riga per browser/dispositivo: la stessa persona riceve sul computer
+/// dell'ufficio e sul telefono. `endpoint` è unico: se un dispositivo condiviso
+/// cambia utente, l'iscrizione passa al nuovo utente invece di duplicarsi, e
+/// il precedente smette di ricevere su quel dispositivo.
+///
+/// Le chiavi `p256dh` e `auth` servono a cifrare il contenuto per quel solo
+/// dispositivo (RFC 8291): il servizio push del browser inoltra un messaggio
+/// che non può leggere. Non sono segreti di invio: senza la chiave privata
+/// VAPID nessuno può spedire a questi endpoint.
+model PushSubscription {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String    @unique
+  p256dh    String
+  auth      String
+  /// Descrizione leggibile del dispositivo, per riconoscerlo ("Chrome su Android").
+  userAgent String?
+  createdAt DateTime  @default(now())
+  /// Ultimo invio accettato dal servizio push.
+  lastSuccessAt DateTime?
+
   @@index([userId])
 }

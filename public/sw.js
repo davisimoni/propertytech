@@ -139,3 +139,116 @@ self.addEventListener("message", (event) => {
     event.waitUntil(caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key)))));
   }
 });
+
+/* -----------------------------------------------------------------------------
+ * Notifiche push
+ *
+ * Il server invia un JSON `{ title, body, url, tag }` (lib/push/messages.ts),
+ * cifrato per questo solo dispositivo. Qui si mostra la notifica nativa e, al
+ * clic, si apre l'app sulla pagina indicata.
+ * -------------------------------------------------------------------------- */
+
+/**
+ * Solo percorsi interni. Una notifica non deve poter aprire un sito esterno:
+ * anche se il contenuto arriva dal nostro server, l'apertura di un indirizzo
+ * qualsiasi al clic sarebbe il punto debole da cui passa un phishing.
+ */
+function percorsoInterno(valore) {
+  if (typeof valore !== "string" || !valore.startsWith("/") || valore.startsWith("//")) {
+    return "/dashboard";
+  }
+  return valore;
+}
+
+self.addEventListener("push", (event) => {
+  let dati = {};
+  try {
+    dati = event.data ? event.data.json() : {};
+  } catch {
+    dati = { body: event.data ? event.data.text() : "" };
+  }
+
+  const titolo = typeof dati.title === "string" && dati.title ? dati.title : "PropertyTech";
+  const opzioni = {
+    body: typeof dati.body === "string" ? dati.body : "",
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
+    lang: "it-IT",
+    data: { url: percorsoInterno(dati.url) },
+  };
+  // Stesso `tag`: la nuova notifica sostituisce la precedente, e `renotify`
+  // fa comunque suonare il dispositivo invece di aggiornarla in silenzio.
+  if (typeof dati.tag === "string" && dati.tag) {
+    opzioni.tag = dati.tag;
+    opzioni.renotify = true;
+  }
+
+  event.waitUntil(self.registration.showNotification(titolo, opzioni));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const destinazione = new URL(
+    percorsoInterno(event.notification.data && event.notification.data.url),
+    self.location.origin
+  ).href;
+
+  event.waitUntil(
+    (async () => {
+      // Se l'app è già aperta si riusa quella finestra: aprirne una nuova a
+      // ogni notifica lascia l'agente con cinque schede della stessa app.
+      const finestre = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const finestra of finestre) {
+        if (new URL(finestra.url).origin === self.location.origin) {
+          await finestra.focus();
+          if ("navigate" in finestra) {
+            await finestra.navigate(destinazione).catch(() => undefined);
+          }
+          return;
+        }
+      }
+      await self.clients.openWindow(destinazione);
+    })()
+  );
+});
+
+/**
+ * Il browser ha rinnovato l'iscrizione (scadenza, rotazione delle chiavi).
+ *
+ * Senza questo passaggio il server continuerebbe a inviare al vecchio endpoint,
+ * che risponde 410, e il dispositivo smetterebbe di ricevere senza che
+ * nessuno se ne accorga. La richiesta porta i cookie di sessione: se l'utente
+ * non è più collegato risponde 401, e l'iscrizione si ricrea al prossimo
+ * accesso dalla dashboard.
+ */
+self.addEventListener("pushsubscriptionchange", (event) => {
+  const vecchia = event.oldSubscription;
+  const chiave = vecchia && vecchia.options ? vecchia.options.applicationServerKey : null;
+
+  event.waitUntil(
+    (async () => {
+      const nuova =
+        event.newSubscription ||
+        (chiave
+          ? await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: chiave })
+          : null);
+      if (!nuova) return;
+
+      await fetch("/api/push/subscribe", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nuova.toJSON()),
+      }).catch(() => undefined);
+
+      if (vecchia && vecchia.endpoint !== nuova.endpoint) {
+        await fetch("/api/push/subscribe", {
+          method: "DELETE",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: vecchia.endpoint }),
+        }).catch(() => undefined);
+      }
+    })()
+  );
+});

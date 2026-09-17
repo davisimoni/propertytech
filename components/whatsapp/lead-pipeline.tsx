@@ -263,9 +263,10 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
   }, []);
 
   /**
-   * Apre direttamente la scheda indicata da `?lead=` nell'indirizzo.
+   * Apre direttamente la scheda indicata da `?id=` (o `?lead=`) nell'indirizzo.
    *
-   * E' il link che parte nell'avviso di lead caldo: chi lo riceve sul telefono
+   * E' il link dell'email e della notifica push del lead qualificato: chi lo
+   * riceve sul telefono
    * deve trovarsi davanti quella conversazione, non una lista in cui cercare
    * il nome. Scatta una volta sola — `openedFromUrl` — altrimenti ogni giro di
    * polling riaprirebbe il cassetto sopra a quello che l'agente sta guardando.
@@ -274,7 +275,10 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
   useEffect(() => {
     if (openedFromUrl || leads.length === 0) return;
 
-    const wanted = new URLSearchParams(window.location.search).get("lead");
+    // `id` è il parametro delle notifiche; `lead` resta valido per i link già
+    // esistenti.
+    const parametri = new URLSearchParams(window.location.search);
+    const wanted = parametri.get("id") ?? parametri.get("lead");
     if (!wanted) {
       setOpenedFromUrl(true);
       return;

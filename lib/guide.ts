@@ -103,6 +103,8 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       "Gli orari proposti tengono conto sia delle fasce che hai aperto in Impostazioni → Agende sia degli impegni reali sul tuo Google o Outlook collegato: l'assistente non propone un orario in cui sei gia' occupato.",
       "A visita fissata trovi l'evento sul tuo calendario, la scheda passa a «Visita Programmata» e l'appuntamento compare fra le prossime visite in Dashboard.",
       "Al cliente parte anche una email di conferma, solo se conosciamo il suo indirizzo — l'assistente lo raccoglie se il cliente lo scrive, ma non lo chiede apposta: la conferma vera l'ha gia' ricevuta su WhatsApp.",
+      "Quando l'assistente porta un contatto a «Qualificato» ricevi un'email con nome, telefono, fonte, immobile di interesse e note di qualificazione, e una notifica push sui dispositivi su cui le hai attivate. È l'unico passaggio della pipeline che genera una notifica: la riceve l'agente assegnato, altrimenti il titolare.",
+      "Le notifiche push si attivano per dispositivo, dal banner in Dashboard o da Impostazioni → Privacy & Normativa. Su iPhone e iPad funzionano con PropertyTech aggiunta alla schermata Home.",
       "I crediti WhatsApp si consumano all'avvio della conversazione, non a ogni messaggio scambiato.",
     ],
   },

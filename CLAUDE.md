@@ -233,15 +233,22 @@ Questi vincoli sono non negoziabili e vanno rispettati in ogni implementazione, 
 
 Due flussi separati, con regole diverse. Il confine è nel trasporto (`lib/notifications/email.ts`): un invio con `unsubscribeUrl` è marketing, senza è servizio.
 
-**Email di servizio** (`lib/email/transactional.ts`) — solo quattro categorie di eventi critici dell'account:
+**Email di servizio** (`lib/email/transactional.ts`) — solo cinque categorie di eventi critici dell'account:
 1. **Sessione WhatsApp disconnessa** (l'assistente IA è fermo).
 2. **Crediti operativi all'80% e al 100%**, calcolati sulla dotazione reale (piano + pacchetti acquistati); per l'Enterprise a consumo, avviso di tariffazione a consumo attiva. La memoria delle soglie si azzera a ogni ricarica.
 3. **Pubblicazione social non riuscita** su Facebook/Instagram (`lib/notifications/social-publish.ts`).
 4. **Iscrizione e abbonamento**: conferma di iscrizione, attivazione, cambio piano, rinnovo, pagamento non riuscito, disdetta.
+5. **Lead qualificato** (`lib/notifications/lead-qualified.ts`): quando l'assistente IA porta un contatto a QUALIFIED, email "Nuovo lead qualificato: [Nome]" con nome, telefono, fonte, immobile, note di qualificazione e CTA a `/leads?id=`. All'agente assegnato, altrimenti al titolare. Scatta sulla **transizione** in `lib/whatsapp/conversation.ts`, ed è **l'unico stato della pipeline che notifica**: visita, proposta e chiusura no.
 
-Restano fuori dalle notifiche ma attive, perché parti di un flusso e non avvisi: reimpostazione e modifica password, accesso da nuovo dispositivo, invito collaboratori, richiesta dal modulo di contatto (verso l'assistenza), conferma appuntamento **al cliente finale** (forma "lei", testo semplice a nome dell'agenzia). **Non si aggiungono email per altri eventi** (lead qualificato, abbinamenti, conversazione in pausa, incarichi in scadenza, collaboratore entrato, email portale non riconosciuta): sono state tolte il 17/09/2026 perché ogni avviso in più abitua a ignorare il mittente, e quelle informazioni sono già visibili nell'applicazione.
+Restano fuori dalle notifiche ma attive, perché parti di un flusso e non avvisi: reimpostazione e modifica password, accesso da nuovo dispositivo, invito collaboratori, richiesta dal modulo di contatto (verso l'assistenza), conferma appuntamento **al cliente finale** (forma "lei", testo semplice a nome dell'agenzia). **Non si aggiungono email per altri eventi** (abbinamenti, appuntamento fissato all'agenzia, conversazione in pausa, incarichi in scadenza, collaboratore entrato, email portale non riconosciuta): sono state tolte il 17/09/2026 perché ogni avviso in più abitua a ignorare il mittente, e quelle informazioni sono già visibili nell'applicazione.
 
 Regole di copy: nessuna emoji in oggetto e corpo, tono sobrio, lessico del settore (lead, richieste di informazioni, immobili, visure, crediti operativi, sessione WhatsApp), registro "tu" verso l'agente. Il piè di pagina dichiara che si tratta di una comunicazione di servizio non legata alle preferenze newsletter.
+
+**Notifiche push** (`lib/push/`, `public/sw.js`) — Web Push con chiavi VAPID (`NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`), per le categorie 1, 2, 3 e 5, in parallelo all'email e allo stesso destinatario.
+- **Per dispositivo**: `PushSubscription` (una riga per browser, `endpoint` unico; un dispositivo condiviso passa all'ultimo utente che lo iscrive). Attivazione dal banner in Dashboard (mai `requestPermission` all'apertura: se negato, il browser non lo richiede più) o da Impostazioni → Privacy & Normativa. Su iOS solo con l'app aggiunta alla schermata Home.
+- **Sicurezza**: gli endpoint sono accettati solo verso i servizi push dei browser (`lib/push/endpoint.ts`), all'iscrizione e all'invio — l'endpoint lo sceglie il client, e senza lista il server farebbe POST a indirizzi arbitrari (SSRF). Il service worker apre al clic solo percorsi interni.
+- **Contenuto**: breve, senza emoji, niente telefoni o importi (compare sullo schermo di blocco). Cifrato per il solo dispositivo (RFC 8291). Iscrizioni revocate (404/410) eliminate all'invio.
+- **Stesse chiavi ovunque**: il database è condiviso e le iscrizioni sono legate alla chiave pubblica; rigenerare le chiavi invalida tutti i dispositivi iscritti.
 
 **Newsletter** (`lib/newsletter/`) — martedì e giovedì, `vercel.json` → `/api/cron/weekly-newsletter` alle 07:00 UTC (09:00 in ora legale, 08:00 in ora solare; un solo invio al giorno per restare compatibile con i cron del piano Hobby). La rotta verifica comunque il giorno in Italia.
 - **Destinatari**: utenti con `acceptedAt` valorizzato, Trial compresi, senza `User.newsletterOptOutAt`.

@@ -13,7 +13,7 @@ import { escapeHtml, renderEmail, renderEmailText, type EmailLayoutInput } from 
  * ogni lead qualificato, ogni abbinamento o ogni collaboratore entrato in team
  * abitua a ignorare il mittente, e il giorno in cui arriva "sessione WhatsApp
  * disconnessa" finisce nello stesso mucchio. Per questo le email di sistema
- * sono limitate a quattro categorie, e ciò che non vi rientra si consulta
+ * sono limitate a cinque categorie, e ciò che non vi rientra si consulta
  * nell'applicazione:
  *
  * 1. **Sessione WhatsApp** — disconnessione: l'assistente IA è fermo.
@@ -21,6 +21,12 @@ import { escapeHtml, renderEmail, renderEmailText, type EmailLayoutInput } from 
  * 3. **Pubblicazione social** — pubblicazione non riuscita su Facebook/Instagram.
  * 4. **Iscrizione e abbonamento** — conferma di iscrizione, attivazione, cambio
  *    piano, rinnovo, pagamento non riuscito, disdetta.
+ * 5. **Lead qualificato** — l'assistente IA porta un contatto allo stato
+ *    Qualificato. È l'UNICO stato della pipeline che genera una notifica:
+ *    visita, proposta, chiusura e gli altri passaggi no.
+ *
+ * Le categorie 1, 2, 3 e 5 arrivano anche come notifica push sui dispositivi
+ * su cui l'utente le ha attivate (`lib/push/`).
  *
  * Fuori da queste categorie, e non per dimenticanza, restano tre gruppi che
  * non sono notifiche ma parti di un flusso: **accesso e sicurezza**
@@ -433,6 +439,47 @@ export function sendWhatsAppDisconnectedEmail(params: {
       { text: "La riconnessione richiede la scansione del codice QR dal telefono dell'agenzia." },
     ],
     cta: { label: "Riconnetti la sessione WhatsApp", url: `${SITE_URL}/leads` },
+  });
+}
+
+// --- 5. Lead qualificato -----------------------------------------------------
+
+export function sendLeadQualifiedEmail(params: {
+  to: string;
+  firstName?: string | null;
+  leadId: string;
+  clientName: string;
+  clientPhone: string;
+  fonte: string;
+  immobile: string | null;
+  /** Note di qualificazione emerse dalla conversazione, già leggibili. */
+  note: { label: string; value: string }[];
+}): Promise<EmailOutcome> {
+  return invia(params.to, `Nuovo lead qualificato: ${params.clientName}`, {
+    heading: "Nuovo lead qualificato",
+    preheader: `${params.clientName} ha completato la qualificazione su WhatsApp.`,
+    greeting: saluto(params.firstName),
+    blocks: [
+      {
+        text: `L'assistente IA ha completato la qualificazione di <strong>${escapeHtml(params.clientName)}</strong>. Il contatto è pronto per essere richiamato.`,
+      },
+      {
+        rows: [
+          { label: "Nome", value: escapeHtml(params.clientName) },
+          { label: "Telefono", value: escapeHtml(params.clientPhone) },
+          { label: "Fonte", value: escapeHtml(params.fonte) },
+          { label: "Immobile di interesse", value: escapeHtml(params.immobile || "Non indicato") },
+        ],
+      },
+      { subheading: "Note di qualificazione" },
+      params.note.length > 0
+        ? { rows: params.note.map((nota) => ({ label: escapeHtml(nota.label), value: escapeHtml(nota.value) })) }
+        : { text: "Nessuna informazione aggiuntiva emersa dalla conversazione." },
+    ],
+    cta: {
+      label: "Visualizza su PropertyTech",
+      url: `${SITE_URL}/leads?id=${encodeURIComponent(params.leadId)}`,
+    },
   });
 }
 

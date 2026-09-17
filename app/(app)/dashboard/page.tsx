@@ -7,6 +7,7 @@ import { SmartMatches } from "@/components/dashboard/smart-matches";
 import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
 import { UpcomingAppointments } from "@/components/dashboard/upcoming-appointments";
 import { AgencyNamePrompt } from "@/components/dashboard/agency-name-prompt";
+import { PushPermissionBanner } from "@/components/notifications/push-permission-banner";
 import { InfoTip } from "@/components/shared/info-tip";
 import { formatTimeSaved, getRoiMetrics, MINUTES_SAVED } from "@/lib/metrics";
 
@@ -49,6 +50,8 @@ export default async function DashboardPage() {
       {organization && !organization.agencyNameConfirmed && (
         <AgencyNamePrompt initialName={organization.agencyName} />
       )}
+
+      <PushPermissionBanner />
 
       <OnboardingChecklist />
 

@@ -77,7 +77,8 @@ export default async function PrivacyPage() {
             "Fatturazione e adempimenti fiscali — obbligo legale (art. 6.1.c GDPR).",
             "Sicurezza della piattaforma, prevenzione degli abusi e diagnostica — legittimo interesse (art. 6.1.f GDPR).",
             "Trattamento dei dati dei lead e dei documenti — su istruzione documentata dell'agenzia cliente, in qualità di responsabile (art. 28 GDPR).",
-            "Comunicazioni di servizio sull'account (sessione WhatsApp, crediti operativi, pubblicazioni social, abbonamento e fatturazione, sicurezza) — esecuzione del contratto (art. 6.1.b GDPR). Non sono revocabili finché l'account è attivo, perché riguardano il funzionamento del servizio.",
+            "Comunicazioni di servizio sull'account (nuovo lead qualificato, sessione WhatsApp, crediti operativi, pubblicazioni social, abbonamento e fatturazione, sicurezza) — esecuzione del contratto (art. 6.1.b GDPR). Le email non sono revocabili finché l'account è attivo, perché riguardano il funzionamento del servizio.",
+            "Notifiche push sui dispositivi su cui l'utente le ha attivate — esecuzione del contratto (art. 6.1.b GDPR). Conserviamo l'indirizzo di iscrizione del dispositivo e una descrizione del browser; il contenuto della notifica è cifrato per quel solo dispositivo e transita dal servizio push del browser (Google, Mozilla, Apple o Microsoft), che non può leggerlo. Si disattivano in qualsiasi momento dalle impostazioni dell'account o del browser.",
             "Newsletter agli utenti della piattaforma (martedì e giovedì, su automazioni, casi operativi e gestione dei lead) — legittimo interesse (art. 6.1.f GDPR) e art. 130, comma 4, D.Lgs. 196/2003, per servizi analoghi a quello utilizzato.",
           ]}
         />
