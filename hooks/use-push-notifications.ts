@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ricordaIscrizione, revocaIscrizioneDispositivo, sincronizzaRevoca } from "@/lib/push/device";
 
 /**
  * Stato delle notifiche push su QUESTO dispositivo.
@@ -61,6 +62,7 @@ async function salvaSulServer(iscrizione: PushSubscription): Promise<void> {
     body: JSON.stringify(iscrizione.toJSON()),
   });
   if (!risposta.ok) throw new Error(`Iscrizione rifiutata (${risposta.status})`);
+  ricordaIscrizione(iscrizione);
 }
 
 export function usePushNotifications() {
@@ -78,6 +80,11 @@ export function usePushNotifications() {
         if (attivo) setStato(isIosSenzaInstallazione() ? "ios-installa" : "non-supportato");
         return;
       }
+
+      // Prima di tutto: se le notifiche sono state revocate dal browser da
+      // quando l'app le ha attivate, il server smette subito di conservare
+      // l'indirizzo di questo dispositivo.
+      await sincronizzaRevoca();
       if (!CHIAVE_PUBBLICA) {
         if (attivo) setStato("non-configurato");
         return;
@@ -151,16 +158,7 @@ export function usePushNotifications() {
   const disattiva = useCallback(async (): Promise<boolean> => {
     setInCorso(true);
     try {
-      const reg = await navigator.serviceWorker.getRegistration("/");
-      const iscrizione = await reg?.pushManager.getSubscription();
-      if (iscrizione) {
-        await fetch("/api/push/subscribe", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ endpoint: iscrizione.endpoint }),
-        }).catch(() => undefined);
-        await iscrizione.unsubscribe();
-      }
+      await revocaIscrizioneDispositivo();
       setStato("disattivo");
       return true;
     } catch (error) {

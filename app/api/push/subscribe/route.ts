@@ -11,8 +11,14 @@ import { isEndpointPushAmmesso } from "@/lib/push/endpoint";
  *   browser). Se l'endpoint esisteva per un altro utente — telefono condiviso,
  *   cambio di account — passa all'utente attuale: il dispositivo riceve per
  *   chi lo sta usando adesso, non per chi lo usava prima.
- * - `DELETE`: rimuove l'iscrizione di questo dispositivo, solo se appartiene
- *   all'utente collegato.
+ * - `DELETE`: revoca. Rimuove l'iscrizione di questo dispositivo se appartiene
+ *   all'utente collegato, OPPURE — anche senza sessione — se la richiesta
+ *   porta il segreto `auth` dell'iscrizione. Quel segreto lo conosce solo il
+ *   dispositivo iscritto, ed è ciò che permette di revocare quando la sessione
+ *   non c'è più: dopo un logout, dal service worker che rinnova l'iscrizione,
+ *   o alla riapertura dell'app dopo che l'utente ha bloccato le notifiche dal
+ *   browser (`lib/push/device.ts`). Revocare un consenso non deve dipendere
+ *   dall'essere ancora collegati.
  */
 
 const iscrizioneSchema = z.object({
@@ -23,7 +29,10 @@ const iscrizioneSchema = z.object({
   }),
 });
 
-const rimozioneSchema = z.object({ endpoint: z.string().url().max(2000) });
+const rimozioneSchema = z.object({
+  endpoint: z.string().url().max(2000),
+  keys: z.object({ auth: z.string().min(8).max(100) }).partial().optional(),
+});
 
 /** Descrizione breve del dispositivo, per riconoscerlo in un elenco. */
 function descriviDispositivo(userAgent: string | null): string | null {
@@ -90,19 +99,30 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const session = await auth();
-  if (!session?.user?.userId) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
   const parsed = rimozioneSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
   }
 
-  await prisma.pushSubscription.deleteMany({
-    where: { endpoint: parsed.data.endpoint, userId: session.user.userId },
-  });
+  const { endpoint } = parsed.data;
+  const segreto = parsed.data.keys?.auth;
+  const session = await auth();
+  const userId = session?.user?.userId;
 
-  return NextResponse.json({ ok: true });
+  if (!userId && !segreto) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  let rimosse = 0;
+  if (userId) {
+    rimosse = (await prisma.pushSubscription.deleteMany({ where: { endpoint, userId } })).count;
+  }
+  // Prova di possesso: vale anche se il dispositivo è ora associato a un altro
+  // utente o se la sessione non c'è più.
+  if (rimosse === 0 && segreto) {
+    rimosse = (await prisma.pushSubscription.deleteMany({ where: { endpoint, auth: segreto } })).count;
+  }
+
+  if (rimosse > 0) console.info("[PUSH-REVOKED]", { rimosse, conSessione: Boolean(userId) });
+  return NextResponse.json({ ok: true, rimosse });
 }

@@ -8,11 +8,7 @@ import { escapeHtml, renderEmail, renderEmailText, type EmailLayoutInput } from 
 import { isEmailConfigured, sendEmail, type EmailOutcome } from "@/lib/notifications/email";
 import { numeroPerChiave, numeroPerSequenza, type NumeroNewsletter } from "./editorial";
 import { upsellPer, type DatiUpsell } from "./upsell";
-import {
-  firmaDisiscrizione,
-  urlDisiscrizioneUnClic,
-  urlPaginaDisiscrizione,
-} from "./unsubscribe-token";
+import { firmaDisiscrizione, urlDisiscrizione } from "./unsubscribe-token";
 
 /**
  * Invio della newsletter: martedì e giovedì.
@@ -97,12 +93,12 @@ export function componiNewsletter(params: {
       : {}),
     footer: {
       tipo: "newsletter",
-      unsubscribeUrl: urlPaginaDisiscrizione(token),
+      unsubscribeUrl: urlDisiscrizione(token),
       preferencesUrl: `${SITE_URL}/settings?tab=privacy`,
     },
   };
 
-  return { subject: numero.oggetto, layout, unsubscribeUrl: urlDisiscrizioneUnClic(token) };
+  return { subject: numero.oggetto, layout, unsubscribeUrl: urlDisiscrizione(token) };
 }
 
 async function destinatariMancanti(

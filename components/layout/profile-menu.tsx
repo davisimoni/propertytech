@@ -39,6 +39,26 @@ export function ProfileMenu() {
     };
   }, [open]);
 
+  /**
+   * Uscita: prima si revoca l'iscrizione push di questo dispositivo, poi si
+   * esce.
+   *
+   * Dopo il logout un telefono condiviso non deve continuare a mostrare sullo
+   * schermo di blocco i nomi dei clienti di chi è uscito. La revoca non deve
+   * però poter bloccare l'uscita: al massimo attende tre secondi. Il messaggio
+   * `clear-cache` svuota anche la cache del service worker, come previsto da
+   * `public/sw.js`.
+   */
+  async function esci() {
+    const { revocaIscrizioneDispositivo } = await import("@/lib/push/device");
+    await Promise.race([
+      revocaIscrizioneDispositivo().catch(() => undefined),
+      new Promise((resolve) => setTimeout(resolve, 3000)),
+    ]);
+    navigator.serviceWorker?.controller?.postMessage("clear-cache");
+    await signOut({ callbackUrl: "/login" });
+  }
+
   const agencyName = session?.user?.agencyName ?? "La tua agenzia";
   const email = session?.user?.email ?? "";
 
@@ -102,7 +122,7 @@ export function ProfileMenu() {
             <button
               type="button"
               role="menuitem"
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={() => void esci()}
               className={`${itemClass} text-status-blocked`}
             >
               <LogOut className="h-4 w-4 shrink-0" />

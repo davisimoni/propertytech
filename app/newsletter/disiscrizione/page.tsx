@@ -3,6 +3,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { PublicNavbar } from "@/components/landing/public-navbar";
 import { verificaDisiscrizione } from "@/lib/newsletter/unsubscribe-token";
+import { AutoDisiscrizione } from "./auto-disiscrizione";
 
 export const metadata: Metadata = {
   title: "Disiscrizione dalla newsletter",
@@ -11,11 +12,12 @@ export const metadata: Metadata = {
 };
 
 /**
- * Conferma della disiscrizione dalla newsletter.
+ * Pagina di disiscrizione dalla newsletter.
  *
- * Il link nel piè di pagina porta qui e non disiscrive da solo: serve un
- * clic su "Conferma", perché i filtri antispam aprono i link delle email per
- * controllarli (vedi `app/api/newsletter/unsubscribe/route.ts`).
+ * Con un token valido la disiscrizione parte da sola nel browser
+ * (`AutoDisiscrizione`): un clic sul link dell'email basta. Il perché non
+ * avvenga già sul GET del link è in `app/api/unsubscribe/route.ts`. Senza
+ * JavaScript resta il modulo di conferma.
  */
 export default async function DisiscrizionePage({
   searchParams,
@@ -26,23 +28,64 @@ export default async function DisiscrizionePage({
   const session = await auth();
   const valido = Boolean(verificaDisiscrizione(token));
 
-  let titolo: string;
-  let testo: string;
-  let mostraModulo = false;
+  let contenuto: React.ReactNode;
 
-  if (esito === "ok") {
-    titolo = "Disiscrizione completata";
-    testo =
-      "Non riceverai più la newsletter. Le comunicazioni di servizio sul tuo account (sessione WhatsApp, crediti operativi, pubblicazioni social, abbonamento e sicurezza) continueranno ad arrivare. Puoi riattivare la newsletter dalle impostazioni, nella sezione Privacy e Normativa.";
-  } else if (esito === "non-valido" || !valido) {
-    titolo = "Link non valido";
-    testo =
-      "Il link di disiscrizione non è valido o è incompleto. Puoi gestire la newsletter dalle impostazioni dell'account, nella sezione Privacy e Normativa.";
+  if (esito === "ok" && valido && token) {
+    contenuto = (
+      <>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          <strong className="text-foreground">Disiscrizione completata.</strong> Non riceverai più
+          la newsletter. Le comunicazioni di servizio sul tuo account continueranno ad arrivare.
+        </p>
+        <form
+          method="POST"
+          action={`/api/unsubscribe?token=${encodeURIComponent(token)}&azione=riattiva&origine=pagina`}
+          className="mt-5"
+        >
+          <button type="submit" className="text-sm font-medium text-primary hover:underline">
+            Mi sono disiscritto per errore: riattiva la newsletter
+          </button>
+        </form>
+      </>
+    );
+  } else if (esito === "riattivata" && valido) {
+    contenuto = (
+      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+        La newsletter è di nuovo attiva: riceverai il prossimo numero del martedì o del giovedì.
+      </p>
+    );
+  } else if (!valido || !token) {
+    contenuto = (
+      <>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          Il link di disiscrizione non è valido o è incompleto. Puoi gestire la newsletter dalle
+          impostazioni dell&apos;account, nella sezione Privacy e Normativa.
+        </p>
+        <Link
+          href="/settings?tab=privacy"
+          className="mt-5 inline-block text-sm font-medium text-primary hover:underline"
+        >
+          Vai alle preferenze notifiche
+        </Link>
+      </>
+    );
   } else {
-    titolo = "Disiscrizione dalla newsletter";
-    testo =
-      "Confermando non riceverai più la newsletter del martedì e del giovedì. Le comunicazioni di servizio sul tuo account continueranno ad arrivare.";
-    mostraModulo = true;
+    contenuto = (
+      <>
+        <AutoDisiscrizione token={token} />
+        <noscript>
+          <form
+            method="POST"
+            action={`/api/unsubscribe?token=${encodeURIComponent(token)}&origine=pagina`}
+            className="mt-5"
+          >
+            <button type="submit" className="btn-brand w-full sm:w-auto">
+              Conferma la disiscrizione
+            </button>
+          </form>
+        </noscript>
+      </>
+    );
   }
 
   return (
@@ -50,27 +93,10 @@ export default async function DisiscrizionePage({
       <PublicNavbar isLoggedIn={Boolean(session?.user)} />
       <main className="mx-auto max-w-lg px-4 py-16 sm:px-6">
         <div className="card-surface p-6">
-          <h1 className="text-xl font-bold tracking-tight text-foreground">{titolo}</h1>
-          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{testo}</p>
-
-          {mostraModulo && token ? (
-            <form
-              method="POST"
-              action={`/api/newsletter/unsubscribe?token=${encodeURIComponent(token)}&origine=pagina`}
-              className="mt-6"
-            >
-              <button type="submit" className="btn-brand w-full sm:w-auto">
-                Conferma la disiscrizione
-              </button>
-            </form>
-          ) : (
-            <Link
-              href="/settings?tab=privacy"
-              className="mt-6 inline-block text-sm font-medium text-primary hover:underline"
-            >
-              Vai alle preferenze email
-            </Link>
-          )}
+          <h1 className="text-xl font-bold tracking-tight text-foreground">
+            {esito === "riattivata" ? "Newsletter riattivata" : "Disiscrizione dalla newsletter"}
+          </h1>
+          {contenuto}
         </div>
       </main>
     </div>

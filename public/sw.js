@@ -242,11 +242,14 @@ self.addEventListener("pushsubscriptionchange", (event) => {
       }).catch(() => undefined);
 
       if (vecchia && vecchia.endpoint !== nuova.endpoint) {
+        // Con il segreto `auth` della vecchia iscrizione: la rimozione riesce
+        // anche se la sessione nel frattempo è scaduta.
+        const chiaviVecchie = vecchia.toJSON().keys || {};
         await fetch("/api/push/subscribe", {
           method: "DELETE",
           credentials: "same-origin",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ endpoint: vecchia.endpoint }),
+          body: JSON.stringify({ endpoint: vecchia.endpoint, keys: { auth: chiaviVecchie.auth } }),
         }).catch(() => undefined);
       }
     })()

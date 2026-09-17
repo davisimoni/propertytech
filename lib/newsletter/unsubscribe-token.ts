@@ -49,18 +49,14 @@ export function verificaDisiscrizione(token: string | null | undefined): string 
   return timingSafeEqual(ricevuta, attesa) ? userId : null;
 }
 
-/** Indirizzo per la disiscrizione in un clic (intestazione `List-Unsubscribe`). */
-export function urlDisiscrizioneUnClic(token: string): string {
-  return `${SITE_URL}/api/newsletter/unsubscribe?token=${encodeURIComponent(token)}`;
-}
-
 /**
- * Pagina di disiscrizione, per il link nel piè di pagina.
+ * Link unico di disiscrizione di un destinatario: `/api/unsubscribe?token=...`.
  *
- * Diversa dall'indirizzo in un clic perché un link aperto con GET non deve
- * disiscrivere da solo: i filtri antispam aziendali aprono i link delle email
- * per controllarli, e disiscriverebbero persone che non l'hanno chiesto.
+ * Lo stesso indirizzo serve due usi. Nel piè di pagina è un link (GET): porta
+ * alla pagina che esegue la disiscrizione nel browser. Nell'intestazione
+ * `List-Unsubscribe` è il bersaglio della POST in un clic dei client di posta.
+ * Il perché della differenza fra GET e POST è in `app/api/unsubscribe/route.ts`.
  */
-export function urlPaginaDisiscrizione(token: string): string {
-  return `${SITE_URL}/newsletter/disiscrizione?token=${encodeURIComponent(token)}`;
+export function urlDisiscrizione(token: string): string {
+  return `${SITE_URL}/api/unsubscribe?token=${encodeURIComponent(token)}`;
 }
