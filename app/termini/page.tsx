@@ -3,7 +3,7 @@ import { pageMetadata } from "@/lib/seo";
 import { auth } from "@/auth";
 import { LegalList, LegalPage, LegalSection, LEGAL_ENTITY } from "@/components/legal/legal-page";
 import { BRAND } from "@/lib/brand";
-import { PLANS } from "@/lib/plans";
+import { ENTERPRISE_OVERAGE_PRICE_EUR, formatCount, formatEurCents, PLANS } from "@/lib/plans";
 
 export const metadata: Metadata = pageMetadata({
   title: "Termini di Servizio",
@@ -19,6 +19,7 @@ export default async function TerminiPage() {
     <LegalPage
       isLoggedIn={Boolean(session?.user)}
       title="Termini e Condizioni di Servizio"
+      lastUpdated="17 settembre 2026"
       intro={`Questi termini regolano l'accesso e l'uso di ${BRAND.name}, servizio SaaS rivolto ad agenzie immobiliari e professionisti del settore. Creando un account accetti quanto segue.`}
     >
       <LegalSection title="1. Oggetto del servizio">
@@ -64,9 +65,11 @@ export default async function TerminiPage() {
         />
         <LegalList
           items={[
-            "I crediti dei piani a pagamento si rinnovano a ogni periodo di fatturazione e non sono cumulabili con quelli non utilizzati nel periodo precedente.",
+            "I crediti dei piani a pagamento si rinnovano ogni mese, alla data corrispondente all'attivazione dell'abbonamento, anche con fatturazione annuale, e non sono cumulabili con quelli non utilizzati nel mese precedente.",
             "I crediti del piano Trial sono complessivi e non si rinnovano.",
-            "Al raggiungimento del limite le funzioni che consumano crediti vengono sospese fino al rinnovo o all'upgrade. Il controllo avviene prima dell'esecuzione dell'operazione.",
+            `Per il Piano Enterprise, le conversazioni WhatsApp eccedenti la soglia mensile inclusa di ${formatCount(PLANS.enterprise.waConversationsLimit)} unità verranno addebitate a consumo al costo di ${formatEurCents(ENTERPRISE_OVERAGE_PRICE_EUR)}/conversazione. L'importo maturato verrà conteggiato tramite misurazione automatica e inserito nella fattura del ciclo di rinnovo successivo.`,
+            "La tariffa a consumo si applica al Piano Enterprise con fatturazione mensile. Con fatturazione annuale, e sui piani Starter e Professional, le conversazioni WhatsApp oltre la dotazione si acquistano in pacchetti con pagamento una tantum: si sommano alla dotazione del piano e restano disponibili finché non vengono utilizzate.",
+            "Al raggiungimento del limite le funzioni che consumano crediti vengono sospese fino al rinnovo, all'upgrade o all'acquisto di un pacchetto aggiuntivo, salvo quanto previsto per il Piano Enterprise a consumo. Il controllo avviene prima dell'esecuzione dell'operazione.",
             "Alcuni moduli sono inclusi esclusivamente in determinati piani e non sono acquistabili separatamente a consumo.",
           ]}
         />

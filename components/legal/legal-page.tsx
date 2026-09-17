@@ -46,9 +46,22 @@ interface LegalPageProps {
   intro: string;
   isLoggedIn: boolean;
   children: ReactNode;
+  /**
+   * Data di revisione del singolo documento, se diversa da quella comune.
+   *
+   * Aggiornare i Termini non deve far risultare modificate anche Privacy e
+   * DPA: una data di revisione è un'affermazione su quel documento.
+   */
+  lastUpdated?: string;
 }
 
-export function LegalPage({ title, intro, isLoggedIn, children }: LegalPageProps) {
+export function LegalPage({
+  title,
+  intro,
+  isLoggedIn,
+  children,
+  lastUpdated = LEGAL_LAST_UPDATED,
+}: LegalPageProps) {
   return (
     <div className="min-h-screen bg-background">
       <PublicNavbar isLoggedIn={isLoggedIn} />
@@ -66,7 +79,7 @@ export function LegalPage({ title, intro, isLoggedIn, children }: LegalPageProps
           {title}
         </h1>
         <p className="mt-2 text-xs text-muted-foreground">
-          Ultimo aggiornamento: {LEGAL_LAST_UPDATED}
+          Ultimo aggiornamento: {lastUpdated}
         </p>
         <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{intro}</p>
 
