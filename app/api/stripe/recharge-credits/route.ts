@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getExtraCreditsPriceId, getStripe, isStripeEnabled } from "@/lib/billing/stripe";
 import { conClienteValido } from "@/lib/billing/customer";
+import { isOverageBillingActive } from "@/lib/billing/overage";
 import { canRechargeCredits, EXTRA_CREDITS_PACK_SIZE, hasMeteredOverage } from "@/lib/plans";
 import { getPlanId } from "@/lib/feature-access";
 import { SITE_URL } from "@/lib/seo";
@@ -56,29 +57,6 @@ export async function POST() {
     );
   }
 
-  /*
-   * Si ricarica solo su Starter e Professional.
-   *
-   * In prova no: vendere cento conversazioni a chi sta valutando il prodotto
-   * significa vendergli il pezzo sbagliato — e toglierlo dal percorso che
-   * porta all'abbonamento. Sull'Enterprise nemmeno: oltre l'incluso prosegue
-   * a consumo, e un pacchetto gli farebbe pagare in anticipo ciò che gli
-   * verrebbe addebitato solo usandolo. Il pulsante non compare in nessuno dei
-   * due casi; questo controllo copre chi chiama la rotta direttamente.
-   */
-  const planId = await getPlanId(organizationId);
-  if (!canRechargeCredits(planId)) {
-    return NextResponse.json(
-      {
-        error: "plan_not_eligible",
-        message: hasMeteredOverage(planId)
-          ? "Sul piano Enterprise le conversazioni oltre l'incluso proseguono a consumo: non serve acquistare crediti."
-          : "Durante la prova gratuita non si acquistano crediti: scegli un piano.",
-      },
-      { status: 400 }
-    );
-  }
-
   const organization = await prisma.organization.findUnique({
     where: { id: organizationId },
     include: { subscription: true },
@@ -86,6 +64,27 @@ export async function POST() {
 
   if (!organization) {
     return NextResponse.json({ error: "organization_not_found" }, { status: 404 });
+  }
+
+  /*
+   * Chi può ricaricare lo decide `canRechargeCredits`, la stessa regola che
+   * mostra o nasconde il pulsante: Starter e Professional sempre, Enterprise
+   * solo senza consumo a pagamento attivo (annuale, beta tester), Trial mai.
+   * Il pulsante non compare dove la risposta è no; questo controllo copre chi
+   * chiama la rotta direttamente.
+   */
+  const planId = await getPlanId(organizationId);
+  const overageActive = isOverageBillingActive(organization.subscription);
+  if (!canRechargeCredits(planId, overageActive)) {
+    return NextResponse.json(
+      {
+        error: "plan_not_eligible",
+        message: hasMeteredOverage(planId)
+          ? "Il tuo piano Enterprise prosegue a consumo oltre le conversazioni incluse: non serve acquistare crediti."
+          : "Durante la prova gratuita non si acquistano crediti: scegli un piano.",
+      },
+      { status: 400 }
+    );
   }
 
   try {

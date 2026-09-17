@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { accreditaRicarica } from "@/lib/billing/credit-recharge";
 import { syncOverageItem } from "@/lib/billing/overage";
@@ -19,52 +20,92 @@ import {
   notifySubscriptionCancelled,
 } from "@/lib/notifications/billing";
 import { PLANS, type PlanId } from "@/lib/plans";
+import { datiCambioPiano } from "@/lib/billing/usage-period";
+
+/** Ancora del ciclo di un abbonamento Stripe, da secondi a data. */
+function ancoraDi(subscription: Stripe.Subscription | null): Date | null {
+  return subscription?.billing_cycle_anchor
+    ? new Date(subscription.billing_cycle_anchor * 1000)
+    : null;
+}
 
 /**
- * Attiva il piano acquistato e azzera i contatori di consumo.
+ * Attiva il piano acquistato e registra l'ancora del ciclo.
  *
- * Scritto come operazione idempotente: Stripe può recapitare lo stesso evento
- * più volte, e riapplicare lo stesso piano non deve moltiplicare i crediti.
+ * # Quando si azzerano i contatori
+ *
+ * Solo al **cambio di piano**: il nuovo piano parte con la dotazione piena.
+ * Non a ogni `customer.subscription.updated`, che arriva anche per una
+ * disdetta programmata o una postazione in più: prima ogni evento azzerava
+ * tutto e regalava una dotazione intera a metà mese. I rinnovi mensili non
+ * passano più di qui: il mese lo chiude `assicuraPeriodoCorrente` al primo
+ * accesso dopo la scadenza calcolata dall'ancora, anche sull'annuale.
+ *
+ * Idempotente: una seconda consegna dello stesso evento trova il piano già
+ * applicato e non azzera nulla.
  */
 async function activatePlan(
   organizationId: string,
   planId: "starter" | "pro" | "enterprise",
   stripeSubscriptionId: string | null,
-  stripeCustomerId: string | null
+  stripeCustomerId: string | null,
+  ancoraStripe: Date | null
 ) {
   // Piano precedente, letto PRIMA della scrittura: e' l'unico modo di sapere
   // se questo e' un primo acquisto o un passaggio fra piani gia' a pagamento,
   // e i due casi meritano due email diverse.
   const precedente = await prisma.subscription.findUnique({
     where: { organizationId },
-    select: { status: true },
+    select: {
+      status: true,
+      billingCycleAnchor: true,
+      organization: {
+        select: {
+          bonusWhatsappCredits: true,
+          usageTracker: { select: { whatsappCreditsUsed: true } },
+        },
+      },
+    },
   });
 
-  await prisma.$transaction([
+  const pianoPrecedente = (precedente?.status ?? "trial") as PlanId;
+  const adesso = new Date();
+  // Stripe è la fonte; senza (lettura dell'abbonamento fallita) si tiene
+  // l'ancora già nota, e solo in mancanza di entrambe si parte da adesso.
+  const ancora = ancoraStripe ?? precedente?.billingCycleAnchor ?? adesso;
+
+  const scritture: Prisma.PrismaPromise<unknown>[] = [
     prisma.subscription.update({
       where: { organizationId },
       data: {
         status: planId,
+        billingCycleAnchor: ancora,
         ...(stripeSubscriptionId && { stripeSubscriptionId }),
         ...(stripeCustomerId && { stripeCustomerId }),
       },
     }),
-    // Il nuovo piano parte con la dotazione piena: i crediti consumati durante
-    // il periodo precedente non vanno scalati da quelli appena acquistati.
-    prisma.usageTracker.update({
-      where: { organizationId },
-      data: {
-        whatsappCreditsUsed: 0,
-        docCreditsUsed: 0,
-        voiceCreditsUsed: 0,
-        // Anche la memoria degli avvisi di soglia riparte: senza, chi ha gia'
-        // ricevuto l'avviso del 90% il mese scorso non lo riceverebbe piu'.
-        whatsappNotifiedPct: 0,
-        docNotifiedPct: 0,
-        voiceNotifiedPct: 0,
-      },
-    }),
-  ]);
+  ];
+
+  if (pianoPrecedente !== planId) {
+    const { tracker, bonusDaScalare } = datiCambioPiano({
+      pianoPrecedente,
+      usatiWhatsapp: precedente?.organization.usageTracker?.whatsappCreditsUsed ?? 0,
+      bonus: precedente?.organization.bonusWhatsappCredits ?? 0,
+      ancora,
+      adesso,
+    });
+    scritture.push(prisma.usageTracker.update({ where: { organizationId }, data: tracker }));
+    if (bonusDaScalare > 0) {
+      scritture.push(
+        prisma.organization.update({
+          where: { id: organizationId },
+          data: { bonusWhatsappCredits: { decrement: bonusDaScalare } },
+        })
+      );
+    }
+  }
+
+  await prisma.$transaction(scritture);
 
   // Se questa organizzazione è un'invitata del Programma Referral, il primo
   // pagamento a buon fine è il momento in cui il referral diventa ACTIVE e lo
@@ -243,34 +284,39 @@ export async function POST(request: Request) {
 
         const idAbbonamento = typeof session.subscription === "string" ? session.subscription : null;
 
-        await activatePlan(
-          organizationId,
-          planId,
-          idAbbonamento,
-          typeof session.customer === "string" ? session.customer : null
-        );
-
         /*
-         * Voce a consumo: la sessione di Checkout non porta le voci
-         * dell'abbonamento, quindi lo si rilegge. Senza questo passaggio un
-         * Enterprise appena acquistato resterebbe fermo al limite fino al
-         * primo `subscription.updated`, che su un mensile arriva al rinnovo.
+         * L'abbonamento si rilegge: la sessione di Checkout non porta né
+         * l'ancora del ciclo né le voci. Senza, l'ancora partirebbe da adesso
+         * invece che da quella di Stripe, e un Enterprise appena acquistato
+         * resterebbe fermo al limite fino al primo `subscription.updated`, che
+         * su un mensile arriva al rinnovo.
          *
-         * Non bloccante come le postazioni: rispondere 500 farebbe ripetere
-         * l'intera attivazione del piano per un riallineamento che il
-         * prossimo evento rifà comunque.
+         * Non bloccante: rispondere 500 farebbe ripetere l'intera attivazione
+         * del piano per due dati che il prossimo evento riallinea comunque.
          */
+        let abbonamento: Stripe.Subscription | null = null;
         if (idAbbonamento) {
           try {
-            const abbonamento = await getStripe().subscriptions.retrieve(idAbbonamento);
-            await syncOverageItem(organizationId, abbonamento, planId);
+            abbonamento = await getStripe().subscriptions.retrieve(idAbbonamento);
           } catch (error) {
-            reportWebhookError(error, "stripe", "overage-item-sync");
-            console.error("[api/stripe/webhook] Lettura abbonamento per il consumo non riuscita", {
+            reportWebhookError(error, "stripe", "subscription-retrieve");
+            console.error("[api/stripe/webhook] Lettura abbonamento dopo il Checkout non riuscita", {
               organizationId,
               error,
             });
           }
+        }
+
+        await activatePlan(
+          organizationId,
+          planId,
+          idAbbonamento,
+          typeof session.customer === "string" ? session.customer : null,
+          ancoraDi(abbonamento)
+        );
+
+        if (abbonamento) {
+          await syncOverageItem(organizationId, abbonamento, planId);
         }
         break;
       }
@@ -283,7 +329,7 @@ export async function POST(request: Request) {
         // Un abbonamento sospeso per mancato pagamento non deve mantenere
         // attivo il piano.
         if (organizationId && planId && subscription.status === "active") {
-          await activatePlan(organizationId, planId, subscription.id, null);
+          await activatePlan(organizationId, planId, subscription.id, null, ancoraDi(subscription));
           await syncCancellationState(organizationId, subscription);
           await syncExtraSeats(organizationId, subscription);
           // Copre il cambio di piano fatto fuori dal Checkout (portale Stripe).

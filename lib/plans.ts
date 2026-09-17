@@ -83,21 +83,27 @@ export const EXTRA_SEAT_PRICE_EUR = 19;
 export const EXTRA_CREDITS_PACK_SIZE = 100;
 
 /**
- * I piani su cui si ricarica: Starter e Professional.
+ * Chi può comprare un pacchetto di conversazioni.
  *
- * Non il Trial: chi è in prova non deve comprare crediti per una prova, deve
- * passare a un piano. Offrirgli una ricarica sarebbe vendergli il pezzo
- * sbagliato.
+ * - **Starter e Professional**: sempre.
+ * - **Enterprise**: solo quando il consumo a pagamento **non** è attivo —
+ *   annuale, account assegnati a mano ai beta tester, voce a consumo non
+ *   ancora vista dal webhook. Lì oltre le incluse l'assistente si fermerebbe,
+ *   e il pacchetto è l'unico modo di non restare bloccati fino al mese dopo.
+ *   Con il consumo attivo no: pagherebbe in anticipo conversazioni che gli
+ *   verrebbero addebitate solo usandole.
+ * - **Trial**: mai. Chi è in prova deve passare a un piano, non comprare
+ *   crediti per una prova.
  *
- * Non l'Enterprise: lì oltre l'incluso si prosegue a consumo
- * (`ENTERPRISE_OVERAGE_PRICE_EUR`). Vendergli un pacchetto significherebbe
- * fargli pagare in anticipo conversazioni che gli verrebbero comunque
- * addebitate solo se le usa, e contarle due volte se le usa.
+ * `overageActive` lo calcola il server (`isOverageBillingActive`): la stessa
+ * funzione decide per la rotta di acquisto e, tramite le statistiche, per il
+ * pulsante.
  */
 export const PLANS_WITH_CREDIT_RECHARGE: PlanId[] = ["starter", "pro"];
 
-export function canRechargeCredits(planId: PlanId): boolean {
-  return PLANS_WITH_CREDIT_RECHARGE.includes(planId);
+export function canRechargeCredits(planId: PlanId, overageActive = false): boolean {
+  if (PLANS_WITH_CREDIT_RECHARGE.includes(planId)) return true;
+  return planId === "enterprise" && !overageActive;
 }
 
 /**

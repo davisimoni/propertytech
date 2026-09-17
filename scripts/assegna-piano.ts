@@ -32,8 +32,10 @@
  *   set -a && source .env.local && set +a
  */
 
+import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { PLANS, type PlanId } from "../lib/plans";
+import { datiCambioPiano } from "../lib/billing/usage-period";
 
 const PIANI_VALIDI = Object.keys(PLANS) as PlanId[];
 
@@ -124,12 +126,51 @@ async function main(): Promise<void> {
 
   const precedente = organizzazione.subscription?.status ?? "nessun abbonamento";
 
-  // upsert: un'agenzia potrebbe non avere ancora una riga di abbonamento.
-  await prisma.subscription.upsert({
-    where: { organizationId: organizzazione.id },
-    create: { organizationId: organizzazione.id, status: piano as PlanId },
-    update: { status: piano as PlanId },
+  /*
+   * Stesse regole del webhook Stripe (`datiCambioPiano`): al cambio di piano
+   * i contatori ripartono e il mese di consumo si ancora a oggi, così anche un
+   * piano assegnato a mano rinnova le conversazioni ogni mese. Riassegnare lo
+   * stesso piano non azzera nulla.
+   */
+  const adesso = new Date();
+  const pianoPrecedente = (organizzazione.subscription?.status ?? "trial") as PlanId;
+  const consumo = await prisma.organization.findUnique({
+    where: { id: organizzazione.id },
+    select: { bonusWhatsappCredits: true, usageTracker: { select: { whatsappCreditsUsed: true } } },
   });
+
+  const scritture: Prisma.PrismaPromise<unknown>[] = [
+    // upsert: un'agenzia potrebbe non avere ancora una riga di abbonamento.
+    prisma.subscription.upsert({
+      where: { organizationId: organizzazione.id },
+      create: { organizationId: organizzazione.id, status: piano as PlanId, billingCycleAnchor: adesso },
+      update: {
+        status: piano as PlanId,
+        ...(pianoPrecedente !== piano && { billingCycleAnchor: adesso }),
+      },
+    }),
+  ];
+
+  if (pianoPrecedente !== piano && consumo?.usageTracker) {
+    const { tracker, bonusDaScalare } = datiCambioPiano({
+      pianoPrecedente,
+      usatiWhatsapp: consumo.usageTracker.whatsappCreditsUsed,
+      bonus: consumo.bonusWhatsappCredits,
+      ancora: adesso,
+      adesso,
+    });
+    scritture.push(prisma.usageTracker.update({ where: { organizationId: organizzazione.id }, data: tracker }));
+    if (bonusDaScalare > 0) {
+      scritture.push(
+        prisma.organization.update({
+          where: { id: organizzazione.id },
+          data: { bonusWhatsappCredits: { decrement: bonusDaScalare } },
+        })
+      );
+    }
+  }
+
+  await prisma.$transaction(scritture);
 
   console.log(`\n✔ ${organizzazione.agencyName}`);
   console.log(`  ${precedente} → ${piano}`);

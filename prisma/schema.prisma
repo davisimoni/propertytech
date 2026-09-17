@@ -558,6 +558,11 @@ model Subscription {
   /// vista sull'abbonamento: finché è `null` l'agenzia non viene addebitata a
   /// consumo e al limite si ferma come prima (fail-closed).
   stripeOverageItemId        String?
+  /// Ancora del ciclo: da qui si contano i mesi di consumo (`lib/billing/usage-period.ts`).
+  /// Da Stripe (`billing_cycle_anchor`) per gli abbonamenti pagati, dalla data di
+  /// assegnazione per i piani dati a mano. Anche sull'annuale i crediti ripartono
+  /// ogni mese a questa data, non una volta l'anno al rinnovo.
+  billingCycleAnchor         DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -658,6 +663,10 @@ model UsageTracker {
   docNotifiedPct      Int      @default(0)
   voiceNotifiedPct    Int      @default(0)
   radarNotifiedPct    Int      @default(0)
+  /// Inizio del mese di consumo a cui si riferiscono i contatori. Quando la data
+  /// calcolata dall'ancora lo supera, il primo accesso azzera i contatori: il
+  /// reset non dipende dall'arrivo di un evento Stripe.
+  periodStart         DateTime?
   updatedAt           DateTime @updatedAt
 
   organizationId String       @unique

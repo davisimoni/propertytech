@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { ENTERPRISE_OVERAGE_PRICE_EUR, hasMeteredOverage, PLANS, type PlanId } from "@/lib/plans";
 import { isDevPaywallBypassEnabled } from "@/lib/env";
 import { isOverageBillingActive, registraConsumoExtra } from "@/lib/billing/overage";
+import { assicuraPeriodoCorrente } from "@/lib/billing/usage-period";
 import type {
   UsageFeature,
   UsageMetric,
@@ -49,6 +50,11 @@ function computeMetric(used: number, limit: number | null): UsageMetric {
 }
 
 export async function getUsageStats(organizationId: string): Promise<UsageStatsResponse> {
+  // Prima di leggere, il mese di consumo: se è scaduto i contatori ripartono
+  // qui, al primo accesso, senza aspettare un evento Stripe. Il gate
+  // (`checkUsageLimit`) passa da questa funzione e quindi vede già il mese nuovo.
+  await assicuraPeriodoCorrente(organizationId);
+
   // `findUnique` e non `findUniqueOrThrow`: una sessione JWT sopravvive alla
   // cancellazione della propria organizzazione — account rimosso, database
   // ripristinato da un backup più vecchio — e in quel caso ogni pagina
@@ -156,6 +162,9 @@ export async function checkUsageLimit(
 
 export async function incrementUsage(organizationId: string, featureType: UsageFeature, amount = 1): Promise<void> {
   const field = FEATURE_USAGE_FIELD[featureType];
+
+  // Un consumo del mese nuovo non deve sommarsi ai contatori del mese vecchio.
+  await assicuraPeriodoCorrente(organizationId);
 
   const tracker = await prisma.usageTracker.update({
     where: { organizationId },

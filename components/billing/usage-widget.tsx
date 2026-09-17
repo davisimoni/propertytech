@@ -164,10 +164,11 @@ export function UsageWidget({ variant = "full", canPurchase = false }: UsageWidg
           vocali non hanno un pacchetto da comprare, e mostrare qui un pulsante
           generico farebbe credere il contrario.
 
-          Solo Starter e Professional (`canRechargeCredits`): l'Enterprise
-          oltre l'incluso prosegue a consumo, e un pacchetto prepagato gli
-          farebbe pagare prima ciò che altrimenti paga solo se lo usa. */}
-      {canPurchase && canRechargeCredits(data.planId) && quasiEsaurito(data.whatsapp) && (
+          Chi può comprarlo lo dice `canRechargeCredits`, la stessa regola
+          della rotta: l'Enterprise solo quando non prosegue a consumo. */}
+      {canPurchase &&
+        canRechargeCredits(data.planId, data.whatsappOverage?.active ?? false) &&
+        quasiEsaurito(data.whatsapp) && (
         <button
           type="button"
           onClick={() => setRicaricaAperta(true)}
