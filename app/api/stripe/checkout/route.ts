@@ -6,6 +6,7 @@ import { conClienteValido } from "@/lib/billing/customer";
 import { PLANS } from "@/lib/plans";
 import {
   getOrCreateRefereeCoupon,
+  getOverageLineItem,
   getPriceId,
   getStripe,
   isBillingInterval,
@@ -97,6 +98,12 @@ export async function POST(request: Request) {
 
     const coupon = eligibleForWelcomeDiscount ? await getOrCreateRefereeCoupon(stripe) : null;
 
+    // Enterprise mensile: la voce a consumo nasce con l'abbonamento, così le
+    // conversazioni oltre l'incluso hanno dove essere fatturate dal primo
+    // giorno. `null` sugli altri piani, sull'annuale e se il prezzo non è
+    // configurato — vedi `getOverageLineItem`.
+    const voceConsumo = getOverageLineItem(plan, interval);
+
     /*
      * Il cliente Stripe passa da `conClienteValido`.
      *
@@ -111,7 +118,7 @@ export async function POST(request: Request) {
         {
           mode: "subscription",
           customer: customerId,
-          line_items: [{ price: priceId, quantity: 1 }],
+          line_items: [{ price: priceId, quantity: 1 }, ...(voceConsumo ? [voceConsumo] : [])],
           // I metadati sono l'unico canale affidabile per far arrivare al webhook
           // organizzazione e piano: il webhook non ha una sessione utente.
           metadata: { organizationId, planId: plan, interval },

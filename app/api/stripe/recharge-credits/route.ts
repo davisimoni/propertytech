@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getExtraCreditsPriceId, getStripe, isStripeEnabled } from "@/lib/billing/stripe";
 import { conClienteValido } from "@/lib/billing/customer";
-import { canRechargeCredits, EXTRA_CREDITS_PACK_SIZE } from "@/lib/plans";
+import { canRechargeCredits, EXTRA_CREDITS_PACK_SIZE, hasMeteredOverage } from "@/lib/plans";
 import { getPlanId } from "@/lib/feature-access";
 import { SITE_URL } from "@/lib/seo";
 
@@ -57,18 +57,23 @@ export async function POST() {
   }
 
   /*
-   * In prova non si ricarica: si passa a un piano.
+   * Si ricarica solo su Starter e Professional.
    *
-   * Vendere cento conversazioni a chi sta valutando il prodotto significa
-   * vendergli il pezzo sbagliato — e toglierli dal percorso che porta
-   * all'abbonamento, che è ciò di cui ha davvero bisogno.
+   * In prova no: vendere cento conversazioni a chi sta valutando il prodotto
+   * significa vendergli il pezzo sbagliato — e toglierlo dal percorso che
+   * porta all'abbonamento. Sull'Enterprise nemmeno: oltre l'incluso prosegue
+   * a consumo, e un pacchetto gli farebbe pagare in anticipo ciò che gli
+   * verrebbe addebitato solo usandolo. Il pulsante non compare in nessuno dei
+   * due casi; questo controllo copre chi chiama la rotta direttamente.
    */
   const planId = await getPlanId(organizationId);
   if (!canRechargeCredits(planId)) {
     return NextResponse.json(
       {
         error: "plan_not_eligible",
-        message: "Durante la prova gratuita non si acquistano crediti: scegli un piano.",
+        message: hasMeteredOverage(planId)
+          ? "Sul piano Enterprise le conversazioni oltre l'incluso proseguono a consumo: non serve acquistare crediti."
+          : "Durante la prova gratuita non si acquistano crediti: scegli un piano.",
       },
       { status: 400 }
     );

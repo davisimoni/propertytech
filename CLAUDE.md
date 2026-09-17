@@ -160,8 +160,8 @@ Trascrive le note vocali registrate dall'agente subito dopo una visita immobilia
 |---|---|---|---|---|---|---|---|---|---|
 | **Trial** | Gratuito | 15 (totali, non mensili) | 5 estratti | 1 | — | ❌ | ❌ | 3 report (assaggio) | ❌ |
 | **Starter** | 99 €/mese | 150 | Illimitato | 1 | 1 | ✅ | ❌ | ❌ | ❌ |
-| **Professional** | 279 €/mese | 500 | Illimitato | 3 (+29 €/mese l'una) | 3 | ✅ | ❌ | ❌ | ❌ |
-| **Enterprise** | 499 €/mese | 2.500 (extra a 0,05€/chat) | Illimitato | Personalizzate | Illimitate | ✅ | ✅ | ✅ | ✅ |
+| **Professional** | 279 €/mese | 500 | Illimitato | 3 (+19 €/mese l'una) | 3 | ✅ | ❌ | ❌ | ❌ |
+| **Enterprise** | 499 €/mese | 2.500, poi 0,05 €/chat a consumo (solo mensile) | Illimitato | Personalizzate | Illimitate | ✅ | ✅ | ✅ | ✅ |
 
 - Il Trial non richiede carta di credito.
 - Il Social Multiplier (Modulo 3) è **sbloccato esclusivamente** nel piano Enterprise.
@@ -171,7 +171,7 @@ Trascrive le note vocali registrate dall'agente subito dopo una visita immobilia
 
 - Il conto vive in `lib/billing/seats.ts` e lo usano tutti e tre i punti che devono dire la stessa cosa: il gate che rifiuta l'invito, il pannello che mostra "2 di 3", la rotta che vende una postazione. Conta **anche gli inviti non ancora accettati** — altrimenti basterebbe generarne dieci di fila — ed è verificato prima di creare l'invito, non dopo.
 
-- **Postazioni aggiuntive a 29 €/mese, solo sul Professional.** Sullo Starter no: chi ha bisogno di più di una persona ha bisogno anche delle conversazioni e delle agende che il Professional porta con sé. Sull'Enterprise nemmeno, lì si concordano. Su Stripe sono **una voce con una quantità** (`STRIPE_PRICE_ID_EXTRA_SEAT`): cambiarla è un `subscriptions.update`, e il conteggio proporzionale sul periodo già pagato lo fa Stripe — rifarlo da noi significherebbe sbagliarlo.
+- **Postazioni aggiuntive a 19 €/mese, solo sul Professional.** Sullo Starter no: chi ha bisogno di più di una persona ha bisogno anche delle conversazioni e delle agende che il Professional porta con sé. Sull'Enterprise nemmeno, lì si concordano. Su Stripe sono **una voce con una quantità** (`STRIPE_PRICE_ID_EXTRA_SEAT`): cambiarla è un `subscriptions.update`, e il conteggio proporzionale sul periodo già pagato lo fa Stripe — rifarlo da noi significherebbe sbagliarlo.
 
 - L'ordine delle scritture è **prima Stripe, poi il database**. Se Stripe fallisce non si scrive nulla; se fallisse la scrittura locale, `customer.subscription.updated` riallinea comunque leggendo la quantità dalla stessa voce. Mai il contrario: un `extraSeats` locale più alto di quello fatturato significa postazioni regalate, e nessuno se ne accorge finché non si guardano i conti.
 
@@ -179,6 +179,15 @@ Trascrive le note vocali registrate dall'agente subito dopo una visita immobilia
 
 - **Solo il titolare** vede e tocca la fatturazione: le tre rotte Stripe lo verificavano già, e ora anche la scheda in `/settings` — un collaboratore vedeva il listino e riceveva un 403 premendo "Passa a Professional", cioè scopriva il vincolo sbattendoci contro. Il consumo resta visibile a tutti: sapere quante conversazioni restano serve a chi lavora, non a chi paga. I crediti (conversazioni WA, documenti, note vocali) sono **dell'agenzia e condivisi**, non per postazione.
 - Il **Fascicolo documentale** è escluso dal Trial: promettere una conservazione decennale su un account di prova che può sparire in due settimane non ha senso.
+
+### Conversazioni WhatsApp oltre l'incluso — due regole per due tipi di piano
+
+- **Starter e Professional: ricarica una tantum.** Pacchetto da `EXTRA_CREDITS_PACK_SIZE` (100) conversazioni, Checkout in `mode: "payment"` (`STRIPE_PRICE_ID_EXTRA_CREDITS`), accreditato dal webhook su `Organization.bonusWhatsappCredits` con idempotenza su `CreditRecharge`. Il pulsante compare dall'80% di utilizzo e solo al titolare. `canRechargeCredits()` esclude Trial ed Enterprise, e lo verifica anche la rotta, non solo la UI.
+- **Enterprise: a consumo, addebitato al rinnovo.** Oltre le 2.500 l'assistente non si ferma: ogni conversazione in più diventa un evento sul Billing Meter Stripe `whatsapp_extra_conversation` (`WHATSAPP_OVERAGE_METER_EVENT`), che Stripe somma e fattura a `ENTERPRISE_OVERAGE_PRICE_EUR` tramite il prezzo metered `STRIPE_PRICE_ID_ENTERPRISE_OVERAGE`. Logica in `lib/billing/overage.ts`. Il prezzo in `lib/plans.ts` deve coincidere con quello su Stripe, come per la postazione extra.
+- **Fail-closed.** Il consumo si accende solo quando il webhook ha **visto** la voce a consumo sull'abbonamento (`Subscription.stripeOverageItemId`). Senza — prezzo non configurato, Enterprise assegnato a mano ai beta tester senza abbonamento Stripe — al limite si risponde 402 come sugli altri piani. Consumare senza che nessuno addebiti sarebbe il guasto peggiore, perché nessuno lo vede.
+- **Solo Enterprise mensile.** Il Checkout di Stripe non crea abbonamenti con voci a intervalli diversi, e aggiungere la voce mensile a un annuale richiede la billing mode "flexible", in cui `cancel_at_period_end` — quello della nostra disdetta — chiude l'abbonamento alla fine del periodo più breve: un'agenzia che ha pagato l'anno si troverebbe disdetta a fine mese. L'annuale resta senza consumo.
+- **Un addebito non si perde.** La riga `MeteredUsageEvent` nasce prima dell'invio a Stripe; il suo `id` è l'`identifier` dell'evento, così un nuovo tentativo non viene sommato due volte; `/api/cron/daily-checks` ritenta quelli non inviati fino a 30 giorni (Stripe accetta timestamp entro 35) e segnala a Sentry quelli scaduti. L'eccedenza si calcola sul valore del contatore **dopo** l'incremento, che rende corrette anche le conversazioni concorrenti a cavallo della soglia.
+- **Cambio piano.** Uscendo dall'Enterprise la voce a consumo resta sull'abbonamento e si azzera solo il nostro riferimento: eliminarla a metà periodo rischierebbe di portare via consumo maturato e non ancora fatturato, e su un altro piano gli eventi non partono.
 
 ### Middleware Paywall — Enforcement dei Limiti
 
@@ -188,7 +197,7 @@ Quando una `Organization` supera i limiti del proprio piano:
 - Il conteggio dell'utilizzo (conversazioni WA, estrazioni documento) deve essere tracciato per `Organization` e verificato **prima** di eseguire l'azione consumante risorse (fail-closed, non fail-open), per evitare overshoot oltre il limite del piano.
 
 **Due tipi di gate, stesso status HTTP:**
-- **A crediti** (`checkUsageLimit` in `lib/usage.ts`) — WhatsApp, OCR documenti, note vocali. Payload: `{ "error": "usage_limit_exceeded", "resource": "..." }`.
+- **A crediti** (`checkUsageLimit` in `lib/usage.ts`) — WhatsApp, OCR documenti, note vocali. Payload: `{ "error": "usage_limit_exceeded", "resource": "..." }`. Eccezione: WhatsApp sull'Enterprise con consumo attivo non risponde mai 402. Lo decide un punto solo — `getUsageStats` imposta `isLimitReached: false` — così gate, pannello consumi e badge "Limiti raggiunti" non possono dire cose diverse.
 - **Per piano** (`checkFeatureAccess` in `lib/feature-access.ts`) — Social Multiplier e Voice Seller-Reporting, sbloccati solo su Enterprise e senza contatore. Payload: `{ "error": "feature_not_in_plan", "resource": "...", "requiredPlan": "..." }`.
 
 Entrambi restituiscono **402**, così la UI li intercetta con un unico gestore; il campo `error` distingue il messaggio da mostrare nel modal.

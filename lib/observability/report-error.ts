@@ -56,3 +56,15 @@ export function reportWebhookError(
     tags: { area: "webhook", webhook, ...(dettaglio ? { dettaglio } : {}) },
   });
 }
+
+/**
+ * Manda a Sentry un guasto nella registrazione di un addebito.
+ *
+ * Separato dai webhook perché qui il danno ha un segno preciso: un consumo
+ * che non arriva a Stripe è un importo che l'agenzia non pagherà mai, e
+ * nessuno se ne accorge guardando il prodotto — funziona tutto, manca solo
+ * una riga in fattura. Stesse regole: solo etichette, nessun dato del cliente.
+ */
+export function reportBillingError(error: unknown, passaggio: string): void {
+  Sentry.captureException(error, { tags: { area: "billing", passaggio } });
+}

@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, MessageSquarePlus } from "lucide-react";
+import { AlertTriangle, MessageSquarePlus, Receipt } from "lucide-react";
 import { useUsageStats } from "@/hooks/use-usage-stats";
-import { formatCount } from "@/lib/plans";
+import { canRechargeCredits, formatCount, formatEurCents } from "@/lib/plans";
 import { cn } from "@/lib/utils";
-import type { UsageMetric } from "@/lib/usage-types";
+import type { UsageMetric, WhatsAppOverage } from "@/lib/usage-types";
 import { RechargeCreditsDialog } from "@/components/billing/recharge-credits-dialog";
 
 /**
@@ -65,6 +65,48 @@ function UsageBar({ label, metric }: { label: string; metric: UsageMetric }) {
   );
 }
 
+/**
+ * Consumo a pagamento dell'Enterprise, sotto la barra WhatsApp.
+ *
+ * Compare solo quando dice qualcosa: con conversazioni già oltre l'incluso
+ * (quante, e quanto circa in fattura) o in vista della soglia (cosa succede
+ * dopo). Prima dell'80% una riga sul prezzo extra sarebbe rumore su un
+ * pannello che l'agente guarda ogni giorno.
+ *
+ * "Circa" e non un importo secco: la fattura la emette Stripe al rinnovo, e
+ * questa è la nostra stima dal contatore, non il documento.
+ */
+function OverageNote({ overage, metric }: { overage: WhatsAppOverage; metric: UsageMetric }) {
+  if (!overage.active) return null;
+
+  const prezzo = formatEurCents(overage.unitPriceEur);
+
+  if (overage.extraConversations > 0) {
+    return (
+      <p className="flex items-start gap-1.5 text-xs text-foreground">
+        <Receipt className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <span>
+          <strong className="font-semibold">{formatCount(overage.extraConversations)}</strong>{" "}
+          {overage.extraConversations === 1 ? "conversazione" : "conversazioni"} oltre l&apos;incluso
+          · circa {formatEurCents(overage.estimatedEur)} nella prossima fattura ({prezzo} l&apos;una)
+        </span>
+      </p>
+    );
+  }
+
+  if (!quasiEsaurito(metric) || metric.limit === null) return null;
+
+  return (
+    <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+      <Receipt className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <span>
+        Oltre le {formatCount(metric.limit)} incluse l&apos;assistente continua: {prezzo} a
+        conversazione.
+      </span>
+    </p>
+  );
+}
+
 interface UsageWidgetProps {
   variant?: "full" | "compact";
   /**
@@ -114,13 +156,18 @@ export function UsageWidget({ variant = "full", canPurchase = false }: UsageWidg
         {data.hasAnyLimitReached && <LimitBadge />}
       </div>
       <UsageBar label="Crediti WhatsApp" metric={data.whatsapp} />
+      {data.whatsappOverage && <OverageNote overage={data.whatsappOverage} metric={data.whatsapp} />}
       <UsageBar label="Crediti Documenti" metric={data.documents} />
       {data.voice.limit !== 0 && <UsageBar label="Note Vocali" metric={data.voice} />}
 
       {/* La ricarica riguarda le sole conversazioni WhatsApp: documenti e note
           vocali non hanno un pacchetto da comprare, e mostrare qui un pulsante
-          generico farebbe credere il contrario. */}
-      {canPurchase && quasiEsaurito(data.whatsapp) && (
+          generico farebbe credere il contrario.
+
+          Solo Starter e Professional (`canRechargeCredits`): l'Enterprise
+          oltre l'incluso prosegue a consumo, e un pacchetto prepagato gli
+          farebbe pagare prima ciò che altrimenti paga solo se lo usa. */}
+      {canPurchase && canRechargeCredits(data.planId) && quasiEsaurito(data.whatsapp) && (
         <button
           type="button"
           onClick={() => setRicaricaAperta(true)}

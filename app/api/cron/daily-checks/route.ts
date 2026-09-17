@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { readSecret } from "@/lib/env";
+import { ritentaConsumiNonInviati } from "@/lib/billing/overage";
 import { checkExpiringMandates } from "@/lib/listings/mandate-check";
 import { sendDueReminders } from "@/lib/whatsapp/reminders";
 
@@ -73,6 +74,15 @@ async function runChecks() {
   } catch (error) {
     console.error("[cron/daily-checks] Promemoria non riusciti", error);
     esito.promemoria = { errore: true };
+  }
+
+  // Conversazioni Enterprise oltre l'incluso non ancora arrivate a Stripe
+  // (disservizio al momento del consumo): ognuna è un addebito da recuperare.
+  try {
+    esito.consumiEnterprise = await ritentaConsumiNonInviati();
+  } catch (error) {
+    console.error("[cron/daily-checks] Ritentativo consumi a pagamento non riuscito", error);
+    esito.consumiEnterprise = { errore: true };
   }
 
   console.info("[DAILY-CHECKS]", esito);

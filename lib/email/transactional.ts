@@ -275,12 +275,36 @@ export function sendCreditsWarningEmail(params: {
   used: number;
   limit: number;
   percent: 80 | 90;
+  /**
+   * Presente quando oltre il limite si prosegue a pagamento (Enterprise).
+   * Cambia il senso dell'avviso: non "stai per fermarti" ma "da lì si paga".
+   */
+  aConsumo?: { prezzoUnitario: string };
 }): Promise<EmailOutcome> {
   const cosa = CREDIT_LABELS[params.kind];
 
   // "l'80%" e non "il 80%": ottanta comincia per vocale. E' il genere di
   // dettaglio che tradisce un'interfaccia tradotta invece che scritta.
   const articolo = params.percent === 80 ? "l'80%" : `il ${params.percent}%`;
+
+  if (params.aConsumo) {
+    return invia(params.to, `Hai usato ${articolo} delle ${cosa} incluse`, {
+      heading: `${cosa.charAt(0).toUpperCase()}${cosa.slice(1)}: sei al ${params.percent}%`,
+      greeting: saluto(params.firstName),
+      blocks: [
+        {
+          rows: [
+            { label: "Utilizzate", value: `${params.used} su ${params.limit}` },
+            { label: "Incluse residue", value: String(Math.max(0, params.limit - params.used)) },
+          ],
+        },
+        {
+          text: `Superato il limite l'assistente <strong>continua a rispondere</strong>: ogni conversazione in più costa ${params.aConsumo.prezzoUnitario} e compare nella fattura del prossimo rinnovo.`,
+        },
+      ],
+      cta: { label: "Vedi i consumi", url: `${SITE_URL}/settings?tab=billing` },
+    });
+  }
 
   return invia(params.to, `Hai usato ${articolo} delle ${cosa}`, {
     heading: `${cosa.charAt(0).toUpperCase()}${cosa.slice(1)}: sei al ${params.percent}%`,
@@ -326,6 +350,36 @@ export function sendCreditsExhaustedEmail(params: {
       },
     ],
     cta: { label: "Sblocca subito", url: `${SITE_URL}/settings?tab=billing` },
+  });
+}
+
+/**
+ * Incluse finite su un piano a consumo: niente si ferma, da qui si paga.
+ *
+ * Tono informativo e non di allarme: l'agenzia non deve fare nulla perché
+ * l'assistente continui. Serve che lo sappia prima di trovarlo in fattura.
+ */
+export function sendOverageStartedEmail(params: {
+  to: string;
+  firstName?: string | null;
+  limit: number;
+  prezzoUnitario: string;
+}): Promise<EmailOutcome> {
+  return invia(params.to, "Conversazioni WhatsApp: da ora a consumo", {
+    heading: "Hai usato tutte le conversazioni incluse",
+    greeting: saluto(params.firstName),
+    blocks: [
+      {
+        notice: {
+          tone: "info",
+          text: `Hai raggiunto le ${params.limit} conversazioni incluse nel piano. L'assistente continua a rispondere normalmente.`,
+        },
+      },
+      {
+        text: `Ogni conversazione in più costa <strong>${params.prezzoUnitario}</strong> e compare nella fattura del prossimo rinnovo. Il conteggio riparte da zero con il nuovo periodo.`,
+      },
+    ],
+    cta: { label: "Vedi i consumi", url: `${SITE_URL}/settings?tab=billing` },
   });
 }
 

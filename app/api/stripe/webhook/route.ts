@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { accreditaRicarica } from "@/lib/billing/credit-recharge";
+import { syncOverageItem } from "@/lib/billing/overage";
 import {
   getExtraSeatPriceId,
   getStripe,
@@ -240,12 +241,37 @@ export async function POST(request: Request) {
           break;
         }
 
+        const idAbbonamento = typeof session.subscription === "string" ? session.subscription : null;
+
         await activatePlan(
           organizationId,
           planId,
-          typeof session.subscription === "string" ? session.subscription : null,
+          idAbbonamento,
           typeof session.customer === "string" ? session.customer : null
         );
+
+        /*
+         * Voce a consumo: la sessione di Checkout non porta le voci
+         * dell'abbonamento, quindi lo si rilegge. Senza questo passaggio un
+         * Enterprise appena acquistato resterebbe fermo al limite fino al
+         * primo `subscription.updated`, che su un mensile arriva al rinnovo.
+         *
+         * Non bloccante come le postazioni: rispondere 500 farebbe ripetere
+         * l'intera attivazione del piano per un riallineamento che il
+         * prossimo evento rifà comunque.
+         */
+        if (idAbbonamento) {
+          try {
+            const abbonamento = await getStripe().subscriptions.retrieve(idAbbonamento);
+            await syncOverageItem(organizationId, abbonamento, planId);
+          } catch (error) {
+            reportWebhookError(error, "stripe", "overage-item-sync");
+            console.error("[api/stripe/webhook] Lettura abbonamento per il consumo non riuscita", {
+              organizationId,
+              error,
+            });
+          }
+        }
         break;
       }
 
@@ -260,6 +286,8 @@ export async function POST(request: Request) {
           await activatePlan(organizationId, planId, subscription.id, null);
           await syncCancellationState(organizationId, subscription);
           await syncExtraSeats(organizationId, subscription);
+          // Copre il cambio di piano fatto fuori dal Checkout (portale Stripe).
+          await syncOverageItem(organizationId, subscription, planId);
         } else if (subscription.status === "canceled" || subscription.status === "unpaid") {
           await downgradeToTrial(subscription.id);
         }

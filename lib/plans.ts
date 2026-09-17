@@ -15,9 +15,11 @@ export interface Plan {
   audience: string;
   waConversationsLimit: number;
   /**
-   * Nota sui consumi oltre la soglia mensile, se il piano la prevede — solo
-   * informativa nel listino: non esiste (ancora) un billing a consumo che
-   * addebiti automaticamente le chat extra oltre `waConversationsLimit`.
+   * Nota sui consumi oltre la soglia mensile, se il piano la prevede.
+   *
+   * Sull'Enterprise corrisponde a un addebito vero: le conversazioni oltre
+   * `waConversationsLimit` si inviano al contatore Stripe e compaiono nella
+   * fattura del mese (vedi `lib/billing/overage.ts`).
    */
   waConversationsOverageNote: string | null;
   ocrDocumentsLimit: number | null;
@@ -81,14 +83,43 @@ export const EXTRA_SEAT_PRICE_EUR = 19;
 export const EXTRA_CREDITS_PACK_SIZE = 100;
 
 /**
- * I piani su cui ha senso ricaricare.
+ * I piani su cui si ricarica: Starter e Professional.
  *
  * Non il Trial: chi è in prova non deve comprare crediti per una prova, deve
  * passare a un piano. Offrirgli una ricarica sarebbe vendergli il pezzo
  * sbagliato.
+ *
+ * Non l'Enterprise: lì oltre l'incluso si prosegue a consumo
+ * (`ENTERPRISE_OVERAGE_PRICE_EUR`). Vendergli un pacchetto significherebbe
+ * fargli pagare in anticipo conversazioni che gli verrebbero comunque
+ * addebitate solo se le usa, e contarle due volte se le usa.
  */
+export const PLANS_WITH_CREDIT_RECHARGE: PlanId[] = ["starter", "pro"];
+
 export function canRechargeCredits(planId: PlanId): boolean {
-  return planId !== "trial";
+  return PLANS_WITH_CREDIT_RECHARGE.includes(planId);
+}
+
+/**
+ * Prezzo di ogni conversazione WhatsApp oltre l'incluso Enterprise.
+ *
+ * # Deve coincidere con il prezzo su Stripe
+ *
+ * Come `EXTRA_SEAT_PRICE_EUR`: questo numero è quello che l'agenzia legge
+ * (listino, stima nel pannello consumi, email), mentre l'addebito lo fa il
+ * prezzo a consumo indicato da `STRIPE_PRICE_ID_ENTERPRISE_OVERAGE`. Se cambi
+ * il prezzo su Stripe, cambialo qui.
+ */
+export const ENTERPRISE_OVERAGE_PRICE_EUR = 0.05;
+
+/** I piani che oltre l'incluso proseguono a consumo invece di fermarsi. */
+export function hasMeteredOverage(planId: PlanId): boolean {
+  return planId === "enterprise";
+}
+
+/** Importo con i centesimi, per i prezzi a consumo: "0,05 €" e non "0€". */
+export function formatEurCents(amount: number): string {
+  return `${amount.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 }
 
 /** I piani su cui si possono comprare postazioni in piu'. */
@@ -179,7 +210,7 @@ export const PLANS: Record<PlanId, Plan> = {
     audience: "Per network e agenzie pluri-sede",
     priceEurMonthly: 499,
     waConversationsLimit: 2500,
-    waConversationsOverageNote: "extra a 0,05€/chat",
+    waConversationsOverageNote: `extra a ${formatEurCents(ENTERPRISE_OVERAGE_PRICE_EUR)}/chat`,
     ocrDocumentsLimit: null,
     seatsLimit: null,
     agendasLimit: null,

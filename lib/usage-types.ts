@@ -27,5 +27,22 @@ export interface UsageStatsResponse {
   documents: UsageMetric;
   voice: UsageMetric;
   radar: UsageMetric;
+  /**
+   * Consumo a pagamento oltre l'incluso. `null` sui piani che non lo prevedono.
+   *
+   * Sull'Enterprise c'è sempre, ma con `active: false` quando l'addebito non è
+   * attivabile (annuale, account senza abbonamento Stripe): lì al limite ci si
+   * ferma come sugli altri piani, e la UI non deve promettere il contrario.
+   */
+  whatsappOverage: WhatsAppOverage | null;
   hasAnyLimitReached: boolean;
+}
+
+export interface WhatsAppOverage {
+  active: boolean;
+  /** Conversazioni oltre l'incluso nel periodo corrente. */
+  extraConversations: number;
+  unitPriceEur: number;
+  /** Stima, non importo di fattura: la fattura la emette Stripe al rinnovo. */
+  estimatedEur: number;
 }

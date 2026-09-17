@@ -1,10 +1,12 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { PLANS, type PlanId } from "@/lib/plans";
+import { ENTERPRISE_OVERAGE_PRICE_EUR, formatEurCents, PLANS, type PlanId } from "@/lib/plans";
+import { isOverageBillingActive } from "@/lib/billing/overage";
 import { resolveOwner } from "@/lib/email/recipients";
 import {
   sendCreditsExhaustedEmail,
   sendCreditsWarningEmail,
+  sendOverageStartedEmail,
   type CreditKind,
 } from "@/lib/email/transactional";
 
@@ -79,11 +81,18 @@ export async function checkCreditThresholds(
       }),
       prisma.subscription.findUnique({
         where: { organizationId },
-        select: { status: true },
+        select: { status: true, stripeCustomerId: true, stripeOverageItemId: true },
       }),
     ]);
 
     if (!tracker) return null;
+
+    // Enterprise a consumo: stesse soglie, testo diverso. "L'assistente smette
+    // di rispondere" sarebbe falso, e "da qui si paga" è ciò che serve sapere.
+    const aConsumo =
+      kind === "whatsapp" && isOverageBillingActive(subscription)
+        ? { prezzoUnitario: formatEurCents(ENTERPRISE_OVERAGE_PRICE_EUR) }
+        : undefined;
 
     const plan = PLANS[(subscription?.status ?? "trial") as PlanId];
     const limite = plan[CAMPO_LIMITE[kind]];
@@ -115,12 +124,19 @@ export async function checkCreditThresholds(
 
     const outcome =
       soglia === 100
-        ? await sendCreditsExhaustedEmail({
-            to: owner.email,
-            firstName: owner.firstName,
-            kind,
-            limit: limite,
-          })
+        ? aConsumo
+          ? await sendOverageStartedEmail({
+              to: owner.email,
+              firstName: owner.firstName,
+              limit: limite,
+              prezzoUnitario: aConsumo.prezzoUnitario,
+            })
+          : await sendCreditsExhaustedEmail({
+              to: owner.email,
+              firstName: owner.firstName,
+              kind,
+              limit: limite,
+            })
         : await sendCreditsWarningEmail({
             to: owner.email,
             firstName: owner.firstName,
@@ -128,6 +144,7 @@ export async function checkCreditThresholds(
             used: usati,
             limit: limite,
             percent: soglia as 80 | 90,
+            aConsumo,
           });
 
     console.info("[CREDITS-THRESHOLD]", { organizationId, kind, soglia, outcome });

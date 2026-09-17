@@ -487,6 +487,7 @@ model Organization {
   aiGenerations        AiGeneration[]
   cancellationFeedback CancellationFeedback[]
   creditRecharges      CreditRecharge[]
+  meteredUsageEvents   MeteredUsageEvent[]
   /// Referral in cui questa agenzia è l'invitante (può essere molti).
   referralsSent        Referral[]             @relation("ReferralsSent")
   /// Referral in cui questa agenzia è l'invitata (al massimo uno: non si può
@@ -552,6 +553,11 @@ model Subscription {
   /// fonte di verità del prezzo — quella resta Stripe — ma serve a sapere se
   /// è già stato offerto a questa agenzia.
   retentionDiscountAppliedAt DateTime?
+  /// Voce a consumo (conversazioni WhatsApp oltre l'incluso Enterprise)
+  /// presente sull'abbonamento Stripe. Scritta solo dal webhook, dopo averla
+  /// vista sull'abbonamento: finché è `null` l'agenzia non viene addebitata a
+  /// consumo e al limite si ferma come prima (fail-closed).
+  stripeOverageItemId        String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1974,5 +1980,34 @@ model CreditRecharge {
 
   createdAt DateTime @default(now())
 
+  @@index([organizationId, createdAt])
+}
+
+/// Conversazione WhatsApp oltre l'incluso Enterprise, da addebitare a consumo.
+///
+/// # Perché una riga prima della chiamata a Stripe
+///
+/// Perché l'invio al contatore Stripe può fallire (rete, disservizio) e
+/// un'eccedenza non registrata è un addebito perso per sempre: nessuno la
+/// ricostruisce a mano a fine mese. La riga nasce insieme al consumo, e
+/// `reportedAt` resta vuoto finché Stripe non ha confermato; il controllo
+/// giornaliero ritenta quelle rimaste indietro.
+///
+/// L'`id` viaggia verso Stripe come `identifier` dell'evento: un nuovo
+/// tentativo sulla stessa riga non viene contato due volte.
+model MeteredUsageEvent {
+  id String @id @default(cuid())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  /// Cliente Stripe al momento del consumo: l'evento appartiene a chi aveva
+  /// l'abbonamento allora, anche se in seguito il cliente venisse rigenerato.
+  stripeCustomerId String
+  quantity         Int
+  reportedAt       DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@index([reportedAt, createdAt])
   @@index([organizationId, createdAt])
 }

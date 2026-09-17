@@ -1,9 +1,15 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { PLANS, type PlanId } from "@/lib/plans";
+import { ENTERPRISE_OVERAGE_PRICE_EUR, hasMeteredOverage, PLANS, type PlanId } from "@/lib/plans";
 import { isDevPaywallBypassEnabled } from "@/lib/env";
-import type { UsageFeature, UsageMetric, UsageStatsResponse } from "@/lib/usage-types";
+import { isOverageBillingActive, registraConsumoExtra } from "@/lib/billing/overage";
+import type {
+  UsageFeature,
+  UsageMetric,
+  UsageStatsResponse,
+  WhatsAppOverage,
+} from "@/lib/usage-types";
 
 const FEATURE_RESOURCE: Record<UsageFeature, string> = {
   whatsapp: "wa_conversations",
@@ -75,10 +81,31 @@ export async function getUsageStats(organizationId: string): Promise<UsageStatsR
     plan.waConversationsLimit === null
       ? null
       : plan.waConversationsLimit + (organization?.bonusWhatsappCredits ?? 0);
-  const whatsapp = computeMetric(usage?.whatsappCreditsUsed ?? 0, waLimit);
+  const waMetric = computeMetric(usage?.whatsappCreditsUsed ?? 0, waLimit);
   const documents = computeMetric(usage?.docCreditsUsed ?? 0, plan[FEATURE_LIMIT_FIELD.documents]);
   const voice = computeMetric(usage?.voiceCreditsUsed ?? 0, plan[FEATURE_LIMIT_FIELD.voice]);
   const radar = computeMetric(usage?.radarCreditsUsed ?? 0, plan[FEATURE_LIMIT_FIELD.radar]);
+
+  /*
+   * Enterprise con consumo attivo: oltre l'incluso non c'è un limite da
+   * raggiungere, c'è una tariffa. `isLimitReached` a false è ciò che lascia
+   * passare il gate qui sotto — e l'unico posto in cui si decide, così gate,
+   * pannello e badge "Limiti raggiunti" non possono dire cose diverse.
+   */
+  const overageActive = isOverageBillingActive(organization?.subscription);
+  const whatsapp: UsageMetric = overageActive ? { ...waMetric, isLimitReached: false } : waMetric;
+
+  let whatsappOverage: WhatsAppOverage | null = null;
+  if (hasMeteredOverage(planId)) {
+    const extraConversations =
+      overageActive && waLimit !== null ? Math.max(0, waMetric.used - waLimit) : 0;
+    whatsappOverage = {
+      active: overageActive,
+      extraConversations,
+      unitPriceEur: ENTERPRISE_OVERAGE_PRICE_EUR,
+      estimatedEur: Math.round(extraConversations * ENTERPRISE_OVERAGE_PRICE_EUR * 100) / 100,
+    };
+  }
 
   return {
     planId,
@@ -87,6 +114,7 @@ export async function getUsageStats(organizationId: string): Promise<UsageStatsR
     documents,
     voice,
     radar,
+    whatsappOverage,
     hasAnyLimitReached:
       whatsapp.isLimitReached ||
       documents.isLimitReached ||
@@ -129,10 +157,18 @@ export async function checkUsageLimit(
 export async function incrementUsage(organizationId: string, featureType: UsageFeature, amount = 1): Promise<void> {
   const field = FEATURE_USAGE_FIELD[featureType];
 
-  await prisma.usageTracker.update({
+  const tracker = await prisma.usageTracker.update({
     where: { organizationId },
     data: { [field]: { increment: amount } },
+    select: { whatsappCreditsUsed: true },
   });
+
+  // Conversazioni oltre l'incluso Enterprise: il valore restituito dall'update
+  // è già quello dopo l'incremento, l'unico che dice senza gare fra richieste
+  // parallele quali unità cadono oltre la soglia. Non lancia.
+  if (featureType === "whatsapp") {
+    await registraConsumoExtra(organizationId, tracker.whatsappCreditsUsed, amount);
+  }
 
   // Avviso soglie, DOPO il consumo e non bloccante: il credito e' gia' stato
   // registrato correttamente, e un guasto del fornitore di posta non deve

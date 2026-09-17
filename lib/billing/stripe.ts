@@ -68,6 +68,56 @@ export function getExtraCreditsPriceId(): string | null {
   return readSecret(EXTRA_CREDITS_PRICE_ENV) ?? null;
 }
 
+/**
+ * Prezzo a consumo delle conversazioni WhatsApp oltre l'incluso Enterprise.
+ *
+ * Su Stripe è un prezzo **metered** mensile collegato a un contatore (Billing
+ * Meter): noi inviamo un evento per ogni conversazione in eccesso, Stripe le
+ * somma nel periodo e le mette in fattura al rinnovo. Senza questa variabile
+ * l'Enterprise resta com'era — si ferma al limite — invece di consumare senza
+ * che nessuno addebiti nulla.
+ */
+const ENTERPRISE_OVERAGE_PRICE_ENV = "STRIPE_PRICE_ID_ENTERPRISE_OVERAGE";
+
+/** Prezzo Stripe a consumo dell'Enterprise, o `null` se non configurato. */
+export function getEnterpriseOveragePriceId(): string | null {
+  return readSecret(ENTERPRISE_OVERAGE_PRICE_ENV) ?? null;
+}
+
+/**
+ * Nome dell'evento inviato al contatore Stripe.
+ *
+ * Deve essere identico all'"Event name" del Meter creato nella Dashboard: è
+ * l'unico collegamento fra i due. Un nome diverso non dà errore alla chiamata
+ * — Stripe accetta l'evento e lo scarta dopo, senza contatore a cui sommarlo —
+ * quindi un refuso qui significa conversazioni extra mai fatturate.
+ */
+export const WHATSAPP_OVERAGE_METER_EVENT = "whatsapp_extra_conversation";
+
+/**
+ * Voce a consumo da aggiungere al Checkout, o `null` se non va aggiunta.
+ *
+ * # Perché solo sull'Enterprise mensile
+ *
+ * Perché Stripe non consente, dal Checkout, un abbonamento con voci a
+ * intervalli diversi: un Enterprise annuale con il consumo mensile verrebbe
+ * rifiutato. E aggiungerla dopo richiederebbe la modalità di fatturazione
+ * "flexible", in cui `cancel_at_period_end` — quello che usa la nostra
+ * disdetta — chiude l'abbonamento alla fine del periodo più breve: un'agenzia
+ * che ha pagato l'anno si troverebbe disdetta a fine mese. L'annuale resta
+ * quindi senza consumo, e al limite si ferma come prima.
+ *
+ * Una voce metered va passata **senza quantità**: la quantità è il consumo.
+ */
+export function getOverageLineItem(
+  plan: PaidPlanId,
+  interval: BillingInterval
+): { price: string } | null {
+  if (plan !== "enterprise" || interval !== "monthly") return null;
+  const price = getEnterpriseOveragePriceId();
+  return price ? { price } : null;
+}
+
 export function isStripeEnabled(): boolean {
   return isConfiguredSecret(process.env.STRIPE_SECRET_KEY);
 }
