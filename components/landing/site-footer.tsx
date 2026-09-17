@@ -63,6 +63,9 @@ const COLUMNS: FooterColumn[] = [
       { label: "Termini e Condizioni", href: "/termini" },
       { label: "Cookie Policy", href: "/cookie" },
       { label: "Trattamento dati (DPA)", href: "/dpa" },
+      // Indirizzo pubblico richiesto da Meta per la cancellazione dei dati
+      // ottenuti tramite Facebook, e strada per l'art. 17 GDPR.
+      { label: "Cancellazione dati", href: "/data-deletion" },
     ],
   },
 ];

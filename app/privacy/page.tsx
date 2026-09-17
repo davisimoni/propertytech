@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { pageMetadata } from "@/lib/seo";
 import { auth } from "@/auth";
 import { LegalList, LegalPage, LegalSection, LEGAL_ENTITY } from "@/components/legal/legal-page";
@@ -334,6 +335,17 @@ export default async function PrivacyPage() {
           gestito da un&apos;agenzia cliente, la richiesta va rivolta all&apos;agenzia, che ne è
           titolare; noi la supportiamo nell&apos;evasione. Hai inoltre diritto di proporre reclamo al
           Garante per la protezione dei dati personali.
+        </p>
+        <p>
+          <strong className="text-foreground">Cancellazione dei dati.</strong> Le modalità sono
+          descritte nella pagina{" "}
+          <Link href="/data-deletion" className="text-primary hover:underline">
+            Cancellazione dei dati
+          </Link>
+          . Rimuovendo {BRAND.name} dalle impostazioni di Facebook, Meta ci invia una richiesta di
+          cancellazione: il collegamento alla Pagina, il profilo Instagram associato e il token di
+          pubblicazione vengono eliminati automaticamente, e ricevi un codice per verificarne lo
+          stato.
         </p>
       </LegalSection>
 

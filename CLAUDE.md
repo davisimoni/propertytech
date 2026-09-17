@@ -143,6 +143,10 @@ A partire da dati strutturati o semplici punti elenco sull'immobile, genera auto
 - Post per Instagram/Facebook
 - Script per video Reel/TikTok
 
+**Collegamento Meta e cancellazione dati.** Il consenso OAuth chiede anche `business_management`: senza, `/me/accounts` può tornare vuoto per le Pagine possedute da un Portfolio Business. Le Pagine si cercano lì (con paginazione, scegliendo una Pagina con token e permesso di creare contenuti) e, se non ne emerge una collegabile, nei Portfolio (`/me/businesses`, `owned_pages`, `client_pages`). Ogni fallimento ha il proprio esito — codice, Meta irraggiungibile, permessi, nessuna Pagina — e un log `[social/meta] Nessuna Pagina collegabile` con permessi, Pagine concesse nel consenso ed errori di Meta, **mai i token**.
+
+Per l'App Review, `POST /api/auth/facebook/data-deletion` riceve la `signed_request` di Meta, ne verifica la firma HMAC con l'App Secret, elimina il collegamento social di quell'utente Facebook (`SocialConnection.facebookUserId`) e risponde con codice e indirizzo di verifica (`/data-deletion-status?id=`). Le istruzioni pubbliche stanno in `/data-deletion`, linkata dal footer: la cancellazione dell'intero account resta una richiesta via email, perché tocca dati che non provengono da Facebook.
+
 ### Modulo 4 — AI Voice Seller-Reporting Engine [ESCLUSIVO Piano Enterprise]
 Trascrive le note vocali registrate dall'agente subito dopo una visita immobiliare e genera automaticamente un report strutturato da condividere con il proprietario dell'immobile (venditore).
 

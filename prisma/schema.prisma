@@ -1525,6 +1525,13 @@ model SocialConnection {
   facebookPageId   String
   facebookPageName String
 
+  /// Utente Facebook che ha dato il consenso.
+  ///
+  /// Serve alla cancellazione dati richiesta da Meta: la callback arriva con
+  /// l'id dell'utente, non con quello della Pagina, e senza questo campo non
+  /// si saprebbe quale collegamento eliminare.
+  facebookUserId   String?
+
   /// Profilo Instagram Business agganciato alla Pagina. Facoltativo: una
   /// Pagina puo' esistere senza un profilo Instagram collegato, e in quel caso
   /// si pubblica solo su Facebook invece di rifiutare tutto.
@@ -1542,6 +1549,9 @@ model SocialConnection {
   /// o una richiesta rifatta a mano non possono aggirarlo.
   facebookAutoPublish  Boolean @default(true)
   instagramAutoPublish Boolean @default(true)
+
+  /// Ricerca per utente Facebook: la callback di cancellazione arriva con quello.
+  @@index([facebookUserId])
 
   /// Token di pagina, cifrato AES-256-GCM (CLAUDE.md §5).
   ///
@@ -2092,4 +2102,24 @@ model PushSubscription {
   lastSuccessAt DateTime?
 
   @@index([userId])
+}
+
+/// Richiesta di cancellazione dati ricevuta da Meta (Data Deletion Callback).
+///
+/// Meta impone di rispondere con un codice di conferma e un indirizzo dove
+/// l'utente possa verificarne lo stato: questa riga è ciò che quella pagina
+/// legge. Conserva l'id Facebook di chi ha chiesto la cancellazione, non i
+/// dati cancellati.
+model DataDeletionRequest {
+  id   String @id @default(cuid())
+  /// Codice mostrato all'utente e usato nell'indirizzo di verifica.
+  code String @unique
+
+  facebookUserId String
+  /// Collegamenti social eliminati dalla richiesta. Zero è un esito valido:
+  /// l'utente può aver già scollegato, o non aver mai collegato nulla.
+  eliminati      Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  @@index([facebookUserId])
 }

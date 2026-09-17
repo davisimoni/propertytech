@@ -131,6 +131,14 @@ export interface MetaPageConnection {
   instagramUserId: string | null;
   instagramUsername: string | null;
   accessToken: string;
+  /**
+   * Utente Facebook che ha autorizzato il collegamento.
+   *
+   * Serve alla cancellazione dati richiesta da Meta: quella callback arriva
+   * con l'id dell'utente, e senza averlo registrato non si saprebbe quale
+   * collegamento eliminare (`lib/social/data-deletion.ts`).
+   */
+  facebookUserId: string | null;
 }
 
 /**
@@ -401,10 +409,15 @@ export async function exchangeCodeForPage(code: string): Promise<EsitoCollegamen
     return { ok: false, motivo: "scambio_codice" };
   }
 
-  const account = await elencoCompleto<PaginaMeta>(
-    urlGraph("me/accounts", userToken, appSecret, { fields: CAMPI_PAGINA, limit: "50" }),
-    appSecret
-  );
+  // L'id dell'utente e le Pagine si chiedono insieme: il primo serve alla
+  // cancellazione dati di Meta, che arriva con quello e non con la Pagina.
+  const [utente, account] = await Promise.all([
+    graphGet<{ id?: string }>(urlGraph("me", userToken, appSecret, { fields: "id" })),
+    elencoCompleto<PaginaMeta>(
+      urlGraph("me/accounts", userToken, appSecret, { fields: CAMPI_PAGINA, limit: "50" }),
+      appSecret
+    ),
+  ]);
 
   let scelta = account.elementi.find(collegabile);
   let daBusiness: Awaited<ReturnType<typeof pagineDaiBusiness>> | null = null;
@@ -455,6 +468,7 @@ export async function exchangeCodeForPage(code: string): Promise<EsitoCollegamen
       instagramUserId: scelta.instagram_business_account?.id ?? null,
       instagramUsername: scelta.instagram_business_account?.username ?? null,
       accessToken: scelta.access_token as string,
+      facebookUserId: utente.dati?.id ?? null,
     },
   };
 }
@@ -476,6 +490,7 @@ export async function saveConnection(
     instagramUserId: page.instagramUserId,
     instagramUsername: page.instagramUsername,
     accessToken: encryptSecret(page.accessToken),
+    facebookUserId: page.facebookUserId,
   };
 
   await prisma.socialConnection.upsert({
