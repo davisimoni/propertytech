@@ -8,7 +8,9 @@ import {
   getExtraSeatPriceId,
   getStripe,
   isStripeEnabled,
+  pianoDaAbbonamento,
   readPlanFromMetadata,
+  type PianoDaPrezzo,
 } from "@/lib/billing/stripe";
 import { readSecret } from "@/lib/env";
 import { reportWebhookError } from "@/lib/observability/report-error";
@@ -17,8 +19,10 @@ import {
   notifyPaymentFailed,
   notifyPlanActivated,
   notifyRenewalPaid,
+  notifySeatsOverLimit,
   notifySubscriptionCancelled,
 } from "@/lib/notifications/billing";
+import { getSeatAccounting } from "@/lib/billing/seats";
 import { PLANS, type PlanId } from "@/lib/plans";
 import { datiCambioPiano } from "@/lib/billing/usage-period";
 
@@ -181,6 +185,112 @@ async function syncCancellationState(organizationId: string, subscription: Strip
 }
 
 /**
+ * L'organizzazione a cui appartiene un abbonamento Stripe.
+ *
+ * I metadati restano la prima strada perché non costano una query, ma non
+ * sono garantiti: un abbonamento creato a mano in dashboard non li ha, e
+ * senza questo ripiego l'evento verrebbe ignorato in silenzio su un
+ * abbonamento che invece è di qualcuno.
+ */
+async function organizzazioneDi(subscription: Stripe.Subscription): Promise<string | null> {
+  const daiMetadati = subscription.metadata?.organizationId;
+  if (daiMetadati) return daiMetadati;
+
+  const riga = await prisma.subscription.findUnique({
+    where: { stripeSubscriptionId: subscription.id },
+    select: { organizationId: true },
+  });
+
+  return riga?.organizationId ?? null;
+}
+
+/**
+ * Riscrive sui metadati Stripe il piano che i prezzi dicono davvero.
+ *
+ * Quando il cambio avviene dal Portale Clienti, Stripe aggiorna il prezzo e
+ * lascia i metadati com'erano. Da qui in avanti il piano lo leggiamo dai
+ * prezzi, quindi la piattaforma resta corretta comunque; ma quei metadati li
+ * leggono anche la dashboard Stripe, le esportazioni e chiunque debba capire
+ * un abbonamento guardandolo, e lasciarli dire "starter" su un Enterprise
+ * significa spedire qualcuno nella direzione sbagliata durante un problema.
+ *
+ * La riscrittura genera un altro `customer.subscription.updated`: al secondo
+ * giro i metadati coincidono e non si riparte. Non lancia mai.
+ */
+async function allineaMetadati(
+  subscription: Stripe.Subscription,
+  organizationId: string,
+  daiPrezzi: PianoDaPrezzo
+): Promise<void> {
+  const attuali = subscription.metadata ?? {};
+  if (
+    attuali.organizationId === organizationId &&
+    attuali.planId === daiPrezzi.plan &&
+    attuali.interval === daiPrezzi.interval
+  ) {
+    return;
+  }
+
+  try {
+    await getStripe().subscriptions.update(subscription.id, {
+      metadata: {
+        ...attuali,
+        organizationId,
+        planId: daiPrezzi.plan,
+        interval: daiPrezzi.interval,
+      },
+    });
+
+    console.info("[BILLING-METADATA-SYNC]", {
+      organizationId,
+      subscriptionId: subscription.id,
+      da: { planId: attuali.planId ?? null, interval: attuali.interval ?? null },
+      a: { planId: daiPrezzi.plan, interval: daiPrezzi.interval },
+    });
+  } catch (error) {
+    reportWebhookError(error, "stripe", "metadata-sync");
+    console.error("[api/stripe/webhook] Metadati dell'abbonamento non riallineati", {
+      organizationId,
+      subscriptionId: subscription.id,
+    });
+  }
+}
+
+/**
+ * Postazioni occupate contro quelle del piano appena applicato.
+ *
+ * Un passaggio a un piano più piccolo non può essere rifiutato: quando
+ * l'evento arriva, su Stripe è già successo. Quello che si può fare è non
+ * lasciarlo invisibile. Nessun accesso viene revocato — buttare fuori un
+ * agente a metà giornata per far tornare un conteggio sarebbe una reazione
+ * peggiore del problema — e il limite continua a valere sugli inviti nuovi,
+ * dove il controllo esisteva già.
+ */
+async function verificaPostazioni(organizationId: string): Promise<void> {
+  try {
+    const seats = await getSeatAccounting(organizationId);
+    if (seats.maxSeats === null || seats.usedSeats <= seats.maxSeats) return;
+
+    console.warn("[BILLING-SEATS-OVER]", {
+      organizationId,
+      piano: seats.plan.id,
+      usate: seats.usedSeats,
+      disponibili: seats.maxSeats,
+    });
+
+    await notifySeatsOverLimit({
+      organizationId,
+      planName: seats.plan.name,
+      usedSeats: seats.usedSeats,
+      maxSeats: seats.maxSeats,
+    });
+  } catch (error) {
+    reportWebhookError(error, "stripe", "seats-check");
+    console.error("[api/stripe/webhook] Controllo postazioni non riuscito", { organizationId });
+  }
+}
+
+/**
  * Riallinea le postazioni acquistate con quelle che l'agenzia paga davvero.
  *
  * # Perche' Stripe comanda
@@ -323,8 +433,20 @@ export async function POST(request: Request) {
 
       case "customer.subscription.updated": {
         const subscription = event.data.object;
-        const organizationId = subscription.metadata?.organizationId;
-        const planId = readPlanFromMetadata(subscription.metadata);
+        const organizationId = await organizzazioneDi(subscription);
+
+        /*
+         * Il piano lo dicono i prezzi, non i metadati.
+         *
+         * E' il cambio che rende sicuro il cambio piano dal Portale Clienti:
+         * li' Stripe sostituisce il prezzo e lascia i metadati fermi, e
+         * leggere quelli significava applicare i limiti del piano vecchio a
+         * chi sta gia' pagando il nuovo. I metadati restano come ripiego per
+         * gli abbonamenti il cui prezzo non e' riconoscibile, per esempio dopo
+         * una revisione del listino.
+         */
+        const daiPrezzi = pianoDaAbbonamento(subscription);
+        const planId = daiPrezzi?.plan ?? readPlanFromMetadata(subscription.metadata);
 
         // Un abbonamento sospeso per mancato pagamento non deve mantenere
         // attivo il piano.
@@ -332,8 +454,14 @@ export async function POST(request: Request) {
           await activatePlan(organizationId, planId, subscription.id, null, ancoraDi(subscription));
           await syncCancellationState(organizationId, subscription);
           await syncExtraSeats(organizationId, subscription);
-          // Copre il cambio di piano fatto fuori dal Checkout (portale Stripe).
+          // Copre il cambio di piano fatto fuori dal Checkout: aggiunge la voce
+          // a consumo all'Enterprise mensile e la toglie da un abbonamento
+          // diventato annuale, dove produrrebbe fatture mensili e farebbe
+          // chiudere a fine mese un anno pagato.
           await syncOverageItem(organizationId, subscription, planId);
+
+          if (daiPrezzi) await allineaMetadati(subscription, organizationId, daiPrezzi);
+          await verificaPostazioni(organizationId);
         } else if (subscription.status === "canceled" || subscription.status === "unpaid") {
           await downgradeToTrial(subscription.id);
         }

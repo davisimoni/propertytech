@@ -203,6 +203,60 @@ export function sendPlanChangedEmail(params: {
   });
 }
 
+/**
+ * Postazioni occupate oltre quelle del piano.
+ *
+ * Succede quando il piano scende di livello con l'agenzia al completo, cosa
+ * che dal Portale Clienti si fa in tre clic e senza che nessuno controlli
+ * quante persone lavorano nell'account. Non blocchiamo nessuno: chi c'è
+ * continua a lavorare, e il limite agisce sui nuovi inviti. Ma il titolare
+ * deve saperlo, perché è l'unico che può scegliere se togliere qualcuno,
+ * comprare postazioni o tornare al piano di prima.
+ */
+export function sendSeatsOverLimitEmail(params: {
+  to: string;
+  firstName?: string | null;
+  planName: string;
+  usedSeats: number;
+  maxSeats: number;
+}): Promise<EmailOutcome> {
+  const eccedenza = params.usedSeats - params.maxSeats;
+
+  return invia(params.to, `Postazioni oltre il limite del piano ${params.planName}`, {
+    heading: "Postazioni oltre il limite del piano",
+    preheader: `${params.usedSeats} persone attive su ${params.maxSeats} postazioni disponibili.`,
+    greeting: saluto(params.firstName),
+    blocks: [
+      {
+        text: `Il piano ${escapeHtml(params.planName)} include ${params.maxSeats} ${
+          params.maxSeats === 1 ? "postazione" : "postazioni"
+        }, e nell'account risultano ${params.usedSeats} persone.`,
+      },
+      {
+        rows: [
+          { label: "Piano attuale", value: escapeHtml(params.planName) },
+          { label: "Postazioni disponibili", value: String(params.maxSeats) },
+          { label: "Persone nell'account", value: String(params.usedSeats) },
+          {
+            label: "Eccedenza",
+            value: `${eccedenza} ${eccedenza === 1 ? "persona" : "persone"}`,
+          },
+        ],
+      },
+      {
+        notice: {
+          tone: "warning" as const,
+          text: "Nessun accesso viene revocato: chi lavora nell'account continua a lavorare. Non sarà però possibile invitare nuove persone finché le postazioni occupate superano quelle del piano.",
+        },
+      },
+      {
+        text: "Le strade sono tre: rimuovere le persone in eccesso dalla sezione Team, acquistare postazioni aggiuntive, oppure tornare al piano precedente.",
+      },
+    ],
+    cta: { label: "Apri Piani e Fatturazione", url: BILLING_URL },
+  });
+}
+
 export function sendRenewalPaidEmail(params: {
   to: string;
   firstName?: string | null;

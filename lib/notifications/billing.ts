@@ -3,6 +3,7 @@ import { PLANS, type PlanId } from "@/lib/plans";
 import { resolveOwner } from "@/lib/email/recipients";
 import {
   sendPlanChangedEmail,
+  sendSeatsOverLimitEmail,
   sendSubscriptionActivatedEmail,
   sendSubscriptionCancelledEmail,
   sendPaymentFailedEmail,
@@ -79,6 +80,45 @@ export async function notifyPlanActivated(params: {
     });
   } catch (error) {
     console.error("[notifications/billing] Avviso di cambio piano non inviato", {
+      organizationId: params.organizationId,
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+  }
+}
+
+/**
+ * Postazioni occupate oltre quelle del piano, dopo un cambio piano.
+ *
+ * Avviso, non blocco: l'abbonamento è già cambiato su Stripe quando lo
+ * scopriamo, e togliere l'accesso a qualcuno per rimettere i conti a posto
+ * sarebbe la reazione sbagliata. Chi decide è il titolare.
+ */
+export async function notifySeatsOverLimit(params: {
+  organizationId: string;
+  planName: string;
+  usedSeats: number;
+  maxSeats: number;
+}): Promise<void> {
+  try {
+    const owner = await resolveOwner(params.organizationId);
+    if (!owner) return;
+
+    const outcome = await sendSeatsOverLimitEmail({
+      to: owner.email,
+      firstName: owner.firstName,
+      planName: params.planName,
+      usedSeats: params.usedSeats,
+      maxSeats: params.maxSeats,
+    });
+
+    console.info("[BILLING-NOTIFY] postazioni oltre il limite", {
+      organizationId: params.organizationId,
+      usate: params.usedSeats,
+      disponibili: params.maxSeats,
+      outcome,
+    });
+  } catch (error) {
+    console.error("[notifications/billing] Avviso postazioni non inviato", {
       organizationId: params.organizationId,
       reason: error instanceof Error ? error.message : "unknown",
     });

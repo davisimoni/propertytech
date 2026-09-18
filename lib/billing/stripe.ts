@@ -168,6 +168,64 @@ export function readPlanFromMetadata(metadata: Stripe.Metadata | null): PaidPlan
   return typeof plan === "string" && isPaidPlanId(plan) ? plan : null;
 }
 
+export interface PianoDaPrezzo {
+  plan: PaidPlanId;
+  interval: BillingInterval;
+  /** Il prezzo riconosciuto e la voce che lo porta, per modificarla. */
+  priceId: string;
+  itemId: string;
+}
+
+/**
+ * Piano e periodicità letti dai **prezzi** dell'abbonamento.
+ *
+ * # Perché non bastano i metadati
+ *
+ * Perché `subscription.metadata.planId` lo scriviamo noi al Checkout e Stripe
+ * non lo tocca più. Se il cambio piano avviene altrove — dal Portale Clienti,
+ * o a mano in dashboard — il prezzo cambia e quel metadato resta indietro:
+ * l'agenzia pagherebbe Enterprise vedendosi applicati i limiti di Starter,
+ * senza che da nessuna parte compaia un errore. I prezzi invece sono la cosa
+ * che determina l'importo addebitato, quindi sono la fonte giusta.
+ *
+ * Le voci che non corrispondono a un piano (postazioni aggiuntive, consumo
+ * WhatsApp) vengono ignorate: non dicono nulla sul piano.
+ */
+export function pianoDaAbbonamento(subscription: Stripe.Subscription): PianoDaPrezzo | null {
+  /*
+   * La mappa si costruisce a ogni chiamata e non una volta all'import: i
+   * prezzi arrivano dalle variabili d'ambiente, e leggerle all'import
+   * significherebbe congelare in memoria i valori di un ambiente in cui
+   * magari non erano ancora configurati.
+   */
+  const perPrezzo = new Map<string, { plan: PaidPlanId; interval: BillingInterval }>();
+  for (const plan of PAID_PLAN_IDS) {
+    for (const interval of ["monthly", "yearly"] as const) {
+      const priceId = getPriceId(plan, interval);
+      if (priceId) perPrezzo.set(priceId, { plan, interval });
+    }
+  }
+
+  const riconosciute = subscription.items.data.flatMap((voce) => {
+    const abbinamento = perPrezzo.get(voce.price.id);
+    return abbinamento ? [{ ...abbinamento, priceId: voce.price.id, itemId: voce.id }] : [];
+  });
+
+  if (riconosciute.length === 0) return null;
+
+  if (riconosciute.length > 1) {
+    // Due piani sullo stesso abbonamento non dovrebbero esistere. Si tiene il
+    // primo e si lascia traccia: è una situazione da guardare a mano, non da
+    // risolvere indovinando quale dei due l'agenzia intendeva.
+    console.warn("[billing/stripe] Abbonamento con piu' di un prezzo di piano", {
+      subscriptionId: subscription.id,
+      piani: riconosciute.map((r) => `${r.plan}/${r.interval}`),
+    });
+  }
+
+  return riconosciute[0]!;
+}
+
 /**
  * Sconto di retention (-50% a vita), offerto una sola volta prima che
  * l'agenzia completi la disdetta.

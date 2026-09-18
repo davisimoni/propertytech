@@ -219,7 +219,17 @@ Il Checkout degli abbonamenti dichiara `allow_promotion_codes`, quindi il campo 
 - **La ricarica di crediti non accetta codici.** I codici in circolazione scontano l'abbonamento, e senza restrizione di prodotto sul coupon Stripe li applicherebbe anche lì, dimezzando un pacchetto da 5 € e consumando un riscatto destinato ai piani.
 - **Un coupon non è un codice promozionale.** `allow_promotion_codes` accetta solo i `promotion_code`: un coupon creato in dashboard e mai associato a un codice viene rifiutato al checkout, con l'aria di un bug del nostro software.
 
-Nel **Portale Clienti** è abilitato il solo `promotion_code`, non il cambio prezzo. Il webhook `customer.subscription.updated` ricava il piano da `subscription.metadata.planId`, che Stripe **non** aggiorna quando il cliente cambia prezzo dal portale: un upgrade fatto lì farebbe pagare Enterprise lasciando in app i limiti di Starter, e la voce a consumo non verrebbe aggiunta. Prima di aprire quella strada serve ricavare il piano dal prezzo dell'abbonamento, e rimettere sui cambi dal portale le difese che il nostro flusso ha già (postazioni occupate oltre il limite del piano scelto, passaggio fra mensile e annuale).
+Nel **Portale Clienti** sono abilitati `price` e `promotion_code`: il cambio piano si fa lì, con conguaglio immediato (`always_invoice`) e quantità **non** modificabile — Stripe accende `adjustable_quantity` da sola, e senza spegnerla un'agenzia potrebbe portare a cinque la quantità del proprio piano pagandolo cinque volte.
+
+### Cambio piano: perché passa dal portale e non dal Checkout
+
+Il Checkout **crea** un abbonamento, non lo sostituisce: un'agenzia su Starter che completasse un Checkout per il Professional si ritroverebbe due abbonamenti attivi sullo stesso cliente Stripe e li pagherebbe entrambi, senza che compaia un errore da nessuna parte. Per questo `PlanGrid` manda al Checkout solo chi è ancora sul Trial, e tutti gli altri al portale.
+
+Tre conseguenze da non smontare, tutte verificate su Stripe reale con un abbonamento in prova:
+
+- **Il piano si ricava dai prezzi** (`pianoDaAbbonamento`), non da `subscription.metadata.planId`, che Stripe lascia fermo quando il prezzo cambia dal portale. Con i metadati un'agenzia passata a Enterprise avrebbe pagato 499 € vedendosi applicati i limiti di Starter. I metadati restano come ripiego e vengono **riallineati** dal webhook, perché li legge chi guarda l'abbonamento in dashboard durante un problema.
+- **La voce a consumo si stacca dagli abbonamenti diventati annuali.** L'API accetta gli intervalli misti: un Enterprise passato all'annuale si tiene la voce mensile, e da lì arrivano fatture di consumo su un piano che non lo prevede e, peggio, `cancel_at_period_end` chiude alla fine del periodo **più breve**, cioè a fine mese per chi ha pagato l'anno. Il consumo maturato e non fatturato si perde: è una perdita nostra, non un addebito di troppo all'agenzia. Su un piano mensile diverso, invece, la voce resta dov'è (il consumo già maturato va ancora fatturato) e basta azzerare `stripeOverageItemId`.
+- **Le postazioni in eccesso si segnalano, non si tagliano.** Quando l'evento arriva il downgrade è già avvenuto su Stripe: revocare l'accesso a un agente per far tornare un conteggio sarebbe peggio del problema. Il titolare riceve un'email con l'eccedenza e le tre strade (rimuovere persone, comprare postazioni, tornare indietro); il limite continua a valere sui nuovi inviti, dove il controllo esisteva già.
 
 ### Middleware Paywall — Enforcement dei Limiti
 

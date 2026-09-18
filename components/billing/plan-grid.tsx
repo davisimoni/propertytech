@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Check, X } from "lucide-react";
 import { BillingIntervalToggle } from "@/components/billing/billing-interval-toggle";
 import { UpgradeButton } from "@/components/billing/upgrade-button";
+import { ChangePlanButton } from "@/components/billing/change-plan-button";
 import { CancelSubscriptionFlow } from "@/components/billing/cancel-subscription-flow";
 import {
   formatEur,
@@ -118,15 +119,24 @@ export function PlanGrid({ currentPlanId }: { currentPlanId: PlanId }) {
                 )}
               </ul>
 
-              {!isCurrent && plan.id !== "trial" && (
-                <UpgradeButton
-                  plan={plan.id}
-                  interval={interval}
-                  isLoggedIn
-                  label={`Passa a ${plan.name}`}
-                  className="mt-5"
-                />
-              )}
+              {/* Chi e' gia' abbonato non ripassa dal Checkout: quello
+                  creerebbe un SECONDO abbonamento accanto al primo, e
+                  l'agenzia pagherebbe tutti e due. Il cambio avviene sul
+                  portale, che sostituisce il prezzo sull'abbonamento che c'e'
+                  gia' e calcola il conguaglio. */}
+              {!isCurrent &&
+                plan.id !== "trial" &&
+                (currentPlanId === "trial" ? (
+                  <UpgradeButton
+                    plan={plan.id}
+                    interval={interval}
+                    isLoggedIn
+                    label={`Passa a ${plan.name}`}
+                    className="mt-5"
+                  />
+                ) : (
+                  <ChangePlanButton label={`Passa a ${plan.name}`} className="mt-5" />
+                ))}
 
               {isCurrent && plan.id !== "trial" && <CancelSubscriptionFlow />}
             </div>
@@ -142,7 +152,7 @@ export function PlanGrid({ currentPlanId }: { currentPlanId: PlanId }) {
           dov'e' il campo evita di farlo cercare, e dice la verita': il campo
           c'e', ma dopo. */}
       <p className="mt-6 text-center text-xs text-muted-foreground">
-        Hai un codice sconto? Lo inserisci nella pagina di pagamento, alla voce
+        Hai un codice sconto? Lo inserisci al momento del pagamento, alla voce
         &laquo;Aggiungi codice promozionale&raquo;.
       </p>
     </div>

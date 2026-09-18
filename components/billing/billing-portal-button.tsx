@@ -1,46 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import { CreditCard, ExternalLink, Loader2 } from "lucide-react";
-import { useToast } from "@/components/shared/toast-provider";
+import { useBillingPortal } from "@/components/billing/use-billing-portal";
 
-/**
- * Porta al portale clienti Stripe.
- *
- * La sessione si chiede al server al momento del clic e si vive pochi minuti:
- * per questo non è un `<a href>` con un indirizzo pronto, ma un pulsante che
- * prima la crea e poi ci manda.
- *
- * `window.location.href` e non `router.push`: la destinazione è un dominio di
- * Stripe, fuori dall'applicazione.
- */
+/** Porta al portale clienti Stripe, dove vivono fatture e metodo di pagamento. */
 export function BillingPortalButton() {
-  const [inCorso, setInCorso] = useState(false);
-  const { showToast } = useToast();
-
-  async function apri() {
-    setInCorso(true);
-
-    try {
-      const response = await fetch("/api/stripe/portal", { method: "POST" });
-      const body = (await response.json().catch(() => null)) as
-        | { url?: string; message?: string }
-        | null;
-
-      if (response.ok && body?.url) {
-        window.location.href = body.url;
-        return;
-      }
-
-      showToast(body?.message ?? "Non siamo riusciti ad aprire la gestione fatture.", "error");
-    } catch {
-      showToast("Errore di rete: riprova fra poco.", "error");
-    } finally {
-      // Non si azzera in caso di successo: la pagina sta già cambiando, e un
-      // pulsante che torna attivo inviterebbe a premerlo una seconda volta.
-      setInCorso(false);
-    }
-  }
+  const { apri, inCorso } = useBillingPortal();
 
   return (
     <section className="rounded-xl border border-border bg-card p-4">

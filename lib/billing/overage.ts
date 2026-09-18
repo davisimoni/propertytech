@@ -228,12 +228,26 @@ function soloVociMensili(subscription: Stripe.Subscription): boolean {
  * nato prima che il prezzo a consumo fosse configurato — e soprattutto scrive
  * `stripeOverageItemId` solo dopo aver **visto** la voce su Stripe.
  *
- * # Perché su un piano diverso la voce non si toglie
+ * # Perché su un piano mensile diverso la voce non si toglie
  *
  * Perché eliminarla a metà periodo rischia di portare via il consumo già
  * maturato e non ancora fatturato. Lasciata lì non costa nulla: gli eventi
  * partono solo per l'Enterprise, e su un altro piano il contatore resta a
  * zero. Basta azzerare il nostro riferimento, che è ciò che accende il consumo.
+ *
+ * # Perché su un abbonamento diventato annuale invece si toglie
+ *
+ * Perché lì diventa dannosa, e non per noi. L'API accetta un abbonamento con
+ * voci a intervalli diversi (verificato: un Enterprise passato all'annuale dal
+ * Portale si tiene la voce a consumo mensile), e da quel momento l'agenzia che
+ * ha pagato l'anno riceve fatture mensili di consumo su un piano che il
+ * consumo non lo prevede. Peggio: con voci a intervalli misti
+ * `cancel_at_period_end` — la nostra disdetta — chiude l'abbonamento alla fine
+ * del periodo **più breve**, cioè a fine mese per chi ha pagato dodici mesi.
+ *
+ * Il consumo maturato e non ancora fatturato in quel periodo si perde. È una
+ * perdita nostra, non un addebito di troppo all'agenzia, e vale molto meno del
+ * rischio che evita.
  */
 export async function syncOverageItem(
   organizationId: string,
@@ -243,13 +257,14 @@ export async function syncOverageItem(
   try {
     const priceId = getEnterpriseOveragePriceId();
     let itemId: string | null = null;
+    const esistente = priceId
+      ? subscription.items.data.find((voce) => voce.price.id === priceId)
+      : undefined;
 
-    if (priceId && hasMeteredOverage(planId)) {
-      const esistente = subscription.items.data.find((voce) => voce.price.id === priceId);
-
+    if (priceId && hasMeteredOverage(planId) && soloVociMensili(subscription)) {
       if (esistente) {
         itemId = esistente.id;
-      } else if (soloVociMensili(subscription)) {
+      } else {
         const creata = await getStripe().subscriptionItems.create(
           { subscription: subscription.id, price: priceId, proration_behavior: "none" },
           // Due consegne ravvicinate dello stesso evento non creano due voci.
@@ -257,8 +272,19 @@ export async function syncOverageItem(
         );
         itemId = creata.id;
       }
-      // Enterprise annuale: nessuna voce, `itemId` resta null e il consumo spento.
+    } else if (esistente && !soloVociMensili(subscription)) {
+      // L'abbonamento è diventato annuale con la voce mensile ancora attaccata:
+      // va staccata prima che produca fatture mensili e prima che una disdetta
+      // chiuda a fine mese un anno pagato.
+      await getStripe().subscriptionItems.del(esistente.id, { proration_behavior: "none" });
+      console.warn("[BILLING-OVERAGE-SYNC] Voce a consumo rimossa da un abbonamento non mensile", {
+        organizationId,
+        subscriptionId: subscription.id,
+        planId,
+      });
     }
+    // Piano mensile diverso dall'Enterprise: la voce resta dov'è, `itemId`
+    // torna null e con lui si spegne l'invio dei consumi.
 
     await prisma.subscription.update({
       where: { organizationId },
