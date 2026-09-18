@@ -98,7 +98,7 @@ export function SmartMatches() {
             </div>
 
             <p className="mt-1 truncate text-xs text-muted-foreground">
-              Rif. {match.propertyReference} — {match.propertyTitle}
+              Rif. {match.propertyReference}, {match.propertyTitle}
             </p>
             <p className="text-xs text-muted-foreground">
               {match.comune} · {formatPrice(match.priceEur)}

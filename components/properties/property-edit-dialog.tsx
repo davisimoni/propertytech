@@ -534,8 +534,8 @@ export function PropertyEditDialog({
               Facoltativi. La scadenza però conta: superata,{" "}
               <span className="font-medium text-foreground">
                 l&apos;immobile esce dal feed verso i portali
-              </span>{" "}
-              — senza mandato valido non si può pubblicizzare.
+              </span>:{" "}
+              senza mandato valido non si può pubblicizzare.
             </p>
 
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">

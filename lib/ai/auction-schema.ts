@@ -124,7 +124,7 @@ export const auctionAppraisalSchema = z.object({
     .int()
     .nullable()
     .describe(
-      "OFFERTA MINIMA ammessa per partecipare, in euro — di norma inferiore al prezzo base (spesso il 75%). Non confonderla ne' con il prezzo base d'asta ne' con il valore di stima. null se la perizia non la indica: spesso compare solo nell'avviso di vendita, e in quel caso NON dedurla con un calcolo tuo."
+      "OFFERTA MINIMA ammessa per partecipare, in euro, di norma inferiore al prezzo base (spesso il 75%). Non confonderla ne' con il prezzo base d'asta ne' con il valore di stima. null se la perizia non la indica: spesso compare solo nell'avviso di vendita, e in quel caso NON dedurla con un calcolo tuo."
     ),
 
   auctionDate: z

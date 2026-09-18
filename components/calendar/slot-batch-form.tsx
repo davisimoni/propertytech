@@ -326,8 +326,8 @@ export function SlotBatchForm({
 
         {totale > 0 && (
           <p className="mt-1 text-xs text-muted-foreground">
-            Gli orari già occupati — da un&apos;altra disponibilità o da un impegno sul calendario
-            collegato dell&apos;agente — vengono saltati.
+            Gli orari già occupati (da un&apos;altra disponibilità o da un impegno sul calendario
+            collegato dell&apos;agente) vengono saltati.
           </p>
         )}
       </div>

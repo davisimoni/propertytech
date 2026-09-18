@@ -168,7 +168,7 @@ export function CrmConnector({ state, onSaved }: CrmConnectorProps) {
         >
           {CRM_PROVIDER_IDS.map((id) => (
             <option key={id} value={id}>
-              {CRM_PROVIDERS[id].name} — {CRM_PROVIDERS[id].tagline}
+              {CRM_PROVIDERS[id].name} ({CRM_PROVIDERS[id].tagline})
             </option>
           ))}
         </select>
@@ -386,7 +386,7 @@ export function CrmConnector({ state, onSaved }: CrmConnectorProps) {
       {provider.auth === "hmac" && state.crmWebhookSecret && (
         <div className="mt-4 border-t border-border pt-3">
           <p className="text-xs text-muted-foreground">
-            Segreto di firma — il tuo gestionale può usarlo per verificare l&apos;header{" "}
+            Segreto di firma: il tuo gestionale può usarlo per verificare l&apos;header{" "}
             <code className="break-all rounded bg-muted px-1">X-PropertyTech-Signature</code> (HMAC-SHA256 del
             corpo della richiesta).
           </p>

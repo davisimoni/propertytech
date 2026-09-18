@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Bell } from "lucide-react";
 import { ToggleSwitch } from "@/components/shared/toggle-switch";
 import { useToast } from "@/components/shared/toast-provider";
+import { InfoTip } from "@/components/shared/info-tip";
 import { usePushNotifications, type StatoPush } from "@/hooks/use-push-notifications";
 
 /**
@@ -130,10 +131,9 @@ export function EmailPreferencesPanel() {
 
           <div className="mt-3 border-t border-border/70 pt-3">
             <p className="text-xs font-medium text-foreground">Email di servizio</p>
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              Arrivano sempre, indipendentemente dalla newsletter: nuovo lead qualificato, sessione
-              WhatsApp disconnessa, crediti operativi all&apos;80% e al 100%, pubblicazioni social non
-              riuscite, iscrizione, abbonamento e fatturazione, sicurezza dell&apos;account.
+            <p className="mt-1 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+              <span className="min-w-0">Arrivano sempre, anche senza newsletter.</span>
+              <InfoTip label="Sono: nuovo lead qualificato, sessione WhatsApp disconnessa, crediti operativi all'80% e al 100%, pubblicazioni social non riuscite, iscrizione, abbonamento e fatturazione, sicurezza dell'account." />
             </p>
           </div>
         </div>

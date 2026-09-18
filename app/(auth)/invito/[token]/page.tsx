@@ -4,10 +4,9 @@ import { AlertTriangle } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { hashInviteToken, inviteState, INVITE_STATE_MESSAGES } from "@/lib/team/invitations";
 import { AcceptInviteForm } from "./accept-invite-form";
-import { BRAND } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: `Accetta l'invito — ${BRAND.name}`,
+  title: "Accetta l'invito",
   // Un link di invito non deve finire nei motori di ricerca.
   robots: { index: false, follow: false },
 };

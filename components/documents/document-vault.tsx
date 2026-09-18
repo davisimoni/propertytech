@@ -232,7 +232,7 @@ export function DocumentVault({
           <ul className="mt-1.5 space-y-0.5">
             {alerts.map((doc) => (
               <li key={doc.id} className="text-xs text-foreground">
-                {doc.title} —{" "}
+                {doc.title}:{" "}
                 {expiryInfo(doc.expiresAt ? new Date(doc.expiresAt) : null, now).label.toLowerCase()}
               </li>
             ))}
@@ -531,7 +531,7 @@ function DocumentForm({
             onChange={(event) => setTitle(event.target.value)}
             required
             maxLength={160}
-            placeholder="Visura catastale — foglio 12"
+            placeholder="Visura catastale, foglio 12"
             className={cn(inputClass, "mt-1")}
           />
         </div>

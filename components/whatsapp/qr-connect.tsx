@@ -137,7 +137,7 @@ export function QrConnect({ onConnected }: QrConnectProps) {
         className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-gradient px-4 py-3 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 sm:w-auto"
       >
         <QrCode className="h-4 w-4" aria-hidden="true" />
-        Connetti WhatsApp con QR Code
+        Connetti WhatsApp
       </button>
 
       {isOpen && (
@@ -207,7 +207,7 @@ export function QrConnect({ onConnected }: QrConnectProps) {
                 type="button"
                 onClick={requestQr}
                 disabled={isLoading}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-all duration-200 hover:bg-muted disabled:opacity-50"
+                className="btn-outline shrink-0 px-3 text-xs"
               >
                 <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
                 Nuovo codice

@@ -107,7 +107,7 @@ export class ListingImportError extends Error {
   }
 }
 
-const SYSTEM_PROMPT = `Sei un assistente per agenzie immobiliari italiane. Ricevi il testo grezzo di un annuncio — copiato da un portale, da un gestionale o da un'email — e ne ricavi i dati strutturati dell'immobile.
+const SYSTEM_PROMPT = `Sei un assistente per agenzie immobiliari italiane. Ricevi il testo grezzo di un annuncio, copiato da un portale, da un gestionale o da un'email — e ne ricavi i dati strutturati dell'immobile.
 
 Regole:
 - Usa ESCLUSIVAMENTE le informazioni presenti nel testo. Non dedurre né stimare metrature, prezzi, numero di locali o classe energetica.

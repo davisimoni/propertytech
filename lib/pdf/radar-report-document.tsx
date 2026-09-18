@@ -125,7 +125,7 @@ export function RadarReportDocument({
         />
 
         <Text style={pdfStyles.title}>
-          {PROPERTY_TYPE_LABELS[data.type]} — {data.comune}
+          {PROPERTY_TYPE_LABELS[data.type]}, {data.comune}
         </Text>
         <Text style={pdfStyles.subtitle}>{luogo}</Text>
 

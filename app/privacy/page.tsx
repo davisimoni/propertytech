@@ -74,13 +74,13 @@ export default async function PrivacyPage() {
       <LegalSection title="4. Finalità e basi giuridiche">
         <LegalList
           items={[
-            "Erogazione del servizio e gestione dell'account — esecuzione del contratto (art. 6.1.b GDPR).",
-            "Fatturazione e adempimenti fiscali — obbligo legale (art. 6.1.c GDPR).",
-            "Sicurezza della piattaforma, prevenzione degli abusi e diagnostica — legittimo interesse (art. 6.1.f GDPR).",
-            "Trattamento dei dati dei lead e dei documenti — su istruzione documentata dell'agenzia cliente, in qualità di responsabile (art. 28 GDPR).",
-            "Comunicazioni di servizio sull'account (nuovo lead qualificato, sessione WhatsApp, crediti operativi, pubblicazioni social, abbonamento e fatturazione, sicurezza) — esecuzione del contratto (art. 6.1.b GDPR). Le email non sono revocabili finché l'account è attivo, perché riguardano il funzionamento del servizio.",
-            "Notifiche push sui dispositivi su cui l'utente le ha attivate — esecuzione del contratto (art. 6.1.b GDPR). Conserviamo l'indirizzo di iscrizione del dispositivo e una descrizione del browser; il contenuto della notifica è cifrato per quel solo dispositivo e transita dal servizio push del browser (Google, Mozilla, Apple o Microsoft), che non può leggerlo. Si disattivano in qualsiasi momento dalle impostazioni dell'account o del browser; l'iscrizione del dispositivo viene eliminata anche all'uscita dall'account.",
-            "Newsletter agli utenti della piattaforma (martedì e giovedì, su automazioni, casi operativi e gestione dei lead) — legittimo interesse (art. 6.1.f GDPR) e art. 130, comma 4, D.Lgs. 196/2003, per servizi analoghi a quello utilizzato.",
+            "Erogazione del servizio e gestione dell'account: esecuzione del contratto (art. 6.1.b GDPR).",
+            "Fatturazione e adempimenti fiscali: obbligo legale (art. 6.1.c GDPR).",
+            "Sicurezza della piattaforma, prevenzione degli abusi e diagnostica: legittimo interesse (art. 6.1.f GDPR).",
+            "Trattamento dei dati dei lead e dei documenti: su istruzione documentata dell'agenzia cliente, in qualità di responsabile (art. 28 GDPR).",
+            "Comunicazioni di servizio sull'account (nuovo lead qualificato, sessione WhatsApp, crediti operativi, pubblicazioni social, abbonamento e fatturazione, sicurezza): esecuzione del contratto (art. 6.1.b GDPR). Le email non sono revocabili finché l'account è attivo, perché riguardano il funzionamento del servizio.",
+            "Notifiche push sui dispositivi su cui l'utente le ha attivate: esecuzione del contratto (art. 6.1.b GDPR). Conserviamo l'indirizzo di iscrizione del dispositivo e una descrizione del browser; il contenuto della notifica è cifrato per quel solo dispositivo e transita dal servizio push del browser (Google, Mozilla, Apple o Microsoft), che non può leggerlo. Si disattivano in qualsiasi momento dalle impostazioni dell'account o del browser; l'iscrizione del dispositivo viene eliminata anche all'uscita dall'account.",
+            "Newsletter agli utenti della piattaforma (martedì e giovedì, su automazioni, casi operativi e gestione dei lead): legittimo interesse (art. 6.1.f GDPR) e art. 130, comma 4, D.Lgs. 196/2003, per servizi analoghi a quello utilizzato.",
           ]}
         />
         <p>
@@ -129,7 +129,7 @@ export default async function PrivacyPage() {
         </p>
         <p>
           Le registrazioni possono contenere dati di persone non presenti al momento della
-          registrazione — proprietari, potenziali acquirenti, terzi citati dall&apos;agente.
+          registrazione: proprietari, potenziali acquirenti, terzi citati dall&apos;agente.
           L&apos;agenzia, che di questi dati è titolare, deve informarli e disporre di una base
           giuridica valida prima di utilizzare la funzione.
         </p>
@@ -140,32 +140,32 @@ export default async function PrivacyPage() {
           items={[
             "Dati di account: per la durata del rapporto contrattuale e per i termini di legge successivi alla chiusura.",
             <>
-              <strong className="text-foreground">Cronologia delle conversazioni WhatsApp</strong> —
+              <strong className="text-foreground">Cronologia delle conversazioni WhatsApp</strong>:
               finché l&apos;agenzia mantiene attivo l&apos;account. Eliminando un contatto dalla
               scheda, la conversazione viene cancellata insieme a lui, nello stesso istante e senza
               copie residue.
             </>,
             <>
-              <strong className="text-foreground">Registrazioni audio</strong> — mai conservate. Il
+              <strong className="text-foreground">Registrazioni audio</strong>: mai conservate. Il
               file viene trascritto e scartato; resta il solo testo (vedi sezione 6).
             </>,
             <>
-              <strong className="text-foreground">Appuntamenti e promemoria</strong> — restano
+              <strong className="text-foreground">Appuntamenti e promemoria</strong>: restano
               collegati al contatto. Cancellando il contatto, lo slot in agenda torna libero.
             </>,
             <>
-              <strong className="text-foreground">Documenti del fascicolo</strong> — dieci anni, come
+              <strong className="text-foreground">Documenti del fascicolo</strong>: dieci anni, come
               impone l&apos;art. 31 del D.Lgs. 231/2007 ai soggetti obbligati. Il termine è calcolato
               all&apos;acquisizione e non blocca una richiesta di cancellazione: l&apos;agenzia resta
               titolare dei propri atti e decide.
             </>,
             <>
-              <strong className="text-foreground">Link di recupero password</strong> — un&apos;ora, e
+              <strong className="text-foreground">Link di recupero password</strong>: un&apos;ora, e
               utilizzabili una sola volta. Del link resta nel database la sola impronta
               crittografica, non ricostruibile.
             </>,
             <>
-              <strong className="text-foreground">Dispositivi riconosciuti</strong> — per avvisarti
+              <strong className="text-foreground">Dispositivi riconosciuti</strong>: per avvisarti
               di un accesso da un dispositivo nuovo conserviamo un&apos;impronta crittografica di
               browser e rete, non l&apos;indirizzo IP. L&apos;indirizzo viene troncato prima di
               essere trasformato in impronta: non è possibile risalire da essa al dispositivo o agli
@@ -210,26 +210,26 @@ export default async function PrivacyPage() {
         <LegalList
           items={[
             <>
-              <strong className="text-foreground">Vercel Inc.</strong> — hosting
+              <strong className="text-foreground">Vercel Inc.</strong>: hosting
               dell&apos;applicazione ed esecuzione delle funzioni. Le funzioni sono vincolate alla
               regione di Francoforte (<code className="text-foreground">fra1</code>): il calcolo
               avviene in UE. Il fornitore è statunitense e aderisce all&apos;EU-U.S. Data Privacy
               Framework; il trasferimento è inoltre coperto da clausole contrattuali standard.
             </>,
             <>
-              <strong className="text-foreground">Supabase</strong> — database PostgreSQL che
+              <strong className="text-foreground">Supabase</strong>: database PostgreSQL che
               custodisce lead, immobili, documenti e conversazioni. Istanza collocata nella regione
               <code className="text-foreground"> eu-central-1</code> (Francoforte, Germania).
             </>,
             <>
-              <strong className="text-foreground">Anthropic PBC</strong> — modelli di intelligenza
+              <strong className="text-foreground">Anthropic PBC</strong>: modelli di intelligenza
               artificiale per la qualificazione su WhatsApp, il filtro di pertinenza dei messaggi,
               l&apos;estrazione dei dati dai documenti, la generazione degli annunci e dei report
               post-visita. Fornitore statunitense, trasferimento coperto da clausole contrattuali
               standard. I contenuti non sono usati per addestrare modelli.
             </>,
             <>
-              <strong className="text-foreground">OpenAI, L.L.C.</strong> — trascrizione in testo
+              <strong className="text-foreground">OpenAI, L.L.C.</strong>: trascrizione in testo
               delle note vocali: quelle ricevute dai contatti su WhatsApp e quelle dettate
               dall&apos;agente dopo una visita. Il trattamento è limitato a questa sola finalità.
               Fornitore statunitense: il trasferimento è coperto dall&apos;EU-U.S. Data Privacy
@@ -243,7 +243,7 @@ export default async function PrivacyPage() {
               quelli già indicati sopra.
             </>,
             <>
-              <strong className="text-foreground">Meta Platforms Ireland Ltd.</strong> — WhatsApp
+              <strong className="text-foreground">Meta Platforms Ireland Ltd.</strong>: WhatsApp
               Cloud API, per ricevere e inviare i messaggi di qualificazione. In alternativa
               l&apos;agenzia può collegare il proprio numero tramite codice QR: in quel caso la
               sessione è custodita da un microservizio ospitato su{" "}
@@ -251,13 +251,13 @@ export default async function PrivacyPage() {
               tiene aperta la connessione e non conserva il contenuto dei messaggi.
             </>,
             <>
-              <strong className="text-foreground">Resend</strong> — spedizione delle email di
+              <strong className="text-foreground">Resend</strong>: spedizione delle email di
               servizio: invito ai collaboratori, avviso di lead qualificato, soglie di consumo,
               scadenza degli incarichi, recupero password. Il corpo di questi messaggi può contenere
               nome, telefono e budget di un contatto.
             </>,
             <>
-              <strong className="text-foreground">Stripe Payments Europe Ltd.</strong> — pagamenti,
+              <strong className="text-foreground">Stripe Payments Europe Ltd.</strong>: pagamenti,
               abbonamenti e fatturazione. <strong className="text-foreground">Nessun dato di carta
               transita dai nostri sistemi</strong>: conserviamo solo identificativi opachi
               (<code className="text-foreground">stripeCustomerId</code>,{" "}
@@ -279,8 +279,8 @@ export default async function PrivacyPage() {
       <LegalSection title="10-bis. Filtro di pertinenza dei messaggi">
         <p>
           Ogni messaggio in arrivo passa da una valutazione automatica che stabilisce se riguarda
-          l&apos;attività dell&apos;agenzia. I messaggi palesemente estranei — conversazioni
-          personali, pubblicità, numeri sbagliati — non ricevono risposta automatica e, dopo due
+          l&apos;attività dell&apos;agenzia. I messaggi palesemente estranei (conversazioni
+          personali, pubblicità, numeri sbagliati) non ricevono risposta automatica e, dopo due
           messaggi consecutivi di questo tipo, l&apos;assistente si sospende da solo su quel
           contatto. È un trattamento minimizzante: serve a <em>non</em> scrivere a chi non ha
           chiesto nulla.
@@ -296,8 +296,8 @@ export default async function PrivacyPage() {
           Il modulo Analisi &amp; Due Diligence Aste consente di caricare una perizia di esecuzione
           immobiliare in PDF. È il documento più delicato che passa dalla piattaforma: oltre alle
           caratteristiche del bene contiene nome dell&apos;esecutato, situazione patrimoniale e
-          talvolta condizioni familiari o di salute — persone che non sono clienti
-          dell&apos;Agenzia, che non hanno prestato alcun consenso e i cui dati sono in parte di
+          talvolta condizioni familiari o di salute. Sono dati di persone che non sono clienti
+          dell&apos;Agenzia, che non hanno prestato alcun consenso e che in parte hanno
           natura giudiziaria ai sensi dell&apos;art. 10 GDPR.
         </p>
         <p>

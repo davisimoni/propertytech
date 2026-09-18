@@ -218,7 +218,7 @@ function SezioniSocial({ output }: { output: Record<string, unknown> }) {
     ...scene.map((s) =>
       [testoDi(s.timeRange), testoDi(s.voiceover), testoDi(s.visual) && `(${testoDi(s.visual)})`]
         .filter(Boolean)
-        .join(" — ")
+        .join(" · ")
     ),
     cta && `CTA: ${cta}`,
   ]

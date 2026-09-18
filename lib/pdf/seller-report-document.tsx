@@ -35,7 +35,7 @@ export function SellerReportDocument({
 }) {
   return (
     <Document
-      title={`Report visita — ${propertyRef}`}
+      title={`Report visita: ${propertyRef}`}
       author={branding.legalName ?? branding.agencyName}
     >
       <Page size="A4" style={pdfStyles.page}>

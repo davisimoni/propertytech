@@ -93,14 +93,14 @@ export function PortalSetupDialog({
               <button
                 type="button"
                 onClick={() => copia(inboundEmail, "email")}
-                className="btn-outline mt-2 text-xs"
+                className="btn-outline mt-2 w-full text-xs sm:w-auto"
               >
                 {copiato === "email" ? (
                   <Check className="h-3.5 w-3.5 text-status-qualified" />
                 ) : (
                   <Mail className="h-3.5 w-3.5" />
                 )}
-                {copiato === "email" ? "Copiato!" : "Copia l'indirizzo"}
+                {copiato === "email" ? "Copiato!" : "Copia indirizzo"}
               </button>
             </div>
           )}
@@ -113,14 +113,14 @@ export function PortalSetupDialog({
             <button
               type="button"
               onClick={() => copia(webhookUrl, "webhook")}
-              className="btn-outline mt-2 text-xs"
+              className="btn-outline mt-2 w-full text-xs sm:w-auto"
             >
               {copiato === "webhook" ? (
                 <Check className="h-3.5 w-3.5 text-status-qualified" />
               ) : (
                 <Clipboard className="h-3.5 w-3.5" />
               )}
-              {copiato === "webhook" ? "Copiato!" : "Copia il link"}
+              {copiato === "webhook" ? "Copiato!" : "Copia link"}
             </button>
           </div>
         </div>
@@ -154,7 +154,7 @@ export function PortalSetupDialog({
             <>
               <p>
                 <span className="font-medium text-foreground">
-                  Strada rapida &mdash; inoltro email.
+                  Strada rapida: inoltro email.
                 </span>{" "}
                 Immobiliare.it ti manda ogni richiesta per email. Nella casella dell&apos;agenzia
                 crea una regola di inoltro automatico verso l&apos;indirizzo qui sopra, filtrando
@@ -162,7 +162,7 @@ export function PortalSetupDialog({
               </p>
               <p>
                 <span className="font-medium text-foreground">
-                  Strada strutturata &mdash; webhook.
+                  Strada strutturata: webhook.
                 </span>{" "}
                 Scrivi al tuo referente commerciale di Immobiliare.it e chiedi di impostare il link
                 webhook come notifica lead in uscita. Non cercarlo nel pannello: sui contratti
@@ -175,7 +175,7 @@ export function PortalSetupDialog({
             <>
               <p>
                 <span className="font-medium text-foreground">
-                  Strada rapida &mdash; inoltro email.
+                  Strada rapida: inoltro email.
                 </span>{" "}
                 Vale per entrambi: le richieste arrivano via email, e una regola di inoltro nella
                 tua casella verso l&apos;indirizzo qui sopra &egrave; tutto quello che serve.
@@ -183,7 +183,7 @@ export function PortalSetupDialog({
               </p>
               <p>
                 <span className="font-medium text-foreground">
-                  Strada strutturata &mdash; webhook.
+                  Strada strutturata: webhook.
                 </span>{" "}
                 Su Idealista e Casa.it l&apos;inoltro automatico si richiede all&apos;assistenza o
                 al referente, allegando il link. Non &egrave; un ripiego: &egrave; come funziona il
@@ -199,8 +199,8 @@ export function PortalSetupDialog({
                 <span className="font-medium text-foreground">
                   &laquo;Webhook notifiche in uscita&raquo;
                 </span>{" "}
-                del gestionale &mdash; la voce pu&ograve; chiamarsi anche &laquo;notifiche&raquo;,
-                &laquo;integrazioni in uscita&raquo; o &laquo;callback&raquo;.
+                del gestionale (la voce pu&ograve; chiamarsi anche &laquo;notifiche&raquo;,
+                &laquo;integrazioni in uscita&raquo; o &laquo;callback&raquo;).
               </p>
               <p>
                 Vale per Miogest, Gestim, Realigro e per qualunque gestionale che sappia inoltrare

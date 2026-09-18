@@ -163,7 +163,7 @@ export function LeadMatchesCard({ leadId, clientName }: { leadId: string; client
                   </div>
 
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {match.zona ? `${match.comune} — ${match.zona}` : match.comune} ·{" "}
+                    {match.zona ? `${match.comune}, ${match.zona}` : match.comune} ·{" "}
                     <span className="font-medium text-foreground">
                       {formatPrice(match.priceEur)}
                     </span>

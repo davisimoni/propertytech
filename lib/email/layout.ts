@@ -167,7 +167,7 @@ function renderUpsell(upsell: EmailUpsell): string {
 function renderFooter(footer: EmailFooter): string {
   if (footer.tipo === "newsletter") {
     return `<p style="margin:0 0 6px;font-size:11px;line-height:1.6;color:${TESTO_TENUE};">
-        ${BRAND.name} — ${BRAND.tagline} · P.IVA ${BRAND.vatNumber}<br />
+        ${BRAND.name} · ${BRAND.tagline} · P.IVA ${BRAND.vatNumber}<br />
         Ricevi la newsletter di ${BRAND.name} perché utilizzi la piattaforma. Puoi interromperla in qualsiasi momento: le email di servizio sul tuo account continueranno ad arrivare.
       </p>
       <p style="margin:0;font-size:11px;color:${TESTO_TENUE};">
@@ -180,7 +180,7 @@ function renderFooter(footer: EmailFooter): string {
   }
 
   return `<p style="margin:0 0 6px;font-size:11px;line-height:1.6;color:${TESTO_TENUE};">
-        ${BRAND.name} — ${BRAND.tagline}<br />
+        ${BRAND.name} · ${BRAND.tagline}<br />
         Comunicazione di servizio relativa al tuo account ${BRAND.name}. Viene inviata a prescindere dalle preferenze sulla newsletter.
       </p>
       <p style="margin:0;font-size:11px;color:${TESTO_TENUE};">
@@ -274,7 +274,7 @@ export function renderEmailText(input: EmailLayoutInput): string {
 
   if (input.upsell) {
     righe.push(
-      "—",
+      "--",
       input.upsell.title,
       stripTags(input.upsell.intro),
       ...input.upsell.items.map((v) => `- ${stripTags(v)}`),
@@ -283,7 +283,7 @@ export function renderEmailText(input: EmailLayoutInput): string {
     );
   }
 
-  righe.push("—", `${BRAND.name} — ${BRAND.tagline}`, `${SITE_URL}`);
+  righe.push("--", `${BRAND.name} · ${BRAND.tagline}`, `${SITE_URL}`);
 
   const footer = input.footer ?? { tipo: "servizio" };
   if (footer.tipo === "newsletter") {

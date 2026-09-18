@@ -97,22 +97,22 @@ export default async function DpaPage() {
         <LegalList
           items={[
             <>
-              <strong className="text-foreground">Cifratura in transito</strong> — tutte le
+              <strong className="text-foreground">Cifratura in transito</strong>: tutte le
               comunicazioni avvengono su TLS. La piattaforma non espone endpoint in chiaro.
             </>,
             <>
-              <strong className="text-foreground">Cifratura a riposo dei segreti</strong> — il token
+              <strong className="text-foreground">Cifratura a riposo dei segreti</strong>: il token
               di accesso WhatsApp e le chiavi API dei gestionali sono cifrati in AES-256-GCM prima
               di essere scritti. Un valore <em>non</em> cifrato viene rifiutato in lettura e non
               usato come ripiego: la protezione non è aggirabile ripristinando un backup precedente.
             </>,
             <>
-              <strong className="text-foreground">Password</strong> — conservate solo come hash
+              <strong className="text-foreground">Password</strong>: conservate solo come hash
               bcrypt. I token di invito e di recupero password esistono nel database unicamente
               come impronta SHA-256, non ricostruibile.
             </>,
             <>
-              <strong className="text-foreground">Isolamento multi-tenant</strong> — ogni tabella
+              <strong className="text-foreground">Isolamento multi-tenant</strong>: ogni tabella
               con dati di agenzia porta la colonna{" "}
               <code className="text-foreground">organizationId</code>, e il filtro è applicato
               <em> nella clausola di interrogazione</em>, non con un controllo a valle. Un
@@ -121,36 +121,36 @@ export default async function DpaPage() {
               dimenticare.
             </>,
             <>
-              <strong className="text-foreground">Separazione dei ruoli</strong> — le operazioni che
+              <strong className="text-foreground">Separazione dei ruoli</strong>: le operazioni che
               riguardano l&apos;agenzia nel suo insieme (abbonamento, identità, scheda agenzia, feed
               verso i portali) sono riservate al Titolare dell&apos;account. I collaboratori
               operano su lead, immobili, documenti e report.
             </>,
             <>
               <strong className="text-foreground">Prevenzione dell&apos;enumerazione degli
-              account</strong> — la richiesta di recupero password restituisce sempre la stessa
+              account</strong>: la richiesta di recupero password restituisce sempre la stessa
               risposta, che l&apos;indirizzo esista o meno, così l&apos;endpoint non può essere
               usato per accertare quali email siano registrate. Nemmeno un guasto interno modifica
               la risposta.
             </>,
             <>
-              <strong className="text-foreground">Autenticazione delle integrazioni</strong> — i
+              <strong className="text-foreground">Autenticazione delle integrazioni</strong>: i
               webhook in ingresso sono autenticati con confronto a tempo costante e sono{" "}
               <em>fail-closed</em>: in assenza del segreto configurato rifiutano chiunque, invece di
               restare aperti.
             </>,
             <>
-              <strong className="text-foreground">Registrazioni audio</strong> — elaborate in
+              <strong className="text-foreground">Registrazioni audio</strong>: elaborate in
               memoria ed eliminate al termine della trascrizione. Non vengono mai scritte su disco.
             </>,
             <>
-              <strong className="text-foreground">Minimizzazione nei log</strong> — non registriamo
+              <strong className="text-foreground">Minimizzazione nei log</strong>: non registriamo
               il testo dei messaggi, il contenuto dei documenti né le credenziali. I numeri di
               telefono compaiono troncati; gli indirizzi IP sono troncati e trasformati in impronta
               prima di essere conservati.
             </>,
             <>
-              <strong className="text-foreground">Avviso di accesso</strong> — un accesso da un
+              <strong className="text-foreground">Avviso di accesso</strong>: un accesso da un
               dispositivo mai visto genera una notifica all&apos;indirizzo dell&apos;utente.
             </>,
             "Il personale autorizzato al trattamento è vincolato alla riservatezza.",
@@ -169,22 +169,22 @@ export default async function DpaPage() {
         <LegalList
           items={[
             <>
-              <strong className="text-foreground">Vercel Inc.</strong> (Stati Uniti) — hosting
+              <strong className="text-foreground">Vercel Inc.</strong> (Stati Uniti): hosting
               dell&apos;applicazione. Esecuzione vincolata alla regione di Francoforte
               (<code className="text-foreground">fra1</code>). EU-U.S. Data Privacy Framework e
               clausole contrattuali standard.
             </>,
             <>
-              <strong className="text-foreground">Supabase</strong> — database PostgreSQL, regione{" "}
+              <strong className="text-foreground">Supabase</strong>: database PostgreSQL, regione{" "}
               <code className="text-foreground">eu-central-1</code> (Francoforte, Germania).
             </>,
             <>
-              <strong className="text-foreground">Anthropic PBC</strong> (Stati Uniti) — modelli di
+              <strong className="text-foreground">Anthropic PBC</strong> (Stati Uniti): modelli di
               AI per qualificazione, estrazione documentale, generazione di annunci e report.
               Clausole contrattuali standard. I contenuti non sono usati per addestrare modelli.
             </>,
             <>
-              <strong className="text-foreground">OpenAI, L.L.C.</strong> (Stati Uniti) —{" "}
+              <strong className="text-foreground">OpenAI, L.L.C.</strong> (Stati Uniti):{" "}
               <strong className="text-foreground">
                 esclusivamente trascrizione (speech-to-text) delle note vocali inoltrate dagli
                 utenti
@@ -193,7 +193,7 @@ export default async function DpaPage() {
               visita. Nessun altro trattamento è affidato a questo fornitore. Base giuridica del
               trasferimento extra-UE:{" "}
               <strong className="text-foreground">
-                EU-U.S. Data Privacy Framework (DPF) e Clausole Contrattuali Standard (SCC) — artt.
+                EU-U.S. Data Privacy Framework (DPF) e Clausole Contrattuali Standard (SCC), artt.
                 45 e 46 GDPR
               </strong>
               .{" "}
@@ -206,16 +206,16 @@ export default async function DpaPage() {
               conserva il solo testo.
             </>,
             <>
-              <strong className="text-foreground">Meta Platforms Ireland Ltd.</strong> (Irlanda) —
+              <strong className="text-foreground">Meta Platforms Ireland Ltd.</strong> (Irlanda):
               WhatsApp Cloud API. In alternativa, sessione su microservizio ospitato da{" "}
               <strong className="text-foreground">Render</strong> (regione di Francoforte).
             </>,
             <>
-              <strong className="text-foreground">Resend</strong> — spedizione delle email di
+              <strong className="text-foreground">Resend</strong>: spedizione delle email di
               servizio.
             </>,
             <>
-              <strong className="text-foreground">Stripe Payments Europe Ltd.</strong> (Irlanda) —
+              <strong className="text-foreground">Stripe Payments Europe Ltd.</strong> (Irlanda):
               pagamenti e fatturazione. Nessun dato di carta transita dai sistemi del Responsabile.
             </>,
           ]}

@@ -36,13 +36,13 @@ export default async function CookiePage() {
         <LegalList
           items={[
             <>
-              <strong className="text-foreground">Cookie di sessione</strong> — mantengono
+              <strong className="text-foreground">Cookie di sessione</strong>: mantengono
               l&apos;accesso autenticato tra una pagina e l&apos;altra. Senza di essi dovresti
               inserire le credenziali a ogni schermata. Sono gestiti dalla libreria di autenticazione
               e scadono con la sessione o alla disconnessione.
             </>,
             <>
-              <strong className="text-foreground">Cookie di sicurezza</strong> — proteggono i form da
+              <strong className="text-foreground">Cookie di sicurezza</strong>: proteggono i form da
               richieste fraudolente (CSRF) e presidiano il flusso di accesso, incluso quello tramite
               Google.
             </>,

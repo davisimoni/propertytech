@@ -57,7 +57,7 @@ export function QuickActions() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">{action.label}</p>
-                  <p className="text-sm text-muted-foreground">Limite raggiunto — esegui l&apos;upgrade</p>
+                  <p className="text-sm text-muted-foreground">Limite raggiunto: esegui l&apos;upgrade</p>
                 </div>
               </button>
             );

@@ -122,7 +122,7 @@ export function buildRoiProspectus(input: RoiProposalInput): string {
   const righe = [
     `Buongiorno ${input.clientName}, le sottopongo un'operazione che potrebbe interessarla:`,
     "",
-    `${PROPERTY_TYPE_LABELS[input.type]} a ${luogo} — ${input.squareMeters} mq`,
+    `${PROPERTY_TYPE_LABELS[input.type]} a ${luogo}, ${input.squareMeters} mq`,
     `${input.kind === "ASTA" ? "Offerta minima" : "Prezzo"}: ${soldi(input.priceEur)}`,
   ];
 
@@ -143,7 +143,7 @@ export function buildRoiProspectus(input: RoiProposalInput): string {
   }
   if (roi.grossYieldPct !== null && input.monthlyRentEur !== null) {
     righe.push(
-      `Canone atteso: ${soldi(input.monthlyRentEur)} al mese — rendimento lordo ${roi.grossYieldPct}% annuo`
+      `Canone atteso: ${soldi(input.monthlyRentEur)} al mese, rendimento lordo ${roi.grossYieldPct}% annuo`
     );
   }
 

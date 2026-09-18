@@ -312,7 +312,7 @@ export function PortalFeedPanel({
                   ? "Un immobile pubblicato non ha il CAP"
                   : `${missingCap} immobili pubblicati non hanno il CAP`}
                 : i portali lo richiedono di norma e senza di esso possono scartare
-                l&apos;annuncio — il resto del feed resta valido. Lo compili dalla scheda, qui
+                l&apos;annuncio. Il resto del feed resta valido. Lo compili dalla scheda, qui
                 sotto.
               </span>
             </p>

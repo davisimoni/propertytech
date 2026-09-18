@@ -8,7 +8,7 @@ import type { ChatMessage } from "@/lib/whatsapp/types";
 import { cn } from "@/lib/utils";
 
 const DEMO_CLIENT = "Mario Rossi";
-const DEMO_PROPERTY = "Rif. A102 — Trilocale Via Roma 12";
+const DEMO_PROPERTY = "Rif. A102, Trilocale Via Roma 12";
 
 interface ExtractedFields {
   mortgageApproved: boolean | null;

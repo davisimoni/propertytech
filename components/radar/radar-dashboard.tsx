@@ -90,7 +90,7 @@ export function RadarDashboard({ item }: { item: RadarItem }) {
       <Riquadro
         icona={TrendingUp}
         titolo="Margine stimato"
-        spiegazione="Valore di mercato meno il capitale investito (offerta minima + imposte + sanatoria). Usa gli stessi numeri del simulatore, quindi cambia quando li correggi lì. Due dei valori di partenza sono ipotesi nostre dichiarate — imposte al 9%, resa locativa al 5% — non dati della perizia."
+        spiegazione="Valore di mercato meno il capitale investito (offerta minima + imposte + sanatoria). Usa gli stessi numeri del simulatore, quindi cambia quando li correggi lì. Due dei valori di partenza sono ipotesi nostre dichiarate (imposte al 9%, resa locativa al 5%), non dati della perizia."
         nota={
           conti.flipMarginEur === null
             ? "Manca il valore di mercato"

@@ -139,7 +139,7 @@ export function UsageWidget({ variant = "full", canPurchase = false }: UsageWidg
           <LimitBadge />
         ) : (
           <span className="hidden text-muted-foreground sm:inline">
-            — {formatCount(data.whatsapp.used)}/{formatLimit(data.whatsapp.limit)} conversazioni WA
+            · {formatCount(data.whatsapp.used)}/{formatLimit(data.whatsapp.limit)} conversazioni WA
             usate
           </span>
         )}

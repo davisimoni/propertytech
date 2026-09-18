@@ -63,7 +63,7 @@ function escapeICalText(value: string): string {
 }
 
 function buildSummary(appointment: AppointmentDetails): string {
-  return `Visita ${appointment.propertyRef} — ${appointment.clientName}`;
+  return `Visita ${appointment.propertyRef}, ${appointment.clientName}`;
 }
 
 function buildDescription(appointment: AppointmentDetails): string {

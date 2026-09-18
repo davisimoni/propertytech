@@ -231,7 +231,7 @@ export function DocumentExtractor() {
                 categoria e rendita, e ti segnala cosa manca o non torna.
               </p>
               <p className="mt-1.5 text-xs text-muted-foreground">
-                Visura Catastale, Planimetria, Atto di Provenienza o APE — solo PDF, max 15 MB
+                Visura Catastale, Planimetria, Atto di Provenienza o APE (solo PDF, max 15 MB)
               </p>
                 {/* Il caso in cui l'estrazione riesce peggio è la scansione
                     storta o sbiadita: dirlo prima evita che l'agente pensi

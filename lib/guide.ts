@@ -73,7 +73,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     id: "notizie-whatsapp",
     title: "Filtro notizie su WhatsApp",
     intro:
-      "L'assistente risponde in pochi secondi a chi scrive dai portali, a qualsiasi ora. Chiede una cosa alla volta — prima cosa cerca e dove, poi il budget, poi mutuo, vendita e tempistiche — e propone gli orari liberi della tua agenda.",
+      "L'assistente risponde in pochi secondi a chi scrive dai portali, a qualsiasi ora. Chiede una cosa alla volta (prima cosa cerca e dove, poi il budget, poi mutuo, vendita e tempistiche) e propone gli orari liberi della tua agenda.",
     steps: [
       {
         action: "Guarda la pipeline in Qualifica Lead",
@@ -83,7 +83,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         action: "Passa alla vista Pipeline per lavorare per fasi",
         detail:
-          "La board a colonne — Nuovo, Qualificato, Visita, Proposta, Chiuso — si aggiorna trascinando le schede o dal selettore su ciascuna.",
+          "La board a colonne (Nuovo, Qualificato, Visita, Proposta, Chiuso) si aggiorna trascinando le schede o dal selettore su ciascuna.",
       },
       {
         action: "Prova l'assistente prima di collegarlo",
@@ -102,7 +102,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       "L'assistente fissa l'appuntamento da solo. Il cliente puo' scegliere fra gli orari proposti oppure indicarne uno suo (\"domani alle 11:40\"): se cade in una fascia libera viene confermato subito, altrimenti riceve i due o tre orari liberi piu' vicini a quello che aveva chiesto.",
       "Gli orari proposti tengono conto sia delle fasce che hai aperto in Impostazioni → Agende sia degli impegni reali sul tuo Google o Outlook collegato: l'assistente non propone un orario in cui sei gia' occupato.",
       "A visita fissata trovi l'evento sul tuo calendario, la scheda passa a «Visita Programmata» e l'appuntamento compare fra le prossime visite in Dashboard.",
-      "Al cliente parte anche una email di conferma, solo se conosciamo il suo indirizzo — l'assistente lo raccoglie se il cliente lo scrive, ma non lo chiede apposta: la conferma vera l'ha gia' ricevuta su WhatsApp.",
+      "Al cliente parte anche una email di conferma, solo se conosciamo il suo indirizzo: l'assistente lo raccoglie se il cliente lo scrive, ma non lo chiede apposta: la conferma vera l'ha gia' ricevuta su WhatsApp.",
       "Quando l'assistente porta un contatto a «Qualificato» ricevi un'email con nome, telefono, fonte, immobile di interesse e note di qualificazione, e una notifica push sui dispositivi su cui le hai attivate. È l'unico passaggio della pipeline che genera una notifica: la riceve l'agente assegnato, altrimenti il titolare.",
       "Le notifiche push si attivano per dispositivo, dal banner in Dashboard o da Impostazioni → Privacy & Normativa. Su iPhone e iPad funzionano con PropertyTech aggiunta alla schermata Home.",
       "I crediti WhatsApp si consumano all'avvio della conversazione, non a ogni messaggio scambiato.",
@@ -126,7 +126,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       },
     ],
     notes: [
-      "Dopo DUE messaggi consecutivi che non riguardano immobili — un messaggio personale, una pubblicità, un numero sbagliato — l'assistente si sospende da solo su quel contatto e la scheda lo segnala come in pausa. Il contatore si azzera a ogni messaggio pertinente.",
+      "Dopo DUE messaggi consecutivi che non riguardano immobili (un messaggio personale, una pubblicità, un numero sbagliato), l'assistente si sospende da solo su quel contatto e la scheda lo segnala come in pausa. Il contatore si azzera a ogni messaggio pertinente.",
       "Il filtro è tarato per lasciar passare nel dubbio: un \"Buongiorno\" o una frase ambigua vengono trattati come richieste vere. Meglio una risposta di troppo che il silenzio davanti a un cliente.",
       "Il comando funziona solo se scritto da solo: una frase che contiene !pausa in mezzo ad altro resta un messaggio normale e viene inviata al cliente.",
     ],
@@ -140,7 +140,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         action: "Scegli l'immobile dalla tendina, se il QR va su un cartello",
         detail:
-          "Il riferimento finisce da solo nel messaggio precompilato e il QR si aggiorna mentre guardi. Chi lo inquadra scrive citando quell'immobile, e l'assistente risponde con i dati veri — prezzo, metratura, zona — invece di chiedere di quale casa si tratti a una persona che ha il cartello davanti.",
+          "Il riferimento finisce da solo nel messaggio precompilato e il QR si aggiorna mentre guardi. Chi lo inquadra scrive citando quell'immobile, e l'assistente risponde con i dati veri (prezzo, metratura, zona) invece di chiedere di quale casa si tratti a una persona che ha il cartello davanti.",
       },
       {
         action: "Scarica il PNG o stampa direttamente",
@@ -150,7 +150,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     notes: [
       "Chi scansiona e scrive diventa una notizia con fonte \"QR in vetrina\", distinta dai portali: così vedi se quel cartello sta davvero producendo contatti.",
       "Senza immobile selezionato il messaggio resta generico e va bene per la vetrina o un volantino: l'assistente chiede lui cosa si sta cercando.",
-      "L'assistente riferisce solo i dati che hai in scheda. Su ciò che non c'è — spese condominiali, anno di costruzione, trattabilità del prezzo — dice che ci pensi tu, invece di inventare un numero su un immobile vero.",
+      "L'assistente riferisce solo i dati che hai in scheda. Su ciò che non c'è (spese condominiali, anno di costruzione, trattabilità del prezzo) dice che ci pensi tu, invece di inventare un numero su un immobile vero.",
     ],
   },
   {
@@ -235,7 +235,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     id: "fascicolo",
     title: "Fascicolo documentale",
     intro:
-      "L'archivio dei documenti di un incarico, dentro la scheda a cui appartengono: quello dell'immobile nel Portafoglio Immobili, quello del cliente nella scheda del contatto. Serve a due cose che una cartella condivisa non fa — dirti cosa manca prima del rogito, e avvisarti prima che un documento scada.",
+      "L'archivio dei documenti di un incarico, dentro la scheda a cui appartengono: quello dell'immobile nel Portafoglio Immobili, quello del cliente nella scheda del contatto. Serve a due cose che una cartella condivisa non fa: dirti cosa manca prima del rogito, e avvisarti prima che un documento scada.",
     steps: [
       {
         action: "Apri la scheda e vai al Fascicolo",
@@ -250,7 +250,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         action: "Metti la scadenza quando te la chiede",
         detail:
-          "Il campo compare solo per i documenti che scadono davvero — APE, conformità impianti, incarico e proposta. Sugli altri non compare apposta: una scadenza inventata su un atto di provenienza è peggio di nessuna scadenza.",
+          "Il campo compare solo per i documenti che scadono davvero: APE, conformità impianti, incarico e proposta. Sugli altri non compare apposta: una scadenza inventata su un atto di provenienza è peggio di nessuna scadenza.",
       },
       {
         action: "Guarda «Manca un documento»",
@@ -261,7 +261,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     notes: [
       "L'avviso di scadenza arriva sessanta giorni prima, non trenta: rifare un APE richiede settimane, e un avviso che arriva a rogito già fissato non serve a niente.",
       "Ogni documento nasce con una conservazione di dieci anni, come impone la legge antiriciclaggio agli agenti immobiliari. Il termine viene calcolato al caricamento e resta quello, anche se la norma cambia dopo.",
-      "Puoi cancellare quello che vuoi — i dati sono tuoi, e un cliente può chiederti di rimuovere i suoi — ma su un documento ancora in conservazione ti viene chiesta una conferma. Serve a fermare il clic sbagliato, non la decisione presa.",
+      "Puoi cancellare quello che vuoi, perché i dati sono tuoi e un cliente può chiederti di rimuovere i suoi, ma su un documento ancora in conservazione ti viene chiesta una conferma. Serve a fermare il clic sbagliato, non la decisione presa.",
       "Si caricano PDF, JPEG, PNG e WebP fino a 5 MB. Per ora è pensato per la singola scansione, non per riversarci l'archivio storico dell'agenzia.",
       "Il Fascicolo è incluso dal piano Starter in su. Non c'è nel Trial: una conservazione decennale promessa su un account di prova che può sparire in due settimane non avrebbe senso.",
       "NON è uno strumento di conformità antiriciclaggio e non certifica niente. Ti aiuta a tenere in ordine i documenti e a non farteli scadere; la valutazione del rischio, la segnalazione alla UIF e la responsabilità di quanto dichiari restano tue.",
@@ -271,15 +271,15 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     id: "annunci",
     title: "Annunci, social e portali",
     intro:
-      "Da quattro righe sull'immobile — o dal link di un annuncio già online — ottieni il testo per i portali, il post per Instagram e Facebook e lo script del Reel scena per scena.",
+      "Da quattro righe sull'immobile, o dal link di un annuncio già online, ottieni il testo per i portali, il post per Instagram e Facebook e lo script del Reel scena per scena.",
     steps: [
       {
-        action: "Da link — per il tuo sito, i portali locali e il gestionale",
+        action: "Da link, per il tuo sito, i portali locali e il gestionale",
         detail:
           "Incolla l'indirizzo e premi «Estrai da Link». È la via più rapida quando l'annuncio è già online: sito della tua agenzia, portali locali, schede pubblicate dal gestionale, siti dei costruttori. Legge anche le pagine che si compongono da sole dopo l'apertura.",
       },
       {
-        action: "Da testo — la strada certa per Immobiliare.it e Idealista",
+        action: "Da testo, la strada certa per Immobiliare.it e Idealista",
         detail:
           "Quei due portali respingono le letture automatiche: non perdere il tentativo col link. Seleziona il testo dell'annuncio, incollalo nel riquadro sotto e premi «Genera». Funziona sempre, ed è anche l'unico modo di partire da un'email, un PDF o una scheda del gestionale. Non devi premere altro prima: i campi della scheda di portafoglio si riempiono da soli subito dopo.",
       },
@@ -327,7 +327,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       "Un incarico SCADUTO esce automaticamente dal feed verso i portali, anche se l'immobile risulta ancora in vendita: senza mandato valido l'agenzia non ha titolo per pubblicizzarlo.",
       "Una scheda SENZA data di scadenza non viene toccata. E' un mandato non ancora registrato, non uno scaduto, e trattarli allo stesso modo toglierebbe dai portali immobili perfettamente regolari.",
       "Nella card compare un avviso: ambra entro trenta giorni, rosso a scadenza superata.",
-      "Sul selettore di stato: \"In vendita\" e \"Sotto proposta\" restano pubblicati — un compromesso non e' un rogito, e ritirare l'annuncio durante la trattativa lascia senza alternative se salta. Bozza, Venduto e Archiviato non vengono pubblicati.",
+      "Sul selettore di stato: \"In vendita\" e \"Sotto proposta\" restano pubblicati: un compromesso non e' un rogito, e ritirare l'annuncio durante la trattativa lascia senza alternative se salta. Bozza, Venduto e Archiviato non vengono pubblicati.",
     ],
   },
   {
@@ -363,7 +363,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
     id: "radar",
     title: "Analisi & Due Diligence Aste",
     intro:
-      "Le occasioni che stai seguendo — aste giudiziarie e ribassi di mercato — con la perizia letta dall'AI, i conti già fatti e i clienti in pipeline che potrebbero comprarle.",
+      "Le occasioni che stai seguendo (aste giudiziarie e ribassi di mercato), con la perizia letta dall'AI, i conti già fatti e i clienti in pipeline che potrebbero comprarle.",
     steps: [
       {
         action: "Registra il lotto e carica la perizia",
@@ -453,14 +453,14 @@ export const GUIDE_SECTIONS: GuideSection[] = [
       {
         action: "Controlla le postazioni rimaste prima di invitare",
         detail:
-          "Trial e Starter ne hanno una — quella del titolare — Professional tre, Enterprise nessun limite. Se sono finite l'invito non parte e ti viene detto perché: si sale di piano.",
+          "Trial e Starter ne hanno una, quella del titolare. Professional tre, Enterprise nessun limite. Se sono finite l'invito non parte e ti viene detto perché: si sale di piano.",
       },
     ],
     notes: [
       "Anche gli inviti ancora da accettare occupano una postazione. Altrimenti basterebbe mandarne dieci di fila per superare il limite, e i primi ad accorgersene sarebbero i colleghi rimasti fuori.",
       "Abbonamento, fatturazione e cambio piano sono riservati al titolare: un collaboratore non vede nemmeno la scheda.",
       "Il badge rosso \"Limiti raggiunti\" compare solo quando i crediti sono davvero esauriti, non quando una funzione non è compresa nel tuo piano.",
-      "Il piano Trial include 15 conversazioni totali — non al mese — e 5 documenti, e non richiede carta di credito.",
+      "Il piano Trial include 15 conversazioni totali, non al mese, e 5 documenti, e non richiede carta di credito.",
       "Le conversazioni incluse: 150 al mese con Starter, 500 con Professional, 2.500 con Enterprise. Ripartono ogni mese alla data di attivazione dell'abbonamento, anche con la fatturazione annuale.",
       "Oltre l'incluso, l'Enterprise mensile prosegue a 0,05 € a conversazione, addebitati nella fattura del rinnovo. Su Starter, Professional ed Enterprise annuale si acquistano pacchetti da 100 conversazioni, che restano finché non li usi.",
       "L'analisi dei documenti è illimitata su tutti i piani a pagamento; il Trial ne include cinque.",

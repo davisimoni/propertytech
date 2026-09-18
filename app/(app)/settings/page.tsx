@@ -41,7 +41,7 @@ export default async function SettingsPage() {
       <div>
         <h1 className="flex items-center gap-1.5 text-xl font-semibold text-foreground">
           Impostazioni &amp; Piano
-          <InfoTip label="Da qui passano le tre cose che fanno funzionare il resto: il piano con i suoi limiti di utilizzo, i dati dell'agenzia che finiscono nei documenti e nei messaggi ai clienti, e i collegamenti verso l'esterno — WhatsApp, agende, gestionale, portali." />
+          <InfoTip label="Da qui passano le tre cose che fanno funzionare il resto: il piano con i suoi limiti di utilizzo, i dati dell'agenzia che finiscono nei documenti e nei messaggi ai clienti, e i collegamenti verso l'esterno: WhatsApp, agende, gestionale, portali." />
         </h1>
         <p className="text-sm text-muted-foreground">
           Gestisci il piano della tua agenzia e i limiti di utilizzo.

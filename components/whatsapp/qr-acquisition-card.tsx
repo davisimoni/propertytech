@@ -151,7 +151,7 @@ export function QrAcquisitionCard() {
                 className="input-field mt-1"
                 aria-describedby="qr-property-hint"
               >
-                <option value="">Nessuno — messaggio generico</option>
+                <option value="">Nessuno (messaggio generico)</option>
                 {properties.map((property) => (
                   <option key={property.id} value={property.reference}>
                     {property.reference} · {property.title}

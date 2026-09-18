@@ -28,7 +28,7 @@ import { prisma } from "@/lib/prisma";
 
 /** Titolo di un report vocale, nella stessa forma che usa l'elenco. */
 function voiceReportTitle(propertyRef: string, sellerName: string | null): string {
-  return sellerName ? `${propertyRef} — ${sellerName}` : propertyRef;
+  return sellerName ? `${propertyRef}, ${sellerName}` : propertyRef;
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {

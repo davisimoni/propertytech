@@ -103,7 +103,7 @@ export function LeadAssignment({
           {members.map((member) => (
             <option key={member.id} value={member.id}>
               {memberLabel(member)}
-              {member.role === "OWNER" ? " — titolare" : ""}
+              {member.role === "OWNER" ? " (titolare)" : ""}
             </option>
           ))}
         </select>

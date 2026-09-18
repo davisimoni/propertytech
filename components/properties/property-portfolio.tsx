@@ -346,7 +346,7 @@ export function PropertyPortfolio({ currentRole }: { currentRole: UserRole }) {
 
                       <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                         Rif. {property.reference} · {PROPERTY_TYPE_LABELS[property.type]} ·{" "}
-                        {property.zona ? `${property.comune} — ${property.zona}` : property.comune}
+                        {property.zona ? `${property.comune}, ${property.zona}` : property.comune}
                       </span>
 
                       <span className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -433,7 +433,7 @@ export function PropertyPortfolio({ currentRole }: { currentRole: UserRole }) {
                       {property.matches.length === 0 ? (
                         <p className="mt-2 text-sm text-muted-foreground">
                           Nessun cliente in archivio cerca qualcosa del genere. Gli abbinamenti
-                          nascono dalle preferenze registrate in scheda contatto — zona, budget,
+                          nascono dalle preferenze registrate in scheda contatto: zona, budget,
                           tipologia.
                         </p>
                       ) : (

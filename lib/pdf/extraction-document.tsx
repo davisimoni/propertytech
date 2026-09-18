@@ -23,7 +23,7 @@ export function ExtractionDocument({
 
   return (
     <Document
-      title={`Scheda catastale — ${immobile.indirizzo ?? immobile.comune ?? "immobile"}`}
+      title={`Scheda catastale: ${immobile.indirizzo ?? immobile.comune ?? "immobile"}`}
       author={branding.legalName ?? branding.agencyName}
     >
       <Page size="A4" style={pdfStyles.page}>

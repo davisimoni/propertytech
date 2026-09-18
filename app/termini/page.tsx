@@ -78,8 +78,8 @@ export default async function TerminiPage() {
           dell&apos;80% e del 90% della dotazione di un contatore, e al suo esaurimento, inviamo una
           comunicazione al Titolare dell&apos;account. Ogni soglia genera un solo avviso per periodo
           di fatturazione. Gli avvisi sono un servizio di cortesia: la responsabilità di monitorare
-          il consumo resta dell&apos;Agenzia, e il mancato recapito di un avviso — per una casella
-          piena, un filtro antispam o un indirizzo non più valido — non dà diritto a rimborsi né
+          il consumo resta dell&apos;Agenzia, e il mancato recapito di un avviso (per una casella
+          piena, un filtro antispam o un indirizzo non più valido) non dà diritto a rimborsi né
           proroghe.
         </p>
         <p>
@@ -136,8 +136,8 @@ export default async function TerminiPage() {
         </p>
         <p>
           Adottiamo misure tecniche per ridurre il rischio che il numero collegato venga
-          classificato come automazione — ritardo di risposta compatibile con la digitazione umana e
-          limite agli invii verso lo stesso contatto — ma{" "}
+          classificato come automazione (ritardo di risposta compatibile con la digitazione umana e
+          limite agli invii verso lo stesso contatto), ma{" "}
           <strong className="text-foreground">nessuna misura tecnica può rendere conforme un uso
           che non lo è</strong>: le decisioni di Meta sui singoli numeri restano fuori dal nostro
           controllo e non sono a noi imputabili.
@@ -159,8 +159,8 @@ export default async function TerminiPage() {
 
       <LegalSection title="7. Natura degli output generati dall'AI">
         <p>
-          I contenuti prodotti dal servizio — dati estratti dai documenti, annunci, post, script e
-          report — sono <strong className="text-foreground">proposte automatiche</strong> soggette a
+          I contenuti prodotti dal servizio (dati estratti dai documenti, annunci, post, script e
+          report) sono <strong className="text-foreground">proposte automatiche</strong> soggette a
           verifica. Possono contenere imprecisioni od omissioni, specialmente su documenti poco
           leggibili o audio di scarsa qualità. Non costituiscono consulenza legale, fiscale,
           notarile o di stima immobiliare, e non sostituiscono il controllo sulle fonti ufficiali. La
@@ -176,7 +176,7 @@ export default async function TerminiPage() {
         <p>
           <strong className="text-foreground">Manleva.</strong> L&apos;Agenzia tiene indenne{" "}
           {LEGAL_ENTITY.name} da pretese di terzi derivanti da contenuti generati dal servizio e
-          diffusi, pubblicati o comunicati dall&apos;Agenzia senza la verifica di cui sopra — a
+          diffusi, pubblicati o comunicati dall&apos;Agenzia senza la verifica di cui sopra. A
           titolo esemplificativo: un dato catastale errato riportato in un annuncio, una valutazione
           o una descrizione non corrispondente allo stato dell&apos;immobile, un messaggio inviato a
           un destinatario che non aveva titolo per riceverlo.
@@ -206,7 +206,7 @@ export default async function TerminiPage() {
           items={[
             "La sintesi della perizia riporta ciò che il documento dice, non ciò che il perito ha concluso. Non sostituisce la lettura integrale della perizia, l'esame del fascicolo in cancelleria, la visita al bene né il parere del tecnico di fiducia.",
             "L'indicatore di rischio (verde, giallo, rosso) è calcolato con criteri dichiarati e mostrati accanto al colore. Nel dubbio resta giallo: segnala un punto da verificare di persona, mai un via libera.",
-            "Il simulatore economico si apre con valori di partenza, e due di questi sono ipotesi nostre dichiarate, non dati della perizia: le imposte di trasferimento sono calcolate al 9% del prezzo (imposta di registro senza agevolazione prima casa, che scende al 2% quando l'agevolazione spetta), e il canone di locazione atteso deriva da un'ipotesi di resa lorda del 5% annua sul valore di mercato — non è una rilevazione dei canoni della zona.",
+            "Il simulatore economico si apre con valori di partenza, e due di questi sono ipotesi nostre dichiarate, non dati della perizia: le imposte di trasferimento sono calcolate al 9% del prezzo (imposta di registro senza agevolazione prima casa, che scende al 2% quando l'agevolazione spetta), e il canone di locazione atteso deriva da un'ipotesi di resa lorda del 5% annua sul valore di mercato, non da una rilevazione dei canoni della zona.",
             "La stima delle imposte non comprende compenso del delegato alla vendita, spese di custodia, oneri di cancellazione delle formalità pregiudizievoli, imposte ipotecarie e catastali in misura fissa e ogni altro onere che varia per tribunale e per procedura.",
             "Capitale investito, margine sulla rivendita e rendimento sono il risultato aritmetico dei valori presenti nei campi: cambiano quando l'Agenzia li corregge, e sono corretti solo quanto lo sono quei valori.",
           ]}

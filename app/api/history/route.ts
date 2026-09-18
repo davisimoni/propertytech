@@ -88,7 +88,7 @@ export async function GET(request: Request) {
       id: report.id,
       kind: "VOICE_REPORT",
       title: report.sellerName
-        ? `${report.propertyRef} — ${report.sellerName}`
+        ? `${report.propertyRef}, ${report.sellerName}`
         : report.propertyRef,
       preview: toPreview(report.transcript),
       createdAt: report.createdAt.toISOString(),

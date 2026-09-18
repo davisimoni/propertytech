@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Check, Clipboard, Gift, Users } from "lucide-react";
 import { SkeletonList } from "@/components/shared/skeleton";
+import { InfoTip } from "@/components/shared/info-tip";
 import type { ReferralStatsResponse } from "@/app/api/referrals/route";
 import { cn } from "@/lib/utils";
 
@@ -70,11 +71,12 @@ export function ReferralPanel() {
         </div>
         <div>
           <h2 className="text-sm font-semibold text-foreground">Programma Referral</h2>
-          <p className="text-sm text-muted-foreground">
-            Invita un&apos;agenzia: non appena attiva un piano a pagamento con il tuo link,
-            ottieni il {stats.referrerDiscountPercent}% di sconto ricorrente per sempre sul tuo
-            abbonamento. Lei riceve il {stats.refereeDiscountPercent}% di sconto di benvenuto sul
-            suo primo abbonamento — un vantaggio per entrambe.
+          <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
+            <span className="min-w-0">
+              Chi si abbona col tuo link riceve il {stats.refereeDiscountPercent}% di benvenuto, e
+              tu il {stats.referrerDiscountPercent}% di sconto ricorrente.
+            </span>
+            <InfoTip label="Lo sconto sul tuo abbonamento parte quando l'agenzia invitata attiva un piano a pagamento, e resta per tutta la durata dell'abbonamento. Il suo vale sul primo pagamento." />
           </p>
         </div>
       </div>

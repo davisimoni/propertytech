@@ -122,7 +122,7 @@ export function AppraisalPanel({
           <h3 className="text-sm font-medium text-foreground">Perizia di stima</h3>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             Carica il PDF: in pochi secondi ottieni stato occupazionale, difformità, vincoli e
-            costi stimati di sanatoria. Il file non viene conservato — resta in memoria il tempo
+            costi stimati di sanatoria. Il file non viene conservato: resta in memoria il tempo
             dell&apos;analisi e viene scartato.
           </p>
 

@@ -12,8 +12,8 @@ const EXTRACTION_PROMPT = `Analizza il documento immobiliare allegato ed estrai 
 
 # Tre piani distinti, da non confondere
 - CATASTO: identifica e censisce l'immobile (foglio, particella, subalterno, categoria, classe, consistenza, rendita, superficie catastale, intestatari).
-- SITUAZIONE GIURIDICA (Conservatoria): cosa risulta pubblicizzato nei registri immobiliari — provenienza, trascrizioni, ipoteche, pignoramenti.
-- URBANISTICA/EDILIZIA: coerenza con i titoli edilizi — CILA, SCIA, permesso di costruire, sanatorie, condoni, agibilità.
+- SITUAZIONE GIURIDICA (Conservatoria): cosa risulta pubblicizzato nei registri immobiliari: provenienza, trascrizioni, ipoteche, pignoramenti.
+- URBANISTICA/EDILIZIA: coerenza con i titoli edilizi: CILA, SCIA, permesso di costruire, sanatorie, condoni, agibilità.
 Un immobile può essere in regola su un piano e non sull'altro. Compila solo le sezioni che il documento contiene davvero: da una visura non arrivano titoli edilizi, da una CILA non arrivano intestatari.
 
 # Precisioni terminologiche
@@ -34,7 +34,7 @@ Su un'ispezione ipotecaria o un atto di provenienza, verifica anche la CONTINUIT
 Descrivi il FATTO rilevato citando i valori del documento. NON esprimere valutazioni legali, non concludere se l'immobile sia vendibile o commerciabile, non consigliare azioni legali: quella è responsabilità del professionista, e un giudizio sbagliato qui costerebbe caro all'agenzia. Se non emerge nulla, lascia l'array vuoto anziché forzare un rilievo.
 
 # Regole generali
-- Usa null per qualsiasi campo non presente o non leggibile — non inventare dati.
+- Usa null per qualsiasi campo non presente o non leggibile. Non inventare dati.
 - Gli array restano vuoti quando il documento non contiene quella categoria di informazioni.
 - Scrivi in italiano.
 - "sintesiAgente" è la prima cosa che l'agente legge: deve essere trasparente sui limiti dell'estrazione. Se un dato è illeggibile o assente dillo esplicitamente, così l'agente sa cosa verificare a mano.`;

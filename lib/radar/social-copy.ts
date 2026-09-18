@@ -73,7 +73,7 @@ export function buildSocialCopy(input: SocialCopyInput, variant: CopyVariant): s
 
   if (variant === "social") {
     const righe = [
-      `${input.kind === "ASTA" ? "OPPORTUNITÀ ALL'ASTA" : "NUOVO PREZZO"} — ${luogo}`,
+      `${input.kind === "ASTA" ? "OPPORTUNITÀ ALL'ASTA" : "NUOVO PREZZO"}: ${luogo}`,
       "",
       `${PROPERTY_TYPE_LABELS[input.type]} di ${input.squareMeters} mq.`,
       input.kind === "ASTA"
@@ -107,7 +107,7 @@ export function buildSocialCopy(input: SocialCopyInput, variant: CopyVariant): s
     righe.push(
       "",
       "Ti accompagniamo noi in tutte le fasi: documentazione, visita e presentazione dell'offerta.",
-      `Scrivici per i dettagli. — ${input.agencyName}`
+      `Scrivici per i dettagli. ${input.agencyName}`
     );
 
     return righe.join("\n");
@@ -115,7 +115,7 @@ export function buildSocialCopy(input: SocialCopyInput, variant: CopyVariant): s
 
   // --- Investitori ---------------------------------------------------------
   const righe = [
-    `Opportunità d'investimento — ${luogo}`,
+    `Opportunità d'investimento a ${luogo}`,
     "",
     `${PROPERTY_TYPE_LABELS[input.type]} di ${input.squareMeters} mq, ${tipo} ${
       input.kind === "ASTA" ? "in vendita giudiziaria" : "a prezzo ribassato"
@@ -141,7 +141,7 @@ export function buildSocialCopy(input: SocialCopyInput, variant: CopyVariant): s
   if (roi.flipRoiPct !== null) {
     righe.push(
       "",
-      `Rivendita a lavori conclusi: ${soldi(input.marketValueEur!)} — margine potenziale ${roi.flipRoiPct}%.`
+      `Rivendita a lavori conclusi: ${soldi(input.marketValueEur!)}, margine potenziale ${roi.flipRoiPct}%.`
     );
   }
   if (roi.grossYieldPct !== null) {
@@ -154,7 +154,7 @@ export function buildSocialCopy(input: SocialCopyInput, variant: CopyVariant): s
     "",
     "Stime lorde: non comprendono interessi su finanziamenti, tempi di aggiudicazione e di cantiere, costi di gestione, sfitto né imposte sulla plusvalenza.",
     "",
-    `Documentazione completa su richiesta. — ${input.agencyName}`,
+    `Documentazione completa su richiesta. ${input.agencyName}`,
     "",
     "---",
     AI_DISCLAIMER_SHORT

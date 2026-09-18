@@ -5,6 +5,7 @@ import type { UserRole } from "@prisma/client";
 import { Bot, Check, Loader2 } from "lucide-react";
 import { useToast } from "@/components/shared/toast-provider";
 import { SkeletonList } from "@/components/shared/skeleton";
+import { InfoTip } from "@/components/shared/info-tip";
 
 interface AgencyProfile {
   address: string | null;
@@ -136,10 +137,12 @@ export function AgencyProfilePanel({ currentRole }: { currentRole: UserRole }) {
           <h2 className="text-sm font-semibold text-foreground">
             Cosa può dire l&apos;assistente ai clienti
           </h2>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Quando un cliente chiede dove siete o quando siete aperti, l&apos;assistente risponde
-            con questi dati e poi riprende la qualificazione. Sono tutti facoltativi: quello che
-            lasci vuoto non viene inventato — l&apos;assistente dice che lo farà sapere un agente.
+          <p className="mt-1 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+            <span className="min-w-0">
+              L&apos;assistente risponde con questi dati a chi chiede dove siete o quando siete
+              aperti.
+            </span>
+            <InfoTip label="Sono tutti facoltativi. Quello che lasci vuoto non viene inventato: l'assistente dice che lo farà sapere un agente." />
           </p>
         </div>
       </div>

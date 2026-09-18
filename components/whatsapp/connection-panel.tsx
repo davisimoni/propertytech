@@ -27,6 +27,7 @@ import {
 } from "@/components/whatsapp/meta-connect-button";
 import { QrConnect } from "@/components/whatsapp/qr-connect";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { InfoTip } from "@/components/shared/info-tip";
 import { useToast } from "@/components/shared/toast-provider";
 import { cn } from "@/lib/utils";
 
@@ -75,6 +76,15 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
   // Token) non devono comparire alla prima apertura della schermata, solo a
   // chi sceglie esplicitamente di configurare le credenziali a mano.
   const [showAdvanced, setShowAdvanced] = useState(false);
+  /**
+   * Impostazioni tecniche del canale (Verify Token, indirizzi dei webhook).
+   *
+   * Chiuse anche queste, e per lo stesso motivo: servono una volta sola, a chi
+   * ha collegato il numero a mano. Lasciate aperte occupavano su telefono piu'
+   * spazio della parte che l'agenzia usa davvero, cioe' il collegamento dei
+   * portali, e facevano sembrare tecnica una schermata che non lo e'.
+   */
+  const [showChannelSetup, setShowChannelSetup] = useState(false);
   /**
    * Disconnessione in attesa di conferma.
    *
@@ -270,6 +280,37 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
     setEmailCopied(true);
     setTimeout(() => setEmailCopied(false), 2000);
   }
+  /**
+   * I campi tecnici del canale, gia' risolti per il provider attivo.
+   *
+   * Raccolti qui e non nel JSX perche' erano tre condizioni annidate che
+   * producevano, in fondo, un elenco di etichette da copiare: tenerle fuori
+   * rende visibile a colpo d'occhio che l'accordion e' vuoto per il
+   * collegamento via QR, dove non c'e' niente da configurare a mano.
+   */
+  const impostazioniTecniche: { label: string; value: string; icon: typeof Mail }[] = [];
+  if (provider === "meta" && config.webhookVerifyToken) {
+    impostazioniTecniche.push({
+      label: "Verify Token (Meta Cloud API)",
+      value: config.webhookVerifyToken,
+      icon: KeyRound,
+    });
+  }
+  if (provider === "twilio") {
+    impostazioniTecniche.push({
+      label: "Webhook Twilio (When a message comes in)",
+      value: `${origin}${WHATSAPP_PROVIDERS.twilio.webhookPathHint}`,
+      icon: Link2,
+    });
+  }
+  if (provider === "generic") {
+    impostazioniTecniche.push({
+      label: "Webhook messaggi in arrivo (relay)",
+      value: `${origin}${WHATSAPP_PROVIDERS.generic.webhookPathHint}?token=${config.inboundToken}`,
+      icon: Link2,
+    });
+  }
+
   const canSave =
     provider === "twilio"
       ? Boolean(twilioAccountSid && twilioAuthToken && twilioWhatsAppNumber)
@@ -281,7 +322,12 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
     <>
       <section className="rounded-xl border border-border bg-card p-4 md:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold text-foreground">Configurazione WhatsApp &amp; Webhook Portali</h2>
+        <h2 className="text-sm font-semibold text-foreground">WhatsApp e portali</h2>
+        {/* Il pallino e' disegnato, non e' piu' un'emoji: le emoji cambiano
+            forma e colore da un sistema all'altro, e su Windows quella rossa
+            arrivava arancione, cioe' la tinta che altrove significa "in
+            corso". Un quadratino di colore del tema dice la stessa cosa e la
+            dice uguale ovunque. */}
         <span
           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
             config.isConnected
@@ -289,7 +335,12 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
               : "bg-status-blocked/10 text-status-blocked"
           }`}
         >
-          <span aria-hidden="true">{config.isConnected ? "🟢" : "🔴"}</span>
+          <span
+            aria-hidden="true"
+            className={`h-2 w-2 shrink-0 rounded-full ${
+              config.isConnected ? "bg-status-qualified" : "bg-status-blocked"
+            }`}
+          />
           {config.isConnected ? `Connesso (${WHATSAPP_PROVIDERS[config.provider].name})` : "Disconnesso"}
         </span>
       </div>
@@ -306,8 +357,8 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
               clienti — e mostrarne l'icona qui alimentava proprio quella
               confusione. */}
           <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <Smartphone className="h-3.5 w-3.5" />
-            Abbinamento numero WhatsApp Business
+            <Smartphone className="h-3.5 w-3.5 shrink-0" />
+            Il tuo numero WhatsApp
           </h3>
 
           {config.isConnected ? (
@@ -321,9 +372,9 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                         {config.phoneNumber ?? "in attesa dal dispositivo"}
                       </span>
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Collegato via QR. Se scolleghi il dispositivo da WhatsApp sul telefono, il
-                      collegamento cade e va rifatta la scansione.
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className="min-w-0">Collegato via QR.</span>
+                      <InfoTip label="Se scolleghi il dispositivo da WhatsApp sul telefono, il collegamento cade e va rifatta la scansione." />
                     </p>
                   </>
                 ) : config.provider === "twilio" ? (
@@ -357,7 +408,7 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                 type="button"
                 onClick={() => setConfirmingDisconnect(true)}
                 disabled={isSaving}
-                className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50"
+                className="btn-outline text-sm"
               >
                 <Unplug className="h-4 w-4" />
                 Disconnetti
@@ -374,8 +425,7 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                   Collega il tuo WhatsApp Business
                 </h4>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Inquadra un codice col telefono, come su WhatsApp Web: nessun account
-                  sviluppatore da creare. L&apos;AI inizia subito a qualificare i lead dai portali.
+                  Inquadri un codice col telefono, come su WhatsApp Web. Bastano due minuti.
                 </p>
                 <div className="mt-3">
                   <QrConnect onConnected={handleGuidedConnect} />
@@ -415,7 +465,7 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                       showAdvanced && "rotate-180"
                     )}
                   />
-                  Configurazione avanzata (Developer)
+                  Configurazione avanzata (per sviluppatori)
                 </button>
 
                 {showAdvanced && (
@@ -435,7 +485,7 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                       >
                         {WHATSAPP_PROVIDER_IDS.map((id) => (
                           <option key={id} value={id}>
-                            {WHATSAPP_PROVIDERS[id].name} — {WHATSAPP_PROVIDERS[id].tagline}
+                            {WHATSAPP_PROVIDERS[id].name} ({WHATSAPP_PROVIDERS[id].tagline})
                           </option>
                         ))}
                       </select>
@@ -581,7 +631,7 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                       type="button"
                       onClick={() => save(false)}
                       disabled={isSaving || !canSave}
-                      className="inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 disabled:opacity-50"
+                      className="btn-brand w-full sm:w-auto"
                     >
                       {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
                       Connetti WhatsApp
@@ -595,8 +645,9 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
 
         <div>
           <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <Link2 className="h-3.5 w-3.5" />
-            Collegamento Portali (Immobiliare.it, Idealista, Casa.it)
+            <Link2 className="h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0">Portali immobiliari</span>
+            <InfoTip label="Vale per Immobiliare.it, Idealista, Casa.it e per i gestionali che sanno inoltrare un lead." />
           </h3>
 
           {/* La spiegazione prima del link, e in evidenza.
@@ -606,9 +657,8 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
               chiude la pagina. Prima si dice COSA succede quando il
               collegamento c'e', poi si da' la cosa da incollare. */}
           <p className="mt-2 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2.5 text-sm leading-relaxed text-foreground">
-            Quando un cliente ti invia una richiesta su un portale immobiliare, il sistema gli
-            scrive su WhatsApp in pochi secondi e comincia a qualificarlo, senza che tu debba
-            fare niente.
+            Chi ti scrive da un portale riceve un messaggio WhatsApp in pochi secondi, e
+            l&apos;assistente lo qualifica al posto tuo.
           </p>
 
           <div className="mt-3 space-y-3">
@@ -629,7 +679,7 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                 {(
                   [
                     { id: "email", label: "Inoltro email", icon: Mail },
-                    { id: "webhook", label: "Webhook o gestionale", icon: Link2 },
+                    { id: "webhook", label: "Link per i portali", icon: Link2 },
                   ] as const
                 ).map((voce) => {
                   const Icona = voce.icon;
@@ -659,11 +709,11 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                 {portalTab === "email" ? (
                   config.inboundEmail ? (
                     <>
-                      <p className="text-sm leading-relaxed text-muted-foreground">
-                        Crea una regola di inoltro automatico nella casella email
-                        dell&apos;agenzia, per mandare a questo indirizzo le notifiche di
-                        Immobiliare.it, Idealista e Casa.it. L&apos;assistente legge il lead e
-                        invia subito il messaggio WhatsApp.
+                      <p className="flex items-start gap-1.5 text-sm leading-relaxed text-muted-foreground">
+                        <span className="min-w-0">
+                          Inoltra a questo indirizzo le email dei portali.
+                        </span>
+                        <InfoTip label="Nella casella dell'agenzia crea una regola di inoltro automatico verso questo indirizzo, filtrando sul mittente del portale. L'assistente legge il lead e scrive subito al cliente su WhatsApp." />
                       </p>
                       <code className="mt-2 block truncate rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
                         {config.inboundEmail}
@@ -671,14 +721,14 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                       <button
                         type="button"
                         onClick={copyInboundEmail}
-                        className="btn-brand mt-2 text-xs"
+                        className="btn-brand mt-3 w-full text-xs sm:w-auto"
                       >
                         {emailCopied ? (
                           <Check className="h-4 w-4" />
                         ) : (
                           <Clipboard className="h-4 w-4" />
                         )}
-                        {emailCopied ? "Copiato!" : "Copia indirizzo di inoltro"}
+                        {emailCopied ? "Copiato!" : "Copia indirizzo"}
                       </button>
                     </>
                   ) : (
@@ -688,51 +738,56 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                        dashboard, solo contatti che non arrivano mai — ed e' gia'
                        successo con un dominio segnaposto. */
                     <>
-                      <p className="text-sm leading-relaxed text-muted-foreground">
-                        L&apos;inoltro email non è ancora attivo su questo ambiente: non
-                        mostriamo un recapito prima che sappia ricevere, perché i lead
-                        inoltrati andrebbero persi senza che tu te ne accorga.
+                      <p className="flex items-start gap-1.5 text-sm leading-relaxed text-muted-foreground">
+                        <span className="min-w-0">
+                          L&apos;inoltro email non è ancora attivo qui. Usa il link per i portali.
+                        </span>
+                        <InfoTip label="Non mostriamo un recapito prima che sappia ricevere: i lead inoltrati andrebbero persi senza che tu te ne accorga." />
                       </p>
                       <button
                         type="button"
                         onClick={() => setPortalTab("webhook")}
-                        className="btn-outline mt-2 text-xs"
+                        className="btn-outline mt-3 w-full text-xs sm:w-auto"
                       >
                         <Link2 className="h-3.5 w-3.5" />
-                        Usa il webhook
+                        Vai al link per i portali
                       </button>
                     </>
                   )
                 ) : (
                   <>
-                    <p className="text-sm leading-relaxed text-muted-foreground">
-                      Invia questo link al tuo referente commerciale del portale, oppure
-                      incollalo nella sezione &laquo;Webhook notifiche in uscita&raquo; del tuo
-                      gestionale immobiliare (Miogest, Gestim, Realigro e simili).
+                    <p className="flex items-start gap-1.5 text-sm leading-relaxed text-muted-foreground">
+                      <span className="min-w-0">
+                        Dai questo link al portale o al tuo gestionale.
+                      </span>
+                      <InfoTip label="Sui portali lo imposta il referente commerciale, come webhook delle notifiche lead in uscita. Nei gestionali (Miogest, Gestim, Realigro e simili) si incolla nella sezione «Webhook notifiche in uscita»." />
                     </p>
                     <code className="mt-2 block truncate rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
                       {portalWebhookUrl}
                     </code>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {/* Impilati e a tutta larghezza sul telefono: affiancati
+                        finivano a meta' riga ciascuno, con l'etichetta
+                        troncata proprio sul verbo. */}
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                       <button
                         type="button"
                         onClick={copyPortalWebhook}
-                        className="btn-brand text-xs"
+                        className="btn-brand w-full text-xs sm:w-auto"
                       >
                         {portalCopied ? (
                           <Check className="h-4 w-4" />
                         ) : (
                           <Clipboard className="h-4 w-4" />
                         )}
-                        {portalCopied ? "Copiato!" : "Copia Link Webhook Portali"}
+                        {portalCopied ? "Copiato!" : "Copia indirizzo"}
                       </button>
                       <button
                         type="button"
                         onClick={() => setShowPortalSetup(true)}
-                        className="btn-outline text-xs"
+                        className="btn-outline w-full text-xs sm:w-auto"
                       >
                         <HelpCircle className="h-3.5 w-3.5" />
-                        Istruzioni di collegamento
+                        Come si collega
                       </button>
                     </div>
                   </>
@@ -740,77 +795,74 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
               </div>
             </div>
 
-            {/* Da qui in giu' e' roba del canale WhatsApp, non dei portali:
-                serve a chi collega il numero, una volta sola, e mescolarla col
-                link da consegnare a Immobiliare.it era meta' del problema. */}
-            {((provider === "meta" && config.webhookVerifyToken) || provider === "generic") && (
-              <p className="border-t border-border pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Configurazione tecnica del canale WhatsApp
-              </p>
-            )}
-
-            {provider === "meta" && config.webhookVerifyToken && (
-              <CopyableField
-                label="Verify Token (Meta Cloud API)"
-                value={config.webhookVerifyToken}
-                icon={KeyRound}
-              />
-            )}
-            {provider === "generic" && (
-              <CopyableField
-                label="URL Webhook messaggi in arrivo (relay)"
-                value={`${origin}${WHATSAPP_PROVIDERS.generic.webhookPathHint}?token=${config.inboundToken}`}
-                icon={Link2}
-              />
-            )}
-
             {/* I vocali funzionano su Meta, Twilio e QR, ma solo con un
                 servizio di trascrizione configurato: senza, il cliente riceve
-                la richiesta di scrivere e l'agenzia non saprebbe perché. */}
+                la richiesta di scrivere e l'agenzia non saprebbe perché.
+                Una riga sola, il resto nel tooltip: e' un'informazione di
+                stato, non un'istruzione da leggere ogni volta. */}
             {provider !== "generic" && (
-              <p className="flex items-start gap-1.5 border-t border-border pt-3 text-xs text-muted-foreground">
-                <Mic className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                <span>
-                  Note vocali:{" "}
+              <p className="flex items-center gap-1.5 border-t border-border pt-3 text-xs text-muted-foreground">
+                <Mic className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <span className="min-w-0">
+                  Note vocali dei clienti:{" "}
                   {config.transcriptionReady ? (
-                    <strong className="font-semibold text-foreground">
-                      trascrizione attiva su questo ambiente
-                    </strong>
+                    <strong className="font-semibold text-foreground">attive</strong>
                   ) : (
-                    <strong className="font-semibold text-status-pending">
-                      trascrizione non configurata
-                    </strong>
+                    <strong className="font-semibold text-status-pending">non attive</strong>
                   )}
-                  .{" "}
-                  {config.transcriptionReady
-                    ? "I messaggi vocali dei clienti vengono trascritti e qualificati come i messaggi scritti."
-                    : "Ai vocali l'assistente risponde chiedendo di scrivere. Scrivici per attivare la trascrizione."}
                 </span>
+                <InfoTip
+                  label={
+                    config.transcriptionReady
+                      ? "I messaggi vocali vengono trascritti e qualificati come quelli scritti."
+                      : "Ai vocali l'assistente risponde chiedendo di scrivere. Scrivici per attivare la trascrizione."
+                  }
+                />
               </p>
             )}
-          </div>
 
-          <p className="mt-3 text-xs text-muted-foreground">
-            {provider === "twilio" ? (
-              <>
-                Nella Console Twilio imposta come webhook &quot;When a message comes in&quot;{" "}
-                <code className="break-all rounded bg-muted px-1 py-0.5">
-                  {origin}
-                  {WHATSAPP_PROVIDERS.twilio.webhookPathHint}
-                </code>
-              </>
-            ) : provider === "generic" ? (
-              "Il tuo relay deve inoltrare i messaggi in arrivo all'URL dei messaggi qui sopra, con il token come Bearer o `?token=`."
-            ) : (
-              <>
-                Nel pannello Meta imposta come Callback URL{" "}
-                <code className="break-all rounded bg-muted px-1 py-0.5">
-                  {origin}
-                  {WHATSAPP_PROVIDERS.meta.webhookPathHint}
-                </code>
-              </>
+            {/* Da qui in giu' e' roba del canale WhatsApp, non dei portali:
+                serve a chi collega il numero a mano, una volta sola, e
+                mescolarla col link da consegnare a Immobiliare.it era meta'
+                del problema. Chiusa, perche' l'altra meta' era vederla. */}
+            {impostazioniTecniche.length > 0 && (
+              <div className="border-t border-border pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowChannelSetup((value) => !value)}
+                  aria-expanded={showChannelSetup}
+                  className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground"
+                >
+                  <ChevronDown
+                    className={cn(
+                      "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+                      showChannelSetup && "rotate-180"
+                    )}
+                  />
+                  Impostazioni tecniche del canale
+                </button>
+
+                {showChannelSetup && (
+                  <div className="mt-3 space-y-3">
+                    {impostazioniTecniche.map((campo) => (
+                      <CopyableField
+                        key={campo.label}
+                        label={campo.label}
+                        value={campo.value}
+                        icon={campo.icon}
+                      />
+                    ))}
+                    {provider === "generic" && (
+                      <p className="text-xs text-muted-foreground">
+                        Il tuo relay inoltra qui i messaggi in arrivo, con il token come Bearer
+                        oppure in coda all&apos;indirizzo.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
-          </p>
+          </div>
         </div>
       </div>
       </section>

@@ -360,7 +360,7 @@ export function VoiceReportStudio() {
               type="text"
               value={propertyRef}
               onChange={(event) => setPropertyRef(event.target.value)}
-              placeholder="Rif. A102 — Trilocale Via Roma 12"
+              placeholder="Rif. A102, Trilocale Via Roma 12"
               className="mt-1 w-full rounded-lg border border-border-strong bg-background px-3 py-2 text-base text-foreground sm:text-sm outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/40"
             />
           </div>
@@ -916,7 +916,7 @@ export function VoiceReportStudio() {
 
             <ShareActions
               text={[
-                `Sintesi interna — ${propertyRef}`,
+                `Sintesi interna: ${propertyRef}`,
                 "",
                 "Punti chiave:",
                 ...report.agentSummary.keyPoints.map((point) => `- ${point}`),

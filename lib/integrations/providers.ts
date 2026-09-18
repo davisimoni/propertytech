@@ -166,7 +166,7 @@ export const CRM_PROVIDERS: Record<CrmProviderId, CrmProvider> = {
   webhook: {
     id: "webhook",
     name: "Webhook PropertyTech",
-    tagline: "Endpoint tuo o del tuo sviluppatore, con firma HMAC",
+    tagline: "endpoint tuo o del tuo sviluppatore, con firma HMAC",
     auth: "hmac",
     allowedHosts: null,
     bodyShape: "nested",
@@ -178,7 +178,7 @@ export const CRM_PROVIDERS: Record<CrmProviderId, CrmProvider> = {
   zapier: {
     id: "zapier",
     name: "Zapier",
-    tagline: "Collega qualsiasi gestionale senza scrivere codice",
+    tagline: "collega qualsiasi gestionale senza scrivere codice",
     auth: "url_secret",
     // L'URL di un catch hook è già il segreto: bloccare l'host impedisce che
     // un incollaggio sbagliato spedisca i lead altrove.
@@ -192,7 +192,7 @@ export const CRM_PROVIDERS: Record<CrmProviderId, CrmProvider> = {
   make: {
     id: "make",
     name: "Make (Integromat)",
-    tagline: "Alternativa a Zapier, spesso più economica",
+    tagline: "alternativa a Zapier, spesso più economica",
     auth: "url_secret",
     allowedHosts: ["hook.eu1.make.com", "hook.eu2.make.com", "hook.us1.make.com", "hook.make.com"],
     bodyShape: "flat",
@@ -204,7 +204,7 @@ export const CRM_PROVIDERS: Record<CrmProviderId, CrmProvider> = {
   getrix: {
     id: "getrix",
     name: "Getrix",
-    tagline: "Gestionale di Immobiliare.it",
+    tagline: "gestionale di Immobiliare.it",
     auth: "bearer",
     allowedHosts: null,
     bodyShape: "flat",
@@ -216,7 +216,7 @@ export const CRM_PROVIDERS: Record<CrmProviderId, CrmProvider> = {
   gestim: {
     id: "gestim",
     name: "Gestim",
-    tagline: "Gestionale immobiliare italiano",
+    tagline: "gestionale immobiliare italiano",
     auth: "api_key_header",
     authHeaderName: "X-Api-Key",
     allowedHosts: null,
@@ -229,7 +229,7 @@ export const CRM_PROVIDERS: Record<CrmProviderId, CrmProvider> = {
   frimm: {
     id: "frimm",
     name: "Frimm",
-    tagline: "Network MLS e gestionale",
+    tagline: "network MLS e gestionale",
     auth: "api_key_header",
     authHeaderName: "X-Api-Key",
     allowedHosts: null,
@@ -242,7 +242,7 @@ export const CRM_PROVIDERS: Record<CrmProviderId, CrmProvider> = {
   realgest: {
     id: "realgest",
     name: "RealGest",
-    tagline: "Gestionale immobiliare",
+    tagline: "gestionale immobiliare",
     auth: "bearer",
     allowedHosts: null,
     bodyShape: "flat",
@@ -254,7 +254,7 @@ export const CRM_PROVIDERS: Record<CrmProviderId, CrmProvider> = {
   miogest: {
     id: "miogest",
     name: "Miogest",
-    tagline: "Gestionale immobiliare",
+    tagline: "gestionale immobiliare",
     auth: "bearer",
     allowedHosts: null,
     bodyShape: "flat",
@@ -266,19 +266,19 @@ export const CRM_PROVIDERS: Record<CrmProviderId, CrmProvider> = {
   tecnocasa: {
     id: "tecnocasa",
     name: "Tecnocasa",
-    tagline: "Network in franchising",
+    tagline: "network in franchising",
     auth: "bearer",
     allowedHosts: null,
     bodyShape: "flat",
     fieldMap: ITALIAN_FIELD_MAP,
     verified: false,
     setupHint:
-      "Preset non confermato. Tecnocasa è un network in franchising: l'integrazione, se disponibile, passa dal sistema gestionale centrale del network, non da un'API pubblica per singola agenzia — verifica con la tua area manager o con l'assistenza IT del franchising se e come esporlo. Una volta ottenuti endpoint e chiave, allinea qui sotto la mappatura ai loro campi e usa \"Invia lead di prova\" prima di andare in produzione.",
+      "Preset non confermato. Tecnocasa è un network in franchising: l'integrazione, se disponibile, passa dal sistema gestionale centrale del network, non da un'API pubblica per singola agenzia. Verifica con la tua area manager o con l'assistenza IT del franchising se e come esporlo. Una volta ottenuti endpoint e chiave, allinea qui sotto la mappatura ai loro campi e usa \"Invia lead di prova\" prima di andare in produzione.",
   },
   tempocasa: {
     id: "tempocasa",
     name: "Tempocasa",
-    tagline: "Network in franchising",
+    tagline: "network in franchising",
     auth: "bearer",
     allowedHosts: null,
     bodyShape: "flat",
@@ -290,7 +290,7 @@ export const CRM_PROVIDERS: Record<CrmProviderId, CrmProvider> = {
   gabetti: {
     id: "gabetti",
     name: "Gabetti",
-    tagline: "Network in franchising",
+    tagline: "network in franchising",
     auth: "bearer",
     allowedHosts: null,
     bodyShape: "flat",
@@ -302,7 +302,7 @@ export const CRM_PROVIDERS: Record<CrmProviderId, CrmProvider> = {
   custom: {
     id: "custom",
     name: "Altro gestionale",
-    tagline: "Configura endpoint, autenticazione e campi a mano",
+    tagline: "configura endpoint, autenticazione e campi a mano",
     auth: "bearer",
     allowedHosts: null,
     bodyShape: "flat",

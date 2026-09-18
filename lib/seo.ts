@@ -241,7 +241,7 @@ export function pageMetadata({
   const url = `${SITE_URL}${path}`;
   // Il titolo completo di OpenGraph: `template` del layout agisce solo su
   // `title`, non sulle anteprime social, che quindi lo perderebbero.
-  const titoloEsteso = `${title} — ${BRAND.name}`;
+  const titoloEsteso = `${title} | ${BRAND.name}`;
 
   return {
     title,

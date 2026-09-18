@@ -29,7 +29,7 @@ export const WHATSAPP_PROVIDERS: Record<WhatsAppProviderId, WhatsAppProviderMeta
   qr: {
     id: "qr",
     name: "Collegamento rapido con QR",
-    tagline: "Inquadri il codice col telefono, senza account sviluppatore",
+    tagline: "inquadri il codice col telefono, senza account sviluppatore",
     setupHint:
       "Nessuna credenziale da procurarsi: si inquadra il QR con WhatsApp dal telefono dell'agenzia, come su WhatsApp Web. Richiede il microservizio esterno configurato (WHATSAPP_SERVICE_URL).",
     // I messaggi in arrivo li recapita il microservizio a questo indirizzo,
@@ -39,7 +39,7 @@ export const WHATSAPP_PROVIDERS: Record<WhatsAppProviderId, WhatsAppProviderMeta
   meta: {
     id: "meta",
     name: "WhatsApp Cloud API (Meta)",
-    tagline: "Collegamento diretto a Meta, nessun intermediario",
+    tagline: "collegamento diretto a Meta, nessun intermediario",
     setupHint:
       "Da Meta for Developers copia il token di accesso permanente e il Phone Number ID della tua app WhatsApp Business.",
     webhookPathHint: "/api/whatsapp/webhook",
@@ -47,17 +47,17 @@ export const WHATSAPP_PROVIDERS: Record<WhatsAppProviderId, WhatsAppProviderMeta
   twilio: {
     id: "twilio",
     name: "Twilio",
-    tagline: "Instrada WhatsApp tramite il tuo account Twilio",
+    tagline: "instrada WhatsApp tramite il tuo account Twilio",
     setupHint:
-      "Dalla Console Twilio copia Account SID e Auth Token, e il numero WhatsApp del Sender (formato whatsapp:+1415…). Nel Sandbox/Sender configura questo indirizzo come webhook \"When a message comes in\".",
+      "Dalla Console Twilio copia Account SID e Auth Token, e il numero WhatsApp del Sender (formato whatsapp:+1415…). Nel Sandbox o nel Sender imposta come webhook \"When a message comes in\" l'indirizzo che trovi in \"Impostazioni tecniche del canale\".",
     webhookPathHint: "/api/whatsapp/webhook/twilio",
   },
   generic: {
     id: "generic",
     name: "Webhook generico",
-    tagline: "Per BSP non elencati: un relay verso un endpoint tuo",
+    tagline: "per BSP non elencati, un relay verso un endpoint tuo",
     setupHint:
-      "Usa questo canale se il tuo fornitore WhatsApp non è Meta né Twilio diretti. Il tuo endpoint riceve { to, text } e noi riceviamo i messaggi in arrivo su un unico indirizzo, autenticato col token d'ingestione dell'agenzia.",
+      "Per i fornitori diversi da Meta e Twilio. Il tuo endpoint riceve { to, text }; i messaggi in arrivo li ricevi su un unico indirizzo, autenticato col token dell'agenzia.",
     webhookPathHint: "/api/whatsapp/webhook/generic",
   },
 };

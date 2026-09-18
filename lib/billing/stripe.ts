@@ -230,7 +230,7 @@ export async function getOrCreateReferrerCoupon(stripe: Stripe): Promise<string>
         id: REFERRER_COUPON_ID,
         percent_off: REFERRER_DISCOUNT_PERCENT,
         duration: "forever",
-        name: `Programma Referral — Invitante -${REFERRER_DISCOUNT_PERCENT}%`,
+        name: `Programma Referral: Invitante -${REFERRER_DISCOUNT_PERCENT}%`,
       });
     } catch (createError) {
       const alreadyExists =
@@ -263,7 +263,7 @@ export async function getOrCreateRefereeCoupon(stripe: Stripe): Promise<string> 
         id: REFEREE_COUPON_ID,
         percent_off: REFEREE_WELCOME_DISCOUNT_PERCENT,
         duration: "once",
-        name: `Programma Referral — Benvenuto -${REFEREE_WELCOME_DISCOUNT_PERCENT}%`,
+        name: `Programma Referral: Benvenuto -${REFEREE_WELCOME_DISCOUNT_PERCENT}%`,
       });
     } catch (createError) {
       const alreadyExists =

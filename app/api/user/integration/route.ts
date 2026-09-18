@@ -113,7 +113,7 @@ async function readIntegration(organizationId: string): Promise<IntegrationView 
     crmAuthTokenMask: organization.crmAuthToken
       ? token
         ? maskSecret(token)
-        : "non leggibile — reinseriscila"
+        : "non leggibile, reinseriscila"
       : null,
     crmAuthUser: organization.crmAuthUser,
     crmFieldMap: resolveFieldMap(provider, organization.crmFieldMap),
@@ -331,7 +331,7 @@ export async function PUT(request: Request) {
  * richiamerà.
  */
 const SAMPLE_VALUES: Record<LeadFieldKey, unknown> = {
-  nome: "PROVA — Mario Rossi (test)",
+  nome: "PROVA: Mario Rossi (test)",
   telefono: "+390000000000",
   fonte: "SITO_WEB",
   immobile: "TEST-000",

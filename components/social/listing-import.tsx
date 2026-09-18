@@ -274,7 +274,7 @@ export function ListingImport({
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Incolla il link dell&apos;annuncio, il testo copiato da un portale, un&apos;email o il
-        gestionale — oppure, se l&apos;annuncio non esiste ancora, compila il modulo rapido.
+        gestionale. Oppure, se l&apos;annuncio non esiste ancora, compila il modulo rapido.
       </p>
 
       <div
@@ -310,7 +310,7 @@ export function ListingImport({
             className="flex items-center gap-1 text-xs font-medium text-foreground"
           >
             Scegli un immobile già in portafoglio
-            <InfoTip label="Prende i dati dalla scheda dell'immobile — tipologia, zona, prezzo, metratura, locali, classe energetica — e li usa come note per la generazione. Ti risparmia di riscriverli, e non inventa i campi che in scheda sono vuoti." />
+            <InfoTip label="Prende i dati dalla scheda dell'immobile (tipologia, zona, prezzo, metratura, locali, classe energetica) e li usa come note per la generazione. Ti risparmia di riscriverli, e non inventa i campi che in scheda sono vuoti." />
           </label>
           <p className="mt-1 text-xs text-muted-foreground">
             Prende dalla scheda tipologia, zona, prezzo, metratura e caratteristiche: non devi
@@ -336,7 +336,7 @@ export function ListingImport({
               onChange={(e) => scegliImmobile(e.target.value)}
               className="input-field h-11 w-full bg-card text-base sm:h-10 sm:text-sm"
             >
-              <option value="">— Seleziona —</option>
+              <option value="">Seleziona…</option>
               {immobili.map((imm) => (
                 <option key={imm.id} value={imm.id}>
                   {imm.reference} · {imm.title}
@@ -428,11 +428,13 @@ export function ListingImport({
             {isExtracting ? "Lettura del link…" : "Estrai da Link"}
           </button>
         </div>
-        <p id="listing-url-help" className="mt-1.5 text-xs text-muted-foreground">
-          Ideale per il sito della tua agenzia, i portali locali, il gestionale e le pagine che si
-          caricano da sole. <span className="font-medium text-foreground">Immobiliare.it e
-          Idealista</span> respingono le letture automatiche: per quei due usa direttamente la
-          casella di testo qui sotto, che funziona sempre.
+        <p id="listing-url-help" className="mt-1.5 flex items-start gap-1.5 text-xs text-muted-foreground">
+          <span className="min-w-0">
+            Va bene per il tuo sito e per il gestionale.{" "}
+            <span className="font-medium text-foreground">Immobiliare.it e Idealista</span> no: per
+            quelli usa la casella qui sotto.
+          </span>
+          <InfoTip label="Immobiliare.it e Idealista respingono le letture automatiche. La casella di testo qui sotto funziona sempre, anche con i portali protetti." />
         </p>
         </div>
 
@@ -450,10 +452,11 @@ export function ListingImport({
           className="input-field mt-1.5 bg-card"
           aria-describedby="listing-text-help"
         />
-        <p id="listing-text-help" className="mt-1.5 text-xs text-muted-foreground">
-          Il metodo più rapido e sempre valido, anche per i portali protetti. Bastano i dati
-          essenziali: tipologia, metratura, zona, prezzo e caratteristiche. L&apos;AI userà solo
-          ciò che è scritto, senza inventare nulla.
+        <p id="listing-text-help" className="mt-1.5 flex items-start gap-1.5 text-xs text-muted-foreground">
+          <span className="min-w-0">
+            Bastano tipologia, metratura, zona, prezzo e caratteristiche.
+          </span>
+          <InfoTip label="È il metodo più rapido e funziona sempre, anche con i portali protetti. L'AI usa solo ciò che è scritto, senza inventare nulla." />
         </p>
         </div>
 
@@ -503,10 +506,11 @@ export function ListingImport({
 
       {/* --- Crea da zero --- */}
       <div className={cn("mt-4 space-y-3", sourceTab === "scratch" ? undefined : "hidden")}>
-        <p className="text-xs text-muted-foreground">
-          Per un immobile che non ha ancora un annuncio da nessuna parte. Compila quello che sai:
-          basta il primo campo più almeno un altro, il resto lo scrive l&apos;AI a partire da
-          questi dati soli — non inventa dettagli che non hai scritto.
+        <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+          <span className="min-w-0">
+            Per un immobile senza annuncio. Bastano il primo campo e almeno un altro.
+          </span>
+          <InfoTip label="Il resto lo scrive l'AI a partire da questi dati soli: non inventa dettagli che non hai scritto." />
         </p>
 
         <label className="block">
@@ -526,7 +530,7 @@ export function ListingImport({
             type="text"
             value={scratch.prezzoMq}
             onChange={(event) => aggiornaScratch({ prezzoMq: event.target.value })}
-            placeholder="Es. 250.000€ — 90mq"
+            placeholder="Es. 250.000€, 90mq"
             className="input-field mt-1.5 bg-card"
           />
         </label>

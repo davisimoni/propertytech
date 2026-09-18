@@ -93,7 +93,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const testo = [
     `Buongiorno ${lead.clientName}, abbiamo un immobile che potrebbe interessarle:`,
     "",
-    `${PROPERTY_TYPE_LABELS[property.type]} — ${property.title}`,
+    `${PROPERTY_TYPE_LABELS[property.type]}: ${property.title}`,
     [
       property.zona ? `${property.comune} (${property.zona})` : property.comune,
       `${property.squareMeters} mq`,

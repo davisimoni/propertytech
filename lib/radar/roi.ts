@@ -148,7 +148,7 @@ export function suggestRoiInputs(input: {
     input.priceEur > 0
       ? {
           value: Math.round(input.priceEur * TRANSFER_TAX_RATE),
-          basis: "9% del prezzo — registro senza agevolazione prima casa",
+          basis: "9% del prezzo (registro senza agevolazione prima casa)",
         }
       : null;
 
