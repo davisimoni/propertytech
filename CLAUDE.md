@@ -211,6 +211,16 @@ I contatori ripartono ogni mese alla data di `Subscription.billingCycleAnchor` (
 - **Concorrenza.** L'azzeramento è condizionato a `periodStart` e al consumo letti: dieci richieste parallele alla scadenza chiudono il mese una volta sola e scalano il bonus una volta sola.
 - **Piani senza ancora** (assegnati prima di questa regola): l'ancora diventa il primo accesso e il consumo esistente **resta**, perché non si sa a quale mese appartenga. Il Trial è escluso: le sue conversazioni sono complessive.
 
+### Codici sconto
+
+Il Checkout degli abbonamenti dichiara `allow_promotion_codes`, quindi il campo "Aggiungi codice promozionale" lo mostra Stripe sulla sua pagina: **non esiste un campo nostro**, e non deve esisterne uno, perché dovrebbe validare il codice per conto suo e farlo comunque riscrivere al passaggio dopo. Tre vincoli, tutti verificati sull'account reale e nessuno deducibile dal codice:
+
+- **`allow_promotion_codes` e `discounts` si escludono a vicenda** ("You may only specify one of these parameters"). Sugli abbonamenti la precedenza va allo sconto di benvenuto del Programma Referral, che è già maturato e vale una volta sola: l'agenzia invitata vede il campo solo se quello sconto non le spetta.
+- **La ricarica di crediti non accetta codici.** I codici in circolazione scontano l'abbonamento, e senza restrizione di prodotto sul coupon Stripe li applicherebbe anche lì, dimezzando un pacchetto da 5 € e consumando un riscatto destinato ai piani.
+- **Un coupon non è un codice promozionale.** `allow_promotion_codes` accetta solo i `promotion_code`: un coupon creato in dashboard e mai associato a un codice viene rifiutato al checkout, con l'aria di un bug del nostro software.
+
+Nel **Portale Clienti** è abilitato il solo `promotion_code`, non il cambio prezzo. Il webhook `customer.subscription.updated` ricava il piano da `subscription.metadata.planId`, che Stripe **non** aggiorna quando il cliente cambia prezzo dal portale: un upgrade fatto lì farebbe pagare Enterprise lasciando in app i limiti di Starter, e la voce a consumo non verrebbe aggiunta. Prima di aprire quella strada serve ricavare il piano dal prezzo dell'abbonamento, e rimettere sui cambi dal portale le difese che il nostro flusso ha già (postazioni occupate oltre il limite del piano scelto, passaggio fra mensile e annuale).
+
 ### Middleware Paywall — Enforcement dei Limiti
 
 Quando una `Organization` supera i limiti del proprio piano:

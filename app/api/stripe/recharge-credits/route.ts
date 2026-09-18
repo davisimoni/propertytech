@@ -118,11 +118,17 @@ export async function POST() {
           success_url: `${SITE_URL}/settings?ricarica=ok`,
           cancel_url: `${SITE_URL}/settings?ricarica=annullata`,
           locale: "it",
-          // Qui nessuno sconto automatico può essere in corso, quindi il campo
-          // per il codice promozionale c'è sempre. Se un codice è limitato ai
-          // soli abbonamenti non vale su questo acquisto: la restrizione la
-          // applica Stripe in base ai prodotti del coupon, non questa rotta.
-          allow_promotion_codes: true,
+          /*
+           * Nessun campo per i codici promozionali su questo acquisto.
+           *
+           * I codici in circolazione scontano l'abbonamento, e quello attivo
+           * vale il 50% per sempre: senza restrizioni di prodotto sul coupon,
+           * Stripe lo avrebbe applicato anche qui, dimezzando un pacchetto di
+           * crediti e consumando uno dei riscatti destinati ai piani. La
+           * decisione sta qui e non in una restrizione sul coupon perché vale
+           * per qualunque codice, compresi quelli creati domani dalla
+           * dashboard.
+           */
         },
         // Doppio clic o ritentativo di rete non devono produrre due addebiti.
         // `tentativo` nella chiave: al secondo giro ne serve una diversa.
