@@ -28,31 +28,31 @@ const STEPS: Step[] = [
     number: "1",
     icon: MessagesSquare,
     duration: "2 minuti",
-    title: "Colleghi il numero WhatsApp dell'agenzia",
+    title: "Colleghi i portali e WhatsApp",
     action:
-      "Inquadri un codice QR dalla schermata Qualifica Lead, come fai con WhatsApp Web. Poi apri l'agenda alle fasce in cui fai vedere gli immobili.",
+      "Inquadri un codice col telefono, come fai con WhatsApp Web, e dai al portale l'indirizzo che trovi in schermata. Non serve nessuna competenza tecnica, e il gestionale che usi resta dov'è.",
     outcome:
-      "Da quel momento ogni notizia che arriva dai portali entra in piattaforma, giorno e notte, festivi compresi.",
+      "Da quel momento ogni richiesta che arriva da Immobiliare.it, Idealista e Casa.it entra in agenzia, giorno e notte, festivi compresi.",
   },
   {
     number: "2",
     icon: Target,
     duration: "da lì in poi, da sola",
-    title: "L'assistente qualifica, fissa e propone",
+    title: "L'assistente qualifica ogni richiesta su WhatsApp, 24 ore su 24",
     action:
-      "Carichi gli incarichi: trascini il PDF di una visura o incolli il link di un annuncio già online. Bastano quattro righe se parti da zero.",
+      "Apri l'agenda alle fasce in cui fai vedere gli immobili. Il resto lo fa l'assistente.",
     outcome:
-      "Chi scrive riceve risposta in pochi secondi e viene qualificato su mutuo, vendita da fare prima e tempistiche, poi si vede proporre i tuoi orari liberi. Nel frattempo la piattaforma incrocia quel contatto con tutto il tuo portafoglio e ti manda gli immobili che gli somigliano.",
+      "Scrive al cliente in pochi secondi, filtra i curiosi, chiede il budget, controlla le tempistiche e propone i tuoi orari liberi. Il promemoria prima della visita riduce i mancati arrivi.",
   },
   {
     number: "3",
     icon: Building2,
     duration: "il tempo che resta",
-    title: "Tu fai le visite e chiudi",
+    title: "Documenti, annunci e social da un'unica schermata",
     action:
-      "Ricevi in agenda solo appuntamenti con persone qualificate. Dopo la visita racconti a voce com'è andata, trenta secondi.",
+      "Trascini la visura o l'atto e carichi l'incarico. Dopo la visita racconti a voce com'è andata, trenta secondi.",
     outcome:
-      "Il proprietario riceve il report che fa rinnovare il mandato, i promemoria evitano i mancati arrivi, e gli incarichi in scadenza te li ricorda la piattaforma. Restano quindici ore a settimana che prima passavi a filtrare curiosi.",
+      "I dati catastali escono già in chiaro, l'annuncio e i post per Facebook e Instagram sono pronti da pubblicare, e il proprietario riceve il report che fa rinnovare il mandato.",
   },
 ];
 
@@ -62,9 +62,9 @@ export function HowItWorksSection() {
       <div className="mx-auto max-w-5xl px-4 sm:px-6">
         <Reveal>
           <SectionHeading
-            eyebrow="Come funziona"
+            eyebrow="Come funziona nel concreto"
             title="Dalla registrazione al primo appuntamento in agenda"
-            subtitle="Quattro passaggi, meno di dieci minuti in tutto. Non serve installare niente, né cambiare il gestionale che usi già."
+            subtitle="Tre passaggi, meno di dieci minuti in tutto. Non serve installare niente, né cambiare il gestionale che usi già."
           />
         </Reveal>
 

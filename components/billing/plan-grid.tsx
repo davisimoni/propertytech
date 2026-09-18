@@ -6,6 +6,7 @@ import { Check, X } from "lucide-react";
 import { BillingIntervalToggle } from "@/components/billing/billing-interval-toggle";
 import { UpgradeButton } from "@/components/billing/upgrade-button";
 import { ChangePlanButton } from "@/components/billing/change-plan-button";
+import { BonusBadge } from "@/components/billing/bonus-badge";
 import { CancelSubscriptionFlow } from "@/components/billing/cancel-subscription-flow";
 import {
   formatEur,
@@ -93,6 +94,7 @@ export function PlanGrid({ currentPlanId }: { currentPlanId: PlanId }) {
                   pubblico che promette cose diverse da quelle che l'agenzia
                   legge dopo aver pagato. */}
               <ul className="mt-3 flex-1 space-y-2 text-sm text-muted-foreground">
+                <BonusBadge planId={plan.id} />
                 {planFeatureRows(plan).map((riga) => (
                   <li key={riga.label} className="flex items-center gap-2">
                     {typeof riga.value === "boolean" ? (

@@ -309,9 +309,12 @@ export interface PlanFeatureRow {
   value: string | boolean;
 }
 
-function conteggio(limit: number | null, illimitato: string, nessuno: string): string {
+function conteggio(limit: number | null, illimitato: string): string | false {
   if (limit === null) return illimitato;
-  if (limit === 0) return nessuno;
+  // `false` e non un trattino: il listino sa gia' disegnare una funzione
+  // assente, con la crocetta accanto all'etichetta. Un "—" in mezzo ai valori
+  // si legge come un dato mancante, che e' un'altra cosa.
+  if (limit === 0) return false;
   return formatCount(limit);
 }
 
@@ -325,11 +328,11 @@ export function planFeatureRows(plan: Plan): PlanFeatureRow[] {
           : `${formatCount(plan.waConversationsLimit)}/mese`,
     },
     {
-      label: "Analisi documenti (OCR)",
-      value: conteggio(plan.ocrDocumentsLimit, "illimitate", "—"),
+      label: "Lettura visure e atti",
+      value: conteggio(plan.ocrDocumentsLimit, "illimitate"),
     },
-    { label: "Postazioni", value: conteggio(plan.seatsLimit, "illimitate", "—") },
-    { label: "Agende", value: conteggio(plan.agendasLimit, "illimitate", "—") },
+    { label: "Postazioni", value: conteggio(plan.seatsLimit, "illimitate") },
+    { label: "Agende", value: conteggio(plan.agendasLimit, "illimitate") },
     {
       label: "Analisi & Due Diligence Aste",
       // Il numero e non un semplice "incluso": e' il dato che distingue i tre

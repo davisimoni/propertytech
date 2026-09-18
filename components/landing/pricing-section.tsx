@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Check, X } from "lucide-react";
 import { BillingIntervalToggle } from "@/components/billing/billing-interval-toggle";
 import { UpgradeButton } from "@/components/billing/upgrade-button";
+import { BonusBadge } from "@/components/billing/bonus-badge";
 import {
   formatEur,
   formatPlanPrice,
@@ -104,6 +105,7 @@ export function PricingSection({ isLoggedIn }: { isLoggedIn: boolean }) {
                     peggiore che possa avere una pagina prezzi, e con due copie
                     era solo questione di tempo. */}
                 <ul className="mt-4 flex-1 space-y-2 text-sm">
+                  <BonusBadge planId={plan.id} />
                   {planFeatureRows(plan).map((riga) => {
                     const inclusa = riga.value !== false;
                     return (

@@ -211,6 +211,12 @@ I contatori ripartono ogni mese alla data di `Subscription.billingCycleAnchor` (
 - **Concorrenza.** L'azzeramento è condizionato a `periodStart` e al consumo letti: dieci richieste parallele alla scadenza chiudono il mese una volta sola e scalano il bonus una volta sola.
 - **Piani senza ancora** (assegnati prima di questa regola): l'ancora diventa il primo accesso e il consumo esistente **resta**, perché non si sa a quale mese appartenga. Il Trial è escluso: le sue conversazioni sono complessive.
 
+### Bonus dei piani
+
+Ogni piano a pagamento include uno strumento in più, cumulativo: Starter il **Kit Script WhatsApp e Obiezioni**, Professional il **Report di Valorizzazione** in PDF, Enterprise la **Checklist e Audit Conformità**. L'elenco sta in `lib/bonuses.ts` e lo leggono in tre posti (listino pubblico, griglia dei piani, area riservata su `/bonuses`): tre copie a mano divergono al primo ritocco, lasciando promesso in pagina un bonus che dentro non c'è.
+
+Lavorano sull'**acquisizione dell'incarico**, che i quattro moduli non coprono, e girano interamente nel browser: nessuna chiamata a un modello, nessun credito consumato, quindi restano disponibili anche a crediti esauriti. Non è una scorciatoia: sono frasi scritte e regole fisse, e farle generare a un modello darebbe ogni volta un testo diverso dove serve invece quello che in agenzia funziona. Il Report di Valorizzazione riusa la pipeline PDF esistente (`lib/pdf/client.ts` + branding dell'agenzia) e **non** porta `AI_DISCLAIMER`: il contenuto lo scrive l'agente, e un avviso fuori posto toglie peso a quello sui documenti che lo richiedono davvero. La Checklist non certifica nulla e lo dichiara in pagina, per la stessa ragione per cui il Fascicolo documentale non è annunciato come antiriciclaggio.
+
 ### Codici sconto
 
 Il Checkout degli abbonamenti dichiara `allow_promotion_codes`, quindi il campo "Aggiungi codice promozionale" lo mostra Stripe sulla sua pagina: **non esiste un campo nostro**, e non deve esisterne uno, perché dovrebbe validare il codice per conto suo e farlo comunque riscrivere al passaggio dopo. Tre vincoli, tutti verificati sull'account reale e nessuno deducibile dal codice:

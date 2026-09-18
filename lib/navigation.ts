@@ -6,6 +6,7 @@ import {
   Building2,
   Radar,
   Mic,
+  Gift,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -35,5 +36,8 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/properties", label: "Portafoglio Immobili", icon: Building2 },
   { href: "/radar", label: "Analisi & Due Diligence Aste", icon: Radar },
   { href: "/voice-reports", label: "Report Venditori (Note Vocali)", icon: Mic },
+  // Dopo i moduli e prima delle impostazioni: i bonus servono nel lavoro di
+  // acquisizione, non sono una voce di configurazione.
+  { href: "/bonuses", label: "Bonus Riservati", icon: Gift },
   { href: "/settings", label: "Impostazioni & Piano", icon: Settings },
 ];

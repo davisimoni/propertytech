@@ -36,17 +36,18 @@ export function HeroSection() {
           Creato per le agenzie immobiliari italiane
         </span>
 
+{/* Il titolo dice le tre cose che il software fa, con le parole con cui
+            un agente le chiamerebbe. Niente "piattaforma": si sa gia' che e' un
+            software, e quella parola occupa il posto di un'informazione. */}
         <h1 className="mt-6 text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
-          La piattaforma AI che qualifica i lead WhatsApp
-          <span className="bg-brand-gradient bg-clip-text text-transparent"> 24 ore su 24</span> e
-          trasforma le visure in schede immobile
+          Il software per agenzie immobiliari che qualifica i lead su WhatsApp
+          <span className="bg-brand-gradient bg-clip-text text-transparent"> 24 ore su 24</span>,
+          legge visure e atti in pochi secondi e scrive i tuoi annunci
         </h1>
 
         <p className="mx-auto mt-5 max-w-2xl text-base text-muted-foreground sm:text-lg">
-          Ogni richiesta da Immobiliare.it, Idealista e Casa.it riceve risposta in pochi secondi e
-          ti torna con mutuo, tempistiche e vincoli già verificati, pronta da inoltrare al tuo
-          gestionale. Le visure diventano dati catastali in chiaro e ogni acquirente viene
-          incrociato con il tuo portafoglio.
+          Rispondi all&apos;istante alle richieste di Immobiliare.it, Idealista e Casa.it, fissi gli
+          appuntamenti in agenda da solo e arrivi alla visita con i documenti già controllati.
         </p>
 
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -280,7 +281,7 @@ const ALSO_INCLUDED = [
     slug: "modulo-annunci",
     icon: Share2,
     title: "Annunci e social, tutti i canali insieme",
-    body: "Quattro righe sull'immobile e ottieni il testo per i portali, il post per Instagram e Facebook e lo script del Reel. Con il feed XML pronto per il caricamento sui portali.",
+    body: "Quattro righe sull'immobile e ottieni il testo per i portali, il post per Instagram e Facebook e lo script del Reel. Con il file di esportazione pronto da consegnare ai portali.",
   },
   {
     slug: "modulo-incarichi",

@@ -38,9 +38,9 @@ const COLUMNS: FooterColumn[] = [
     links: [
       { label: "Filtro WhatsApp 24/7", href: "/#modulo-whatsapp" },
       { label: "Lettura Visure & Atti", href: "/#modulo-visure" },
-      { label: "Annunci & Portali XML", href: "/#modulo-annunci" },
+      { label: "Annunci & Portali", href: "/#modulo-annunci" },
       { label: "Report Vocali", href: "/#modulo-report" },
-      { label: "CRM & Smart Matching", href: "/#come-funziona" },
+      { label: "Abbinamento Lead e Immobili", href: "/#come-funziona" },
     ],
   },
   {

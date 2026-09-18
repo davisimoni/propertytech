@@ -25,7 +25,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     question: "L'AI risponde anche alle note vocali su WhatsApp?",
     answer:
-      "Sì. Il vocale viene trascritto e l'assistente ne capisce il contenuto come se fosse un messaggio scritto: se il contatto racconta a voce che cerca un trilocale con box e ha già il mutuo deliberato, quei dati finiscono nella scheda del lead. L'audio non viene conservato: passa dalle API di trascrizione di OpenAI, negli Stati Uniti (EU-U.S. Data Privacy Framework e clausole contrattuali standard), non viene usato per addestrare modelli e si cancella subito dopo, restando il solo testo. Se un vocale è troppo lungo o incomprensibile, l'assistente chiede cortesemente di riscriverlo invece di tirare a indovinare.",
+      "Sì. Il vocale viene trascritto e l'assistente ne capisce il contenuto come se fosse un messaggio scritto: se il contatto racconta a voce che cerca un trilocale con box e ha già il mutuo deliberato, quei dati finiscono nella scheda del lead. L'audio non viene conservato: passa dal servizio di trascrizione di OpenAI, negli Stati Uniti (EU-U.S. Data Privacy Framework e clausole contrattuali standard), non viene usato per addestrare modelli e si cancella subito dopo, restando il solo testo. Se un vocale è troppo lungo o incomprensibile, l'assistente chiede cortesemente di riscriverlo invece di tirare a indovinare.",
   },
   {
     question: "Posso intervenire se voglio rispondere io al cliente?",
@@ -55,7 +55,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     question: "I dati dei miei immobili e dei miei clienti sono al sicuro?",
     answer:
-      "Sì. Database e server principali sono in Unione Europea (Francoforte) e il trattamento è conforme al GDPR. I dati dei tuoi clienti restano di tua proprietà e non vengono usati per addestrare modelli di intelligenza artificiale. Un'eccezione dichiarata: la trascrizione delle note vocali passa dalle API di OpenAI, negli Stati Uniti, sotto EU-U.S. Data Privacy Framework e clausole contrattuali standard. L'audio non viene conservato né da noi né dal fornitore per l'addestramento e si cancella subito dopo la trascrizione. L'elenco completo dei fornitori è nell'informativa privacy.",
+      "Sì. Database e server principali sono in Unione Europea (Francoforte) e il trattamento è conforme al GDPR. I dati dei tuoi clienti restano di tua proprietà e non vengono usati per addestrare modelli di intelligenza artificiale. Un'eccezione dichiarata: la trascrizione delle note vocali passa dai server di OpenAI, negli Stati Uniti, sotto EU-U.S. Data Privacy Framework e clausole contrattuali standard. L'audio non viene conservato né da noi né dal fornitore per l'addestramento e si cancella subito dopo la trascrizione. L'elenco completo dei fornitori è nell'informativa privacy.",
   },
   {
     question: "Posso disdire quando voglio?",
