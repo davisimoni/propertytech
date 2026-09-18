@@ -126,7 +126,16 @@ export async function POST(request: Request) {
           success_url: `${SITE_URL}/settings?checkout=success`,
           cancel_url: `${SITE_URL}/settings?checkout=cancelled`,
           locale: "it",
-          ...(coupon && { discounts: [{ coupon }] }),
+          /*
+           * Sconto automatico **oppure** campo per il codice promozionale, mai
+           * tutti e due: Stripe rifiuta una sessione che dichiari insieme
+           * `discounts` e `allow_promotion_codes` ("You may only specify one
+           * of these parameters"). La precedenza va allo sconto di benvenuto
+           * del referral perché è già maturato e vale una volta sola: farlo
+           * saltare per mostrare un campo vuoto toglierebbe all'agenzia
+           * qualcosa che le spetta.
+           */
+          ...(coupon ? { discounts: [{ coupon }] } : { allow_promotion_codes: true }),
         },
         // Evita doppi addebiti se l'utente fa doppio clic o la rete ritenta.
         // `tentativo` fa parte della chiave: al secondo giro ne serve una

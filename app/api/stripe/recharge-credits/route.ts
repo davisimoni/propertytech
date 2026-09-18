@@ -118,6 +118,11 @@ export async function POST() {
           success_url: `${SITE_URL}/settings?ricarica=ok`,
           cancel_url: `${SITE_URL}/settings?ricarica=annullata`,
           locale: "it",
+          // Qui nessuno sconto automatico può essere in corso, quindi il campo
+          // per il codice promozionale c'è sempre. Se un codice è limitato ai
+          // soli abbonamenti non vale su questo acquisto: la restrizione la
+          // applica Stripe in base ai prodotti del coupon, non questa rotta.
+          allow_promotion_codes: true,
         },
         // Doppio clic o ritentativo di rete non devono produrre due addebiti.
         // `tentativo` nella chiave: al secondo giro ne serve una diversa.

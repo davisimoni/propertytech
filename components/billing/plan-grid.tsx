@@ -133,6 +133,18 @@ export function PlanGrid({ currentPlanId }: { currentPlanId: PlanId }) {
           );
         })}
       </div>
+
+      {/* Dove si mette il codice sconto.
+
+          Il pagamento avviene sulla pagina di Stripe, non qui: un campo su
+          questa schermata dovrebbe validare il codice per conto nostro e, al
+          passaggio successivo, farlo riscrivere comunque. Una riga che dice
+          dov'e' il campo evita di farlo cercare, e dice la verita': il campo
+          c'e', ma dopo. */}
+      <p className="mt-6 text-center text-xs text-muted-foreground">
+        Hai un codice sconto? Lo inserisci nella pagina di pagamento, alla voce
+        &laquo;Aggiungi codice promozionale&raquo;.
+      </p>
     </div>
   );
 }
