@@ -10,6 +10,7 @@ import {
   Settings,
   type LucideIcon,
 } from "lucide-react";
+import { isProtectedPath } from "@/lib/app-routes";
 
 export interface NavItem {
   href: string;
@@ -41,3 +42,19 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/bonuses", label: "Bonus Riservati", icon: Gift },
   { href: "/settings", label: "Impostazioni & Piano", icon: Settings },
 ];
+
+/*
+ * Ogni voce del menu porta a una pagina dell'area riservata, quindi deve
+ * essere protetta dal middleware. Il controllo gira solo in sviluppo: e' li'
+ * che si aggiunge una voce, ed e' li' che l'avviso serve, prima che la pagina
+ * vada online aperta a chiunque come e' successo a `/radar` e `/bonuses`.
+ */
+if (process.env.NODE_ENV === "development") {
+  for (const item of NAV_ITEMS) {
+    if (!isProtectedPath(item.href)) {
+      console.error(
+        `[navigation] "${item.href}" e' nel menu ma non in lib/app-routes.ts: la pagina e' raggiungibile senza accesso.`
+      );
+    }
+  }
+}

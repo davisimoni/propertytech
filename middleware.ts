@@ -1,29 +1,18 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/auth.config";
+import { isProtectedPath } from "@/lib/app-routes";
 
 const { auth } = NextAuth(authConfig);
 
-/**
- * Rotte dell'area riservata. `/invito` non è qui di proposito: chi accetta un
- * invito non ha ancora un account, e proteggerla lo rimanderebbe a un accesso
- * che non può ancora effettuare.
- */
-const PROTECTED_PREFIXES = [
-  "/dashboard",
-  "/leads",
-  "/documents",
-  "/social",
-  "/properties",
-  "/voice-reports",
-  "/settings",
-];
+// Le rotte dell'area riservata stanno in `lib/app-routes.ts`, dove le
+// controlla anche il menu: qui ne erano rimaste fuori due.
 const AUTH_PAGES = ["/login", "/register"];
 
 export default auth((req) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
-  const isProtected = PROTECTED_PREFIXES.some((prefix) => nextUrl.pathname.startsWith(prefix));
+  const isProtected = isProtectedPath(nextUrl.pathname);
   const isAuthPage = AUTH_PAGES.includes(nextUrl.pathname);
 
   if (isProtected && !isLoggedIn) {
