@@ -34,7 +34,7 @@ export function BillingIntervalToggle({ value, onChange, className }: BillingInt
               aria-checked={isActive}
               onClick={() => onChange(option.value)}
               className={cn(
-                "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200",
+                "inline-flex min-h-11 items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 md:min-h-0",
                 isActive
                   ? "bg-brand-gradient text-white shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -44,7 +44,7 @@ export function BillingIntervalToggle({ value, onChange, className }: BillingInt
               {option.value === "yearly" && (
                 <span
                   className={cn(
-                    "rounded-full px-1.5 py-0.5 text-[10px] font-semibold transition-colors duration-200",
+                    "rounded-full px-1.5 py-0.5 text-xs font-semibold transition-colors duration-200",
                     isActive ? "bg-white/20 text-white" : "bg-status-qualified/15 text-status-qualified"
                   )}
                 >

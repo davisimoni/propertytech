@@ -99,17 +99,20 @@ export function CookieNotice({
        */
       className="animate-rise-in fixed bottom-3 left-3 z-50 max-w-[calc(100%-5.5rem)] sm:bottom-5 sm:left-5 sm:max-w-sm"
     >
-      <div className="rounded-xl border border-border bg-card p-4 shadow-lg">
+      <div className="rounded-xl border border-border bg-card p-3 shadow-lg sm:p-4">
         <div className="flex items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          {/* L'icona si toglie sul telefono: e' decorazione, e i suoi 48px
+              di larghezza costavano due righe di testo in piu' in un riquadro
+              che copre gia' il pulsante principale della pagina. */}
+          <span className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary sm:flex">
             <Cookie className="h-4 w-4" />
           </span>
 
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-foreground">Cookie tecnici</p>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              Questo sito utilizza cookie tecnici e necessari per garantire la migliore esperienza
-              di navigazione e la sicurezza dei servizi. Per saperne di più, consulta la nostra{" "}
+              Usiamo solo cookie tecnici, indispensabili per l&apos;accesso e la sicurezza.
+              Dettagli nella{" "}
               <Link href="/cookie" className="font-medium text-primary hover:underline">
                 Cookie Policy
               </Link>
@@ -123,7 +126,7 @@ export function CookieNotice({
             type="button"
             onClick={onDismiss}
             aria-label="Chiudi l'avviso"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="-mr-1 -mt-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:m-0 sm:h-8 sm:w-8"
           >
             <X className="h-4 w-4" />
           </button>

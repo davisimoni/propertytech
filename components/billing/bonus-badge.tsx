@@ -26,7 +26,7 @@ export function BonusBadge({ planId }: { planId: PlanId }) {
       <span className="flex items-start gap-2">
         <Gift className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
         <span className="min-w-0">
-          <span className="block text-[11px] font-semibold uppercase tracking-wide text-primary">
+          <span className="block text-xs font-semibold uppercase tracking-wide text-primary">
             Bonus incluso
           </span>
           <span className="block text-sm font-medium text-foreground">{bonus.name}</span>

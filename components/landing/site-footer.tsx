@@ -75,8 +75,14 @@ const SOCIAL_LINKS: { label: string; href: string; Icon: LucideIcon }[] = [
   { label: "Facebook", href: BRAND.social.facebook, Icon: Facebook },
 ];
 
+/*
+ * Sul telefono ogni voce e' alta 44px: i link del footer sono impilati uno
+ * sotto l'altro, e a 18px di altezza il pollice prendeva quello accanto. La
+ * distanza fra le righe la da' l'altezza della voce, non piu' lo spazio fra
+ * le voci, cosi' il ritmo visivo resta quasi lo stesso.
+ */
 const LINK_CLASS =
-  "text-sm text-muted-foreground transition-colors hover:text-foreground";
+  "inline-flex min-h-11 items-center text-sm text-muted-foreground transition-colors hover:text-foreground md:min-h-0";
 
 export function LandingFooter() {
   const year = new Date().getFullYear();
@@ -90,8 +96,10 @@ export function LandingFooter() {
           partono più a destra e il logo smette di sembrarci attaccato. Il
           `gap-16` fa il resto.
         */}
-        <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-6 lg:gap-16">
-          <div className="lg:col-span-2">
+{/* Due colonne anche sul telefono: impilate in una sola, le tre liste
+            di link facevano un footer lungo quanto tre schermate. */}
+        <div className="grid grid-cols-2 gap-x-6 gap-y-10 lg:grid-cols-6 lg:gap-16">
+          <div className="col-span-2">
             <Logo gradientId="pt-footer" />
             <p className="mt-4 max-w-xs text-sm text-muted-foreground">{BRAND.tagline}</p>
           </div>
@@ -101,7 +109,7 @@ export function LandingFooter() {
               <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground">
                 {column.title}
               </h2>
-              <ul className="mt-4 space-y-3">
+              <ul className="mt-3 md:mt-4 md:space-y-3">
                 {column.links.map((link) => (
                   <li key={link.label}>
                     {link.external ? (
@@ -142,10 +150,14 @@ export function LandingFooter() {
         */}
         <div className="mt-14 flex flex-col items-center gap-4 border-t border-border pt-8 md:flex-row md:gap-6">
           <p className="text-center text-xs text-muted-foreground md:flex-1 md:basis-0 md:text-left">
-            © {year} {BRAND.name}. Tutti i diritti riservati. ·{" "}
+            © {year} {BRAND.name}. Tutti i diritti riservati.
+            {/* Il separatore c'e' solo quando i due dati stanno sulla stessa
+                riga: sul telefono la partita IVA va a capo, e un punto a fine
+                riga resterebbe appeso al nulla. */}
+            <span aria-hidden="true" className="hidden md:inline"> · </span>
             {/* Etichetta e numero sulla stessa riga: "P.IVA" a fine riga e il
                 numero sotto si leggono come due dati diversi. */}
-            <span className="whitespace-nowrap">P.IVA {BRAND.vatNumber}</span>
+            <span className="block whitespace-nowrap md:inline">P.IVA {BRAND.vatNumber}</span>
           </p>
 
           <div className="flex items-center justify-center gap-4">
@@ -159,7 +171,7 @@ export function LandingFooter() {
                 title={label}
                 // Area cliccabile di 40px attorno a un'icona da 20: sul
                 // telefono un bersaglio grande quanto l'icona si manca.
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary md:h-10 md:w-10"
               >
                 <Icon className="h-5 w-5" aria-hidden="true" />
               </a>
@@ -171,7 +183,7 @@ export function LandingFooter() {
             <span aria-hidden="true">·</span>
             <a
               href={`mailto:${BRAND.email}`}
-              className="font-medium text-primary transition-colors hover:underline"
+              className="inline-flex min-h-11 items-center font-medium text-primary transition-colors hover:underline md:min-h-0"
             >
               {BRAND.email}
             </a>

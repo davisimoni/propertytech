@@ -75,7 +75,7 @@ export function UpgradeButton({
         onClick={handleClick}
         disabled={isLoading}
         className={cn(
-          "inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200 disabled:opacity-50",
+          "inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200 disabled:opacity-50",
           variant === "solid"
             ? "bg-brand-gradient text-white shadow-sm hover:shadow-md hover:brightness-110"
             : "border border-border text-foreground hover:border-primary/40 hover:bg-muted"

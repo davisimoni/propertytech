@@ -39,15 +39,37 @@ export function HeroSection() {
 {/* Il titolo dice le tre cose che il software fa, con le parole con cui
             un agente le chiamerebbe. Niente "piattaforma": si sa gia' che e' un
             software, e quella parola occupa il posto di un'informazione. */}
-        <h1 className="mt-6 text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
-          Il software per agenzie immobiliari che qualifica i lead su WhatsApp
-          <span className="bg-brand-gradient bg-clip-text text-transparent"> 24 ore su 24</span>,
-          legge visure e atti in pochi secondi e scrive i tuoi annunci
+{/* Due versioni dello stesso titolo, in un solo `<h1>`.
+
+            Sotto i 768px la versione completa occupava sette righe e spingeva
+            il pulsante di prova sotto la piega: chi apre la pagina dal
+            telefono vedeva solo testo. Le due versioni stanno in due `span`
+            dentro lo stesso titolo, non in due titoli: `hidden` toglie quella
+            nascosta anche dall'albero di accessibilità, e la pagina resta con
+            un `<h1>` solo, che e' quello che si aspettano i lettori di schermo. */}
+        <h1 className="mt-6 text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl md:text-5xl">
+          <span className="md:hidden">
+            Il software AI che qualifica i tuoi lead su WhatsApp
+            <span className="bg-brand-gradient bg-clip-text text-transparent"> 24/7</span> e azzera
+            la burocrazia immobiliare
+          </span>
+          <span className="hidden md:inline">
+            Il software per agenzie immobiliari che qualifica i lead su WhatsApp
+            <span className="bg-brand-gradient bg-clip-text text-transparent"> 24 ore su 24</span>,
+            legge visure e atti in pochi secondi e scrive i tuoi annunci
+          </span>
         </h1>
 
         <p className="mx-auto mt-5 max-w-2xl text-base text-muted-foreground sm:text-lg">
-          Rispondi all&apos;istante alle richieste di Immobiliare.it, Idealista e Casa.it, fissi gli
-          appuntamenti in agenda da solo e arrivi alla visita con i documenti già controllati.
+          <span className="md:hidden">
+            Rispondi all&apos;istante sui portali, analizza visure e atti in pochi secondi e genera
+            i tuoi annunci in un clic.
+          </span>
+          <span className="hidden md:inline">
+            Rispondi all&apos;istante alle richieste di Immobiliare.it, Idealista e Casa.it, fissi
+            gli appuntamenti in agenda da solo e arrivi alla visita con i documenti già
+            controllati.
+          </span>
         </p>
 
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -224,7 +246,7 @@ const PILLARS: Pillar[] = [
     icon: MessagesSquare,
     title: "Qualifica su WhatsApp, 24 ore su 24",
     tag: "Sempre attiva",
-    body: "Ogni richiesta da Immobiliare.it, Idealista e Casa.it riceve risposta in pochi secondi, anche di notte e la domenica. Prima di proporre una visita l'assistente verifica la capienza finanziaria (mutuo deliberato o acquisto in liquidità), se c'è un immobile da vendere prima e in quanto tempo si vuole chiudere. In agenda entra solo chi può comprare davvero: i sabati non se li prende più chi stava guardando.",
+    body: "Ogni richiesta dai portali riceve risposta in pochi secondi, anche di notte e la domenica. Prima di proporre una visita l'assistente verifica mutuo o liquidità, se c'è una casa da vendere prima e in quanto tempo si vuole chiudere. In agenda entra solo chi può comprare davvero: i sabati non se li prende più chi stava solo guardando.",
     points: [
       "Capienza verificata prima della visita: mutuo deliberato o liquidità",
       "Tempistica d'acquisto e immobile da vendere prima di comprare",
@@ -240,7 +262,7 @@ const PILLARS: Pillar[] = [
     icon: FileSearch2,
     title: "Lettura di visure e atti",
     tag: "In pochi secondi",
-    body: "Carichi il PDF della visura, della planimetria, dell'atto di provenienza o dell'APE e ricevi intestatari, quote di proprietà, foglio, particella, subalterno, categoria e rendita catastale già in chiaro, più due righe su cosa manca o non torna. Dieci pagine scansionate male diventano una scheda pronta per l'acquisizione.",
+    body: "Carichi il PDF della visura, della planimetria, dell'atto o dell'APE e ricevi intestatari, quote, foglio, particella, subalterno, categoria e rendita già in chiaro, più due righe su cosa manca o non torna. Dieci pagine scansionate male diventano una scheda pronta.",
     points: [
       "Foglio, particella, subalterno, rendita e intestatari compilati",
       "Difformità e documenti mancanti segnalati subito",

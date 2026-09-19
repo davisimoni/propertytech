@@ -123,7 +123,7 @@ export function ContactSection() {
                   <p className="text-sm font-semibold text-foreground">Scrivici</p>
                   <a
                     href={`mailto:${CONTACT_EMAIL}`}
-                    className="break-all text-sm text-muted-foreground transition-colors duration-200 hover:text-primary"
+                    className="inline-flex min-h-11 items-center break-all text-sm text-muted-foreground transition-colors duration-200 hover:text-primary md:min-h-0"
                   >
                     {CONTACT_EMAIL}
                   </a>

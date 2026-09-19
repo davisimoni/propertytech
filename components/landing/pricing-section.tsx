@@ -138,7 +138,7 @@ export function PricingSection({ isLoggedIn }: { isLoggedIn: boolean }) {
                 {plan.id === "trial" ? (
                   <Link
                     href="/register"
-                    className="mt-6 inline-flex items-center justify-center rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+                    className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
                   >
                     Inizia Gratis
                   </Link>
