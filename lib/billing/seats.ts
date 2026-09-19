@@ -69,11 +69,14 @@ export async function getSeatAccounting(organizationId: string): Promise<SeatAcc
 /**
  * Il messaggio che il titolare legge quando le postazioni sono finite.
  *
- * Dice cosa è successo e quali sono le due strade, in quest'ordine: comprare
- * una postazione è la risposta più economica e la più frequente, cambiare
- * piano serve a chi ne vuole molte. Un messaggio che offre solo l'aggiornamento
+ * Dice cosa è successo e quali sono le due strade. La postazione in più resta
+ * la risposta più economica per chi ha bisogno di una persona sola, ma
+ * dall'app non si compra (il pannello Team rimanda solo ai piani, perché il
+ * prezzo non è configurato in produzione): si chiede al supporto. Un messaggio
+ * che promette "aggiungi un nuovo Seat" senza un pulsante che lo faccia manda
+ * l'agenzia a cercare un comando che non esiste; uno che offre solo il cambio
  * di piano fa pagare a un'agenzia di quattro persone il salto all'Enterprise
  * per una persona sola.
  */
 export const SEATS_LIMIT_MESSAGE =
-  "Hai raggiunto il limite di postazioni del tuo piano. Aggiorna il piano o aggiungi un nuovo Seat per invitare altri agenti.";
+  "Hai raggiunto il limite di postazioni del tuo piano. Passa a un piano superiore per invitare altri agenti, oppure scrivi al supporto per una postazione aggiuntiva.";
