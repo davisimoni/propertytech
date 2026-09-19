@@ -64,6 +64,55 @@ export async function pianoCorrente(organizationId: string | null | undefined): 
   return organizationId ? getPlanId(organizationId) : "trial";
 }
 
+export interface CambioProgrammato {
+  /** Il piano che entra in vigore: `trial` per una disdetta. */
+  verso: PlanId;
+  dal: Date;
+  motivo: "downgrade" | "disdetta";
+}
+
+/**
+ * Il cambio di piano già deciso e non ancora avvenuto, se c'è.
+ *
+ * Due origini, una sola forma: il downgrade programmato dal portale
+ * (`pendingPlanId`, scritto dal webhook leggendo la schedule di Stripe) e la
+ * disdetta a fine periodo (`cancelAtPeriodEnd`). La disdetta vince: se
+ * l'abbonamento finisce, un downgrade previsto dopo non avverrà mai.
+ *
+ * Una data già passata non si annuncia: vuol dire che l'evento del cambio non
+ * è ancora arrivato, e dire "passerà il" a una data di ieri confonde più che
+ * informare.
+ */
+export async function cambioProgrammato(
+  organizationId: string | null | undefined
+): Promise<CambioProgrammato | null> {
+  if (!organizationId) return null;
+
+  const abbonamento = await prisma.subscription.findUnique({
+    where: { organizationId },
+    select: {
+      status: true,
+      cancelAtPeriodEnd: true,
+      currentPeriodEnd: true,
+      pendingPlanId: true,
+      pendingPlanAt: true,
+    },
+  });
+  if (!abbonamento || abbonamento.status === "trial") return null;
+
+  const adesso = new Date();
+
+  if (abbonamento.cancelAtPeriodEnd && abbonamento.currentPeriodEnd && abbonamento.currentPeriodEnd > adesso) {
+    return { verso: "trial", dal: abbonamento.currentPeriodEnd, motivo: "disdetta" };
+  }
+
+  if (abbonamento.pendingPlanId && abbonamento.pendingPlanAt && abbonamento.pendingPlanAt > adesso) {
+    return { verso: abbonamento.pendingPlanId as PlanId, dal: abbonamento.pendingPlanAt, motivo: "downgrade" };
+  }
+
+  return null;
+}
+
 /**
  * Route guard per le funzionalità legate al piano. Restituisce una 402 pronta
  * quando il piano non include la funzionalità, `null` quando si può procedere.

@@ -570,6 +570,14 @@ model Subscription {
   /// assegnazione per i piani dati a mano. Anche sull'annuale i crediti ripartono
   /// ogni mese a questa data, non una volta l'anno al rinnovo.
   billingCycleAnchor         DateTime?
+  /// Downgrade programmato: il piano che entra in vigore a `pendingPlanAt`.
+  /// Fino ad allora l'agenzia tiene il piano pagato (`status`), con i suoi
+  /// limiti e bonus. Lo scrive solo il webhook, leggendo la fase successiva
+  /// della subscription schedule che il Portale Clienti crea quando qualcuno
+  /// scende di piano. `null` quando non c'è nessun cambio in attesa. Serve
+  /// solo ad avvisare: il piano lo cambia Stripe, cambiando il prezzo.
+  pendingPlanId              PlanId?
+  pendingPlanAt              DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

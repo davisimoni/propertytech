@@ -8,6 +8,7 @@ import {
   getStripe,
   isStripeEnabled,
   pianoDaAbbonamento,
+  pianoDaPrezzo,
   readPlanFromMetadata,
   type PianoDaPrezzo,
 } from "@/lib/billing/stripe";
@@ -64,7 +65,7 @@ async function activatePlan(
   stripeSubscriptionId: string | null,
   stripeCustomerId: string | null,
   ancoraStripe: Date | null
-) {
+): Promise<boolean> {
   const adesso = new Date();
 
   const esito = await prisma.$transaction(async (tx) => {
@@ -151,6 +152,8 @@ async function activatePlan(
       newPlan: planId,
     });
   }
+
+  return esito.cambiato;
 }
 
 /** Riporta l'organizzazione al piano Trial quando l'abbonamento cessa. */
@@ -169,8 +172,15 @@ async function downgradeToTrial(stripeSubscriptionId: string) {
 
   await prisma.subscription.update({
     where: { organizationId: subscription.organizationId },
-    // La disdetta, se c'era, ha appena avuto effetto: non è più "in corso".
-    data: { status: "trial", cancelAtPeriodEnd: false, currentPeriodEnd: null },
+    // La disdetta, se c'era, ha appena avuto effetto: non è più "in corso". Con
+    // l'abbonamento finisce anche qualunque cambio di piano programmato.
+    data: {
+      status: "trial",
+      cancelAtPeriodEnd: false,
+      currentPeriodEnd: null,
+      pendingPlanId: null,
+      pendingPlanAt: null,
+    },
   });
 
   // Simmetrico ad `activatePlan`: se questa organizzazione era un'invitata
@@ -361,6 +371,67 @@ async function syncExtraSeats(
 }
 
 /**
+ * Il downgrade programmato, per poterlo annunciare.
+ *
+ * Quando qualcuno scende di piano dal portale, Stripe non cambia subito il
+ * prezzo: attacca all'abbonamento una *subscription schedule* con la fase
+ * successiva, che parte alla fine del periodo pagato. Il piano applicato resta
+ * quello di adesso, ed è giusto; ma senza leggere la schedule l'agenzia non
+ * saprebbe che il mese prossimo perde limiti e bonus. Qui si legge la prossima
+ * fase e se ne scrive piano e data, solo per l'avviso: il piano lo cambia
+ * Stripe, cambiando il prezzo, e a quel punto passa da `activatePlan` come
+ * ogni altro cambio.
+ *
+ * Solo i cambi di **piano**: un passaggio da annuale a mensile sullo stesso
+ * piano non cambia né limiti né bonus, e annunciarlo come un downgrade
+ * spaventerebbe per niente. Non lancia: l'avviso sbagliato per un giro non
+ * vale un evento rifiutato, e il prossimo evento lo riallinea.
+ */
+async function syncCambioProgrammato(
+  organizationId: string,
+  subscription: Stripe.Subscription,
+  pianoAttuale: "starter" | "pro" | "enterprise"
+): Promise<void> {
+  try {
+    let pendingPlanId: PlanId | null = null;
+    let pendingPlanAt: Date | null = null;
+
+    const schedule =
+      typeof subscription.schedule === "string"
+        ? await getStripe().subscriptionSchedules.retrieve(subscription.schedule)
+        : subscription.schedule;
+
+    // `released`, `canceled` e `completed` non cambiano più nulla: una
+    // schedule annullata dall'agenzia vuol dire che il downgrade non c'è più.
+    if (schedule && (schedule.status === "active" || schedule.status === "not_started")) {
+      const adesso = Math.floor(Date.now() / 1000);
+      const prossima = schedule.phases.find((fase) => fase.start_date > adesso);
+      const piano = prossima
+        ? (prossima.items
+            .map((voce) => pianoDaPrezzo(typeof voce.price === "string" ? voce.price : voce.price.id))
+            .find((trovato) => trovato !== null) ?? null)
+        : null;
+
+      if (prossima && piano && piano.plan !== pianoAttuale) {
+        pendingPlanId = piano.plan;
+        pendingPlanAt = new Date(prossima.start_date * 1000);
+      }
+    }
+
+    await prisma.subscription.update({
+      where: { organizationId },
+      data: { pendingPlanId, pendingPlanAt },
+    });
+  } catch (error) {
+    reportWebhookError(error, "stripe", "pending-plan-sync");
+    console.error("[api/stripe/webhook] Cambio piano programmato non letto", {
+      organizationId,
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+  }
+}
+
+/**
  * Allinea piano, limiti e voci accessorie allo stato di un abbonamento Stripe.
  *
  * # Il piano lo dicono i prezzi, non i metadati
@@ -393,7 +464,14 @@ async function sincronizzaAbbonamento(subscription: Stripe.Subscription): Promis
   // Un abbonamento non ancora pagato (`incomplete`) o sospeso per mancato
   // pagamento non deve attivare ne' mantenere un piano.
   if (organizationId && planId && subscription.status === "active") {
-    await activatePlan(organizationId, planId, subscription.id, null, ancoraDi(subscription));
+    const cambiato = await activatePlan(
+      organizationId,
+      planId,
+      subscription.id,
+      null,
+      ancoraDi(subscription)
+    );
+    await syncCambioProgrammato(organizationId, subscription, planId);
     await syncCancellationState(organizationId, subscription);
     await syncExtraSeats(organizationId, subscription);
     // Aggiunge la voce a consumo all'Enterprise mensile e la toglie da un
@@ -402,7 +480,10 @@ async function sincronizzaAbbonamento(subscription: Stripe.Subscription): Promis
     await syncOverageItem(organizationId, subscription, planId);
 
     if (daiPrezzi) await allineaMetadati(subscription, organizationId, daiPrezzi);
-    await verificaPostazioni(organizationId);
+    // Solo dopo un cambio vero: le postazioni in eccesso nascono da un
+    // downgrade, e ricontrollarle a ogni evento (disdette, schedule, metadati
+    // riallineati) manderebbe la stessa email al titolare più volte.
+    if (cambiato) await verificaPostazioni(organizationId);
   } else if (subscription.status === "canceled" || subscription.status === "unpaid") {
     await downgradeToTrial(subscription.id);
   }
@@ -522,6 +603,26 @@ export async function POST(request: Request) {
       case "customer.subscription.created":
       case "customer.subscription.updated": {
         await sincronizzaAbbonamento(event.data.object);
+        break;
+      }
+
+      // Un downgrade programmato dal portale, o il suo annullamento, cambia la
+      // schedule e non sempre l'abbonamento. Si rilegge l'abbonamento e si
+      // passa dalla stessa strada: e' idempotente, e cosi' l'avviso "il tuo
+      // piano passera' a..." compare e sparisce insieme alla schedule.
+      case "subscription_schedule.created":
+      case "subscription_schedule.updated":
+      case "subscription_schedule.released":
+      case "subscription_schedule.canceled":
+      case "subscription_schedule.completed": {
+        const schedule = event.data.object;
+        const idAbbonamento =
+          typeof schedule.subscription === "string"
+            ? schedule.subscription
+            : (schedule.subscription?.id ?? null);
+        if (idAbbonamento) {
+          await sincronizzaAbbonamento(await getStripe().subscriptions.retrieve(idAbbonamento));
+        }
         break;
       }
 

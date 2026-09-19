@@ -16,7 +16,8 @@ import { TeamPanel } from "@/components/settings/team-panel";
 import { EmailPreferencesPanel } from "@/components/settings/email-preferences-panel";
 import { SettingsTabs } from "@/components/settings/settings-tabs";
 import { InfoTip } from "@/components/shared/info-tip";
-import { pianoCorrente } from "@/lib/feature-access";
+import { ScheduledChangeNotice } from "@/components/billing/scheduled-change-notice";
+import { cambioProgrammato, pianoCorrente } from "@/lib/feature-access";
 import type { PlanId } from "@/lib/plans";
 
 const DATE_FORMAT = new Intl.DateTimeFormat("it-IT", {
@@ -32,6 +33,7 @@ export default async function SettingsPage() {
   // (ancora "trial") la griglia mostrava il Checkout invece del portale, e un
   // secondo Checkout apre un secondo abbonamento accanto al primo.
   const currentPlanId: PlanId = await pianoCorrente(session?.user?.organizationId);
+  const cambio = await cambioProgrammato(session?.user?.organizationId);
 
   const organization = session?.user?.organizationId
     ? await prisma.organization.findUnique({
@@ -55,6 +57,16 @@ export default async function SettingsPage() {
       <Suspense>
         <CheckoutOutcomeBanner />
       </Suspense>
+
+      {/* Fuori dalle schede: un cambio di piano gia' deciso riguarda tutta
+          l'agenzia, e chi apre la scheda Team o Profilo deve vederlo lo stesso. */}
+      {cambio && (
+        <ScheduledChangeNotice
+          cambio={cambio}
+          pianoAttuale={currentPlanId}
+          puoGestire={session?.user?.role === "OWNER"}
+        />
+      )}
 
       <Suspense>
         <SettingsTabs

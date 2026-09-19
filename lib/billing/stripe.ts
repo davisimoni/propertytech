@@ -177,6 +177,27 @@ export interface PianoDaPrezzo {
 }
 
 /**
+ * Il piano che corrisponde a un prezzo Stripe, o `null` se non è un piano
+ * (postazione aggiuntiva, consumo, pacchetto crediti, prezzo di un altro
+ * listino).
+ *
+ * La mappa si costruisce a ogni chiamata e non una volta all'import: i prezzi
+ * arrivano dalle variabili d'ambiente, e leggerle all'import significherebbe
+ * congelare in memoria i valori di un ambiente in cui magari non erano ancora
+ * configurati.
+ */
+export function pianoDaPrezzo(
+  priceId: string
+): { plan: PaidPlanId; interval: BillingInterval } | null {
+  for (const plan of PAID_PLAN_IDS) {
+    for (const interval of ["monthly", "yearly"] as const) {
+      if (getPriceId(plan, interval) === priceId) return { plan, interval };
+    }
+  }
+  return null;
+}
+
+/**
  * Piano e periodicità letti dai **prezzi** dell'abbonamento.
  *
  * # Perché non bastano i metadati
@@ -192,22 +213,8 @@ export interface PianoDaPrezzo {
  * WhatsApp) vengono ignorate: non dicono nulla sul piano.
  */
 export function pianoDaAbbonamento(subscription: Stripe.Subscription): PianoDaPrezzo | null {
-  /*
-   * La mappa si costruisce a ogni chiamata e non una volta all'import: i
-   * prezzi arrivano dalle variabili d'ambiente, e leggerle all'import
-   * significherebbe congelare in memoria i valori di un ambiente in cui
-   * magari non erano ancora configurati.
-   */
-  const perPrezzo = new Map<string, { plan: PaidPlanId; interval: BillingInterval }>();
-  for (const plan of PAID_PLAN_IDS) {
-    for (const interval of ["monthly", "yearly"] as const) {
-      const priceId = getPriceId(plan, interval);
-      if (priceId) perPrezzo.set(priceId, { plan, interval });
-    }
-  }
-
   const riconosciute = subscription.items.data.flatMap((voce) => {
-    const abbinamento = perPrezzo.get(voce.price.id);
+    const abbinamento = pianoDaPrezzo(voce.price.id);
     return abbinamento ? [{ ...abbinamento, priceId: voce.price.id, itemId: voce.id }] : [];
   });
 

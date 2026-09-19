@@ -1,14 +1,16 @@
 import { auth } from "@/auth";
 import { BonusGrid } from "@/components/bonuses/bonus-grid";
 import { InfoTip } from "@/components/shared/info-tip";
+import { ScheduledChangeNotice } from "@/components/billing/scheduled-change-notice";
 import { bonusDisponibili } from "@/lib/bonuses";
-import { pianoCorrente } from "@/lib/feature-access";
+import { cambioProgrammato, pianoCorrente } from "@/lib/feature-access";
 import { PLANS } from "@/lib/plans";
 
 export default async function BonusesPage() {
   const session = await auth();
   // Dal database: dopo un cambio piano il token porta ancora quello di prima.
   const currentPlanId = await pianoCorrente(session?.user?.organizationId);
+  const cambio = await cambioProgrammato(session?.user?.organizationId);
   const disponibili = bonusDisponibili(currentPlanId);
 
   return (
@@ -26,6 +28,15 @@ export default async function BonusesPage() {
               }. Non consumano crediti operativi.`}
         </p>
       </div>
+
+      {cambio && (
+        <ScheduledChangeNotice
+          cambio={cambio}
+          pianoAttuale={currentPlanId}
+          puoGestire={session?.user?.role === "OWNER"}
+          conBonus
+        />
+      )}
 
       <BonusGrid currentPlanId={currentPlanId} />
     </div>
