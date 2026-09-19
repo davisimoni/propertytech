@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { accreditaRicarica } from "@/lib/billing/credit-recharge";
 import { syncOverageItem } from "@/lib/billing/overage";
@@ -47,6 +46,17 @@ function ancoraDi(subscription: Stripe.Subscription | null): Date | null {
  *
  * Idempotente: una seconda consegna dello stesso evento trova il piano già
  * applicato e non azzera nulla.
+ *
+ * # Perché il cambio di piano è una scrittura condizionata
+ *
+ * Perché lo stesso abbonamento arriva da due eventi quasi simultanei:
+ * `checkout.session.completed` e `customer.subscription.created`. Letti in
+ * parallelo, entrambi vedevano ancora "trial" ed entrambi applicavano il
+ * cambio: contatori azzerati due volte, crediti bonus scalati due volte, due
+ * email di benvenuto. Ora il nuovo piano si scrive solo **se il piano è
+ * ancora quello letto** (`updateMany` con lo stato atteso): Postgres ricontrolla
+ * la condizione dopo aver atteso il lock della riga, quindi dei due arrivi
+ * uno solo trova la riga ancora da cambiare, e solo quello applica gli effetti.
  */
 async function activatePlan(
   organizationId: string,
@@ -55,61 +65,72 @@ async function activatePlan(
   stripeCustomerId: string | null,
   ancoraStripe: Date | null
 ) {
-  // Piano precedente, letto PRIMA della scrittura: e' l'unico modo di sapere
-  // se questo e' un primo acquisto o un passaggio fra piani gia' a pagamento,
-  // e i due casi meritano due email diverse.
-  const precedente = await prisma.subscription.findUnique({
-    where: { organizationId },
-    select: {
-      status: true,
-      billingCycleAnchor: true,
-      organization: {
-        select: {
-          bonusWhatsappCredits: true,
-          usageTracker: { select: { whatsappCreditsUsed: true } },
+  const adesso = new Date();
+
+  const esito = await prisma.$transaction(async (tx) => {
+    // Piano precedente, letto PRIMA della scrittura: e' l'unico modo di sapere
+    // se questo e' un primo acquisto o un passaggio fra piani gia' a pagamento,
+    // e i due casi meritano due email diverse.
+    const precedente = await tx.subscription.findUnique({
+      where: { organizationId },
+      select: {
+        status: true,
+        billingCycleAnchor: true,
+        organization: {
+          select: {
+            bonusWhatsappCredits: true,
+            usageTracker: { select: { whatsappCreditsUsed: true } },
+          },
         },
       },
-    },
-  });
+    });
 
-  const pianoPrecedente = (precedente?.status ?? "trial") as PlanId;
-  const adesso = new Date();
-  // Stripe è la fonte; senza (lettura dell'abbonamento fallita) si tiene
-  // l'ancora già nota, e solo in mancanza di entrambe si parte da adesso.
-  const ancora = ancoraStripe ?? precedente?.billingCycleAnchor ?? adesso;
+    // Ogni agenzia ha la sua riga dalla registrazione. Se manca, si fallisce:
+    // la risposta 500 fa ritentare Stripe, mentre la scrittura condizionata qui
+    // sotto su una riga inesistente non cambierebbe nulla, in silenzio, e un
+    // piano pagato resterebbe spento senza che nessuno lo sappia.
+    if (!precedente) {
+      throw new Error(`Abbonamento locale assente per l'organizzazione ${organizationId}`);
+    }
 
-  const scritture: Prisma.PrismaPromise<unknown>[] = [
-    prisma.subscription.update({
-      where: { organizationId },
+    const pianoPrecedente = precedente.status as PlanId;
+    // Stripe è la fonte; senza (lettura dell'abbonamento fallita) si tiene
+    // l'ancora già nota, e solo in mancanza di entrambe si parte da adesso.
+    const ancora = ancoraStripe ?? precedente.billingCycleAnchor ?? adesso;
+
+    const scritto = await tx.subscription.updateMany({
+      where: { organizationId, status: pianoPrecedente },
       data: {
         status: planId,
         billingCycleAnchor: ancora,
         ...(stripeSubscriptionId && { stripeSubscriptionId }),
         ...(stripeCustomerId && { stripeCustomerId }),
       },
-    }),
-  ];
-
-  if (pianoPrecedente !== planId) {
-    const { tracker, bonusDaScalare } = datiCambioPiano({
-      pianoPrecedente,
-      usatiWhatsapp: precedente?.organization.usageTracker?.whatsappCreditsUsed ?? 0,
-      bonus: precedente?.organization.bonusWhatsappCredits ?? 0,
-      ancora,
-      adesso,
     });
-    scritture.push(prisma.usageTracker.update({ where: { organizationId }, data: tracker }));
-    if (bonusDaScalare > 0) {
-      scritture.push(
-        prisma.organization.update({
+
+    // Un'altra consegna ha cambiato il piano fra la lettura e la scrittura:
+    // gli effetti del cambio li ha gia' applicati lei.
+    const cambiato = scritto.count === 1 && pianoPrecedente !== planId;
+
+    if (cambiato) {
+      const { tracker, bonusDaScalare } = datiCambioPiano({
+        pianoPrecedente,
+        usatiWhatsapp: precedente.organization.usageTracker?.whatsappCreditsUsed ?? 0,
+        bonus: precedente.organization.bonusWhatsappCredits,
+        ancora,
+        adesso,
+      });
+      await tx.usageTracker.update({ where: { organizationId }, data: tracker });
+      if (bonusDaScalare > 0) {
+        await tx.organization.update({
           where: { id: organizationId },
           data: { bonusWhatsappCredits: { decrement: bonusDaScalare } },
-        })
-      );
+        });
+      }
     }
-  }
 
-  await prisma.$transaction(scritture);
+    return { cambiato, pianoPrecedente };
+  });
 
   // Se questa organizzazione è un'invitata del Programma Referral, il primo
   // pagamento a buon fine è il momento in cui il referral diventa ACTIVE e lo
@@ -121,12 +142,15 @@ async function activatePlan(
 
   // Fuori dalla transazione e non bloccante, come il referral: questa rotta
   // risponde 500 per far ritentare Stripe, e un errore di posta farebbe
-  // ripetere l'attivazione dell'intero piano.
-  await notifyPlanActivated({
-    organizationId,
-    previousPlan: (precedente?.status ?? "trial") as PlanId,
-    newPlan: planId,
-  });
+  // ripetere l'attivazione dell'intero piano. Solo per chi il cambio l'ha
+  // applicato davvero, o le email partirebbero una per evento.
+  if (esito.cambiato) {
+    await notifyPlanActivated({
+      organizationId,
+      previousPlan: esito.pianoPrecedente,
+      newPlan: planId,
+    });
+  }
 }
 
 /** Riporta l'organizzazione al piano Trial quando l'abbonamento cessa. */
@@ -336,6 +360,54 @@ async function syncExtraSeats(
   }
 }
 
+/**
+ * Allinea piano, limiti e voci accessorie allo stato di un abbonamento Stripe.
+ *
+ * # Il piano lo dicono i prezzi, non i metadati
+ *
+ * E' cio' che rende sicuro il cambio piano dal Portale Clienti: li' Stripe
+ * sostituisce il prezzo e lascia i metadati fermi, e leggere quelli
+ * significava applicare i limiti del piano vecchio a chi paga gia' il nuovo.
+ * I metadati restano come ripiego per un prezzo non riconoscibile, per
+ * esempio dopo una revisione del listino.
+ *
+ * # Upgrade subito, downgrade a fine periodo
+ *
+ * Si leggono le **voci applicate** (`items`), mai `pending_update`: un upgrade
+ * il cui pagamento e' ancora in corso non cambia le voci finche' non e'
+ * incassato, quindi non sblocca niente prima del tempo. Un downgrade il
+ * portale lo programma a fine periodo (vedi `lib/billing/portal-config.ts`):
+ * fino ad allora il prezzo sull'abbonamento resta quello pagato, e l'agenzia
+ * tiene piano, limiti e bonus per cui ha gia' pagato. Al cambio di fase
+ * Stripe manda un `customer.subscription.updated` con il prezzo nuovo, e il
+ * downgrade si applica qui, in quel momento.
+ *
+ * Limiti e bonus seguono da soli: le API e le pagine riservate leggono il
+ * piano dal database (`getPlanId`), non dal token di sessione.
+ */
+async function sincronizzaAbbonamento(subscription: Stripe.Subscription): Promise<void> {
+  const organizationId = await organizzazioneDi(subscription);
+  const daiPrezzi = pianoDaAbbonamento(subscription);
+  const planId = daiPrezzi?.plan ?? readPlanFromMetadata(subscription.metadata);
+
+  // Un abbonamento non ancora pagato (`incomplete`) o sospeso per mancato
+  // pagamento non deve attivare ne' mantenere un piano.
+  if (organizationId && planId && subscription.status === "active") {
+    await activatePlan(organizationId, planId, subscription.id, null, ancoraDi(subscription));
+    await syncCancellationState(organizationId, subscription);
+    await syncExtraSeats(organizationId, subscription);
+    // Aggiunge la voce a consumo all'Enterprise mensile e la toglie da un
+    // abbonamento diventato annuale, dove produrrebbe fatture mensili e farebbe
+    // chiudere a fine mese un anno pagato.
+    await syncOverageItem(organizationId, subscription, planId);
+
+    if (daiPrezzi) await allineaMetadati(subscription, organizationId, daiPrezzi);
+    await verificaPostazioni(organizationId);
+  } else if (subscription.status === "canceled" || subscription.status === "unpaid") {
+    await downgradeToTrial(subscription.id);
+  }
+}
+
 export async function POST(request: Request) {
   if (!isStripeEnabled()) {
     return NextResponse.json({ error: "stripe_not_configured" }, { status: 503 });
@@ -383,9 +455,7 @@ export async function POST(request: Request) {
           break;
         }
 
-        const planId = readPlanFromMetadata(session.metadata);
-
-        if (!organizationId || !planId) {
+        if (!organizationId) {
           console.error("[api/stripe/webhook] Metadati mancanti sulla sessione", {
             sessionId: session.id,
           });
@@ -417,6 +487,19 @@ export async function POST(request: Request) {
           }
         }
 
+        // Anche qui il piano lo dicono i prezzi dell'abbonamento appena riletto;
+        // i metadati della sessione restano il ripiego se la rilettura e' fallita.
+        const planId =
+          (abbonamento ? pianoDaAbbonamento(abbonamento)?.plan : null) ??
+          readPlanFromMetadata(session.metadata);
+
+        if (!planId) {
+          console.error("[api/stripe/webhook] Piano non riconoscibile per la sessione", {
+            sessionId: session.id,
+          });
+          break;
+        }
+
         await activatePlan(
           organizationId,
           planId,
@@ -431,40 +514,14 @@ export async function POST(request: Request) {
         break;
       }
 
+      // Creazione e modifica passano dalla stessa strada: e' lo stato
+      // dell'abbonamento che conta, non l'evento che lo annuncia. Il `created`
+      // e' una rete di sicurezza per il `checkout.session.completed` (se quello
+      // fallisce, questo attiva comunque il piano pagato) e il doppio arrivo
+      // non applica niente due volte: vedi `activatePlan`.
+      case "customer.subscription.created":
       case "customer.subscription.updated": {
-        const subscription = event.data.object;
-        const organizationId = await organizzazioneDi(subscription);
-
-        /*
-         * Il piano lo dicono i prezzi, non i metadati.
-         *
-         * E' il cambio che rende sicuro il cambio piano dal Portale Clienti:
-         * li' Stripe sostituisce il prezzo e lascia i metadati fermi, e
-         * leggere quelli significava applicare i limiti del piano vecchio a
-         * chi sta gia' pagando il nuovo. I metadati restano come ripiego per
-         * gli abbonamenti il cui prezzo non e' riconoscibile, per esempio dopo
-         * una revisione del listino.
-         */
-        const daiPrezzi = pianoDaAbbonamento(subscription);
-        const planId = daiPrezzi?.plan ?? readPlanFromMetadata(subscription.metadata);
-
-        // Un abbonamento sospeso per mancato pagamento non deve mantenere
-        // attivo il piano.
-        if (organizationId && planId && subscription.status === "active") {
-          await activatePlan(organizationId, planId, subscription.id, null, ancoraDi(subscription));
-          await syncCancellationState(organizationId, subscription);
-          await syncExtraSeats(organizationId, subscription);
-          // Copre il cambio di piano fatto fuori dal Checkout: aggiunge la voce
-          // a consumo all'Enterprise mensile e la toglie da un abbonamento
-          // diventato annuale, dove produrrebbe fatture mensili e farebbe
-          // chiudere a fine mese un anno pagato.
-          await syncOverageItem(organizationId, subscription, planId);
-
-          if (daiPrezzi) await allineaMetadati(subscription, organizationId, daiPrezzi);
-          await verificaPostazioni(organizationId);
-        } else if (subscription.status === "canceled" || subscription.status === "unpaid") {
-          await downgradeToTrial(subscription.id);
-        }
+        await sincronizzaAbbonamento(event.data.object);
         break;
       }
 

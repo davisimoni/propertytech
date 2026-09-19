@@ -4,11 +4,12 @@ import { BonusHeader } from "@/components/bonuses/bonus-header";
 import { BonusLocked } from "@/components/bonuses/bonus-locked";
 import { ScriptObiezioni } from "@/components/bonuses/script-obiezioni";
 import { BONUSES, bonusAccessibile } from "@/lib/bonuses";
-import type { PlanId } from "@/lib/plans";
+import { pianoCorrente } from "@/lib/feature-access";
 
 export default async function ScriptObiezioniPage() {
   const session = await auth();
-  const currentPlanId: PlanId = session?.user?.planId ?? "trial";
+  // Dal database: e' l'unico cancello di questo strumento, che gira nel browser.
+  const currentPlanId = await pianoCorrente(session?.user?.organizationId);
   const bonus = BONUSES.find((b) => b.id === "script-obiezioni");
 
   if (!bonus) notFound();

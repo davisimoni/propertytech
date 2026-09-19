@@ -16,6 +16,7 @@ import { TeamPanel } from "@/components/settings/team-panel";
 import { EmailPreferencesPanel } from "@/components/settings/email-preferences-panel";
 import { SettingsTabs } from "@/components/settings/settings-tabs";
 import { InfoTip } from "@/components/shared/info-tip";
+import { pianoCorrente } from "@/lib/feature-access";
 import type { PlanId } from "@/lib/plans";
 
 const DATE_FORMAT = new Intl.DateTimeFormat("it-IT", {
@@ -27,7 +28,10 @@ const DATE_FORMAT = new Intl.DateTimeFormat("it-IT", {
 
 export default async function SettingsPage() {
   const session = await auth();
-  const currentPlanId: PlanId = session?.user?.planId ?? "trial";
+  // Dal database, non dal token: con il token di chi si e' appena abbonato
+  // (ancora "trial") la griglia mostrava il Checkout invece del portale, e un
+  // secondo Checkout apre un secondo abbonamento accanto al primo.
+  const currentPlanId: PlanId = await pianoCorrente(session?.user?.organizationId);
 
   const organization = session?.user?.organizationId
     ? await prisma.organization.findUnique({

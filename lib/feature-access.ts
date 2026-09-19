@@ -45,6 +45,26 @@ export async function getPlanId(organizationId: string): Promise<PlanId> {
 }
 
 /**
+ * Il piano di chi sta navigando, letto dal database e non dal token.
+ *
+ * # Perché non `session.user.planId`
+ *
+ * Perché il token di sessione fotografa il piano al momento del login e non
+ * sa dei cambi fatti dopo, dal Checkout o dal Portale Clienti: il webhook
+ * aggiorna il database, non i cookie di chi è già collegato. Per decidere cosa
+ * mostrare o sbloccare vale solo questo. Con il token, un'agenzia appena scesa
+ * di piano avrebbe tenuto i bonus del piano superiore fino al logout, e una
+ * appena abbonata avrebbe visto il Checkout invece del portale, aprendo un
+ * secondo abbonamento accanto al primo.
+ *
+ * Il `planId` del token resta per l'intestazione, dove un ritardo di qualche
+ * secondo è solo estetico.
+ */
+export async function pianoCorrente(organizationId: string | null | undefined): Promise<PlanId> {
+  return organizationId ? getPlanId(organizationId) : "trial";
+}
+
+/**
  * Route guard per le funzionalità legate al piano. Restituisce una 402 pronta
  * quando il piano non include la funzionalità, `null` quando si può procedere.
  *

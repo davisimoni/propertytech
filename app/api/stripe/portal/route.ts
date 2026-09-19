@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getStripe, isStripeEnabled } from "@/lib/billing/stripe";
 import { conClienteValido } from "@/lib/billing/customer";
+import { assicuraConfigurazionePortale } from "@/lib/billing/portal-config";
 import { SITE_URL } from "@/lib/seo";
 
 /**
@@ -68,6 +69,10 @@ export async function POST() {
   try {
     const stripe = getStripe();
 
+    // Upgrade subito, downgrade a fine periodo, quantità bloccata: vedi il
+    // modulo. Non lancia, e se non riesce il portale si apre comunque.
+    await assicuraConfigurazionePortale(stripe);
+
     // Anche qui il cliente salvato può essere obsoleto: `conClienteValido` lo
     // rigenera invece di lasciare l'agenzia davanti a "No such customer".
     // Su un cliente appena creato il portale è vuoto, ed è corretto: non ci
@@ -75,7 +80,9 @@ export async function POST() {
     const portale = await conClienteValido(session.user.organizationId, (customerId) =>
       stripe.billingPortal.sessions.create({
         customer: customerId,
-        return_url: `${SITE_URL}/settings`,
+        // `?portale=ritorno`: la pagina sa che si torna da Stripe e rilegge la
+        // sessione, cosi' l'intestazione non resta ferma sul piano di prima.
+        return_url: `${SITE_URL}/settings?portale=ritorno`,
       })
     );
 

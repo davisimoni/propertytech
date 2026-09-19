@@ -2,11 +2,13 @@ import { auth } from "@/auth";
 import { BonusGrid } from "@/components/bonuses/bonus-grid";
 import { InfoTip } from "@/components/shared/info-tip";
 import { bonusDisponibili } from "@/lib/bonuses";
-import { PLANS, type PlanId } from "@/lib/plans";
+import { pianoCorrente } from "@/lib/feature-access";
+import { PLANS } from "@/lib/plans";
 
 export default async function BonusesPage() {
   const session = await auth();
-  const currentPlanId: PlanId = session?.user?.planId ?? "trial";
+  // Dal database: dopo un cambio piano il token porta ancora quello di prima.
+  const currentPlanId = await pianoCorrente(session?.user?.organizationId);
   const disponibili = bonusDisponibili(currentPlanId);
 
   return (
