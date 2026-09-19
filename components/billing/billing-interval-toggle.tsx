@@ -34,7 +34,7 @@ export function BillingIntervalToggle({ value, onChange, className }: BillingInt
               aria-checked={isActive}
               onClick={() => onChange(option.value)}
               className={cn(
-                "inline-flex min-h-11 items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 md:min-h-0",
+                "inline-flex min-h-11 items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 md:mouse:min-h-0",
                 isActive
                   ? "bg-brand-gradient text-white shadow-sm"
                   : "text-muted-foreground hover:text-foreground"

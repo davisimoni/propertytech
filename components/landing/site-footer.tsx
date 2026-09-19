@@ -76,13 +76,13 @@ const SOCIAL_LINKS: { label: string; href: string; Icon: LucideIcon }[] = [
 ];
 
 /*
- * Sul telefono ogni voce e' alta 44px: i link del footer sono impilati uno
+ * Col dito ogni voce e' alta 44px, telefono o tablet che sia: i link del footer sono impilati uno
  * sotto l'altro, e a 18px di altezza il pollice prendeva quello accanto. La
  * distanza fra le righe la da' l'altezza della voce, non piu' lo spazio fra
  * le voci, cosi' il ritmo visivo resta quasi lo stesso.
  */
 const LINK_CLASS =
-  "inline-flex min-h-11 items-center text-sm text-muted-foreground transition-colors hover:text-foreground md:min-h-0";
+  "inline-flex min-h-11 items-center text-sm text-muted-foreground transition-colors hover:text-foreground md:mouse:min-h-0";
 
 export function LandingFooter() {
   const year = new Date().getFullYear();
@@ -171,7 +171,7 @@ export function LandingFooter() {
                 title={label}
                 // Area cliccabile di 40px attorno a un'icona da 20: sul
                 // telefono un bersaglio grande quanto l'icona si manca.
-                className="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary md:h-10 md:w-10"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary md:mouse:h-10 md:mouse:w-10"
               >
                 <Icon className="h-5 w-5" aria-hidden="true" />
               </a>
@@ -183,7 +183,7 @@ export function LandingFooter() {
             <span aria-hidden="true">·</span>
             <a
               href={`mailto:${BRAND.email}`}
-              className="inline-flex min-h-11 items-center font-medium text-primary transition-colors hover:underline md:min-h-0"
+              className="inline-flex min-h-11 items-center font-medium text-primary transition-colors hover:underline md:mouse:min-h-0"
             >
               {BRAND.email}
             </a>

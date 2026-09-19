@@ -304,6 +304,7 @@ Regole di copy: nessuna emoji in oggetto e corpo, tono sobrio, lessico del setto
 
 - **TypeScript rigoroso**: `strict` mode attivo, tipizzazione esplicita su input/output di funzioni pubbliche e su tutti i payload API. Evitare `any`; preferire tipi derivati da Prisma/Zod.
 - **Componenti UI**: puliti, modulari, accessibili (attributi ARIA, contrasto colori, navigazione da tastiera) e responsive con approccio **mobile-first**, poiché una parte significativa degli agenti immobiliari utilizza l'app sul campo da smartphone.
+  - **Bersagli di tocco: 44px col dito, a qualunque larghezza.** Un comando a sé stante nasce `min-h-11` e diventa compatto solo con `md:mouse:min-h-0`, dove `mouse:` è una variante dichiarata in `tailwind.config.ts` (`@media (pointer: fine)`, l'equivalente del `pointer-fine:` di Tailwind 4). Decidere per larghezza (`md:min-h-0`) trattava un iPad a 1024px come un portatile, con bersagli da 36px sotto un dito. I pulsanti `.btn-brand`/`.btn-outline` seguono la stessa regola da `globals.css`.
 - **Gestione errori su API esterne**: ogni chiamata a Stripe, Anthropic Claude e WhatsApp Cloud API / Twilio deve prevedere:
   - Timeout e retry ragionati dove appropriato (idempotenza per Stripe).
   - Gestione esplicita di errori/timeout con fallback chiari e comprensibili per l'utente finale (mai esporre stack trace o errori tecnici grezzi in UI).

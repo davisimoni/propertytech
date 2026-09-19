@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
 const config: Config = {
   darkMode: "class",
@@ -62,7 +63,21 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    /*
+     * `mouse:` applica una classe solo dove si punta con un mouse.
+     *
+     * I bersagli di tocco nascono da 44px, la soglia sotto cui il pollice
+     * sbaglia; `md:mouse:min-h-0` li rende compatti solo su uno schermo largo
+     * **e** con un puntatore preciso. Distinguere per larghezza e basta
+     * trattava un iPad a 1024px come un portatile, con bersagli da 36px sotto
+     * un dito. Tailwind 4 ha questa variante di serie (`pointer-fine:`); qui,
+     * sulla 3.4, la si dichiara a mano con la stessa media query.
+     */
+    plugin(({ addVariant }) => {
+      addVariant("mouse", "@media (pointer: fine)");
+    }),
+  ],
 };
 
 export default config;

@@ -126,7 +126,7 @@ export function CookieNotice({
             type="button"
             onClick={onDismiss}
             aria-label="Chiudi l'avviso"
-            className="-mr-1 -mt-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:m-0 sm:h-8 sm:w-8"
+            className="-mr-1 -mt-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:mouse:m-0 sm:mouse:h-8 sm:mouse:w-8"
           >
             <X className="h-4 w-4" />
           </button>
@@ -135,7 +135,7 @@ export function CookieNotice({
         <button
           type="button"
           onClick={onAccept}
-          className="mt-3 h-11 w-full rounded-lg bg-brand-gradient text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 sm:h-10"
+          className="mt-3 h-11 w-full rounded-lg bg-brand-gradient text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 sm:mouse:h-10"
         >
           Accetta e chiudi
         </button>

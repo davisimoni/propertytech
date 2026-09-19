@@ -230,7 +230,7 @@ export function ReferralPromo() {
                   <button
                     type="button"
                     onClick={copyLink}
-                    className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-brand-gradient px-3 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:brightness-110"
+                    className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg bg-brand-gradient px-3 text-xs font-medium text-white shadow-sm transition-all duration-200 hover:brightness-110 md:mouse:h-9"
                   >
                     {copied ? (
                       <Check className="h-3.5 w-3.5" aria-hidden="true" />
@@ -249,7 +249,7 @@ export function ReferralPromo() {
               <Link
                 href="/settings?tab=referral"
                 onClick={close}
-                className="mt-3 inline-block text-xs font-medium text-primary hover:underline"
+                className="mt-1 inline-flex min-h-11 items-center text-xs font-medium text-primary hover:underline md:mouse:mt-3 md:mouse:min-h-0"
               >
                 Vedi le agenzie invitate e lo stato del tuo sconto
               </Link>
@@ -259,14 +259,14 @@ export function ReferralPromo() {
               <Link
                 href="/register"
                 onClick={close}
-                className="inline-flex w-full items-center justify-center rounded-xl bg-brand-gradient px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-brand-gradient px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 md:mouse:min-h-0"
               >
                 Crea un account gratuito e inizia a invitare
               </Link>
               <Link
                 href="/login"
                 onClick={close}
-                className="inline-flex w-full items-center justify-center rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground transition-all duration-200 hover:bg-muted"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground transition-all duration-200 hover:bg-muted md:mouse:min-h-0"
               >
                 Ho già un account, accedi
               </Link>

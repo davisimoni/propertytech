@@ -21,7 +21,7 @@ export function PublicNavbar({ isLoggedIn }: { isLoggedIn: boolean }) {
         {isLoggedIn ? (
           <Link
             href="/dashboard"
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 md:min-h-0"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 md:mouse:min-h-0"
           >
             <LayoutDashboard className="h-4 w-4" />
             Vai alla Dashboard
@@ -30,13 +30,13 @@ export function PublicNavbar({ isLoggedIn }: { isLoggedIn: boolean }) {
           <nav className="flex items-center gap-2">
             <Link
               href="/login"
-              className="inline-flex min-h-11 items-center rounded-xl px-3 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:bg-muted md:min-h-0"
+              className="inline-flex min-h-11 items-center rounded-xl px-3 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:bg-muted md:mouse:min-h-0"
             >
               Accedi
             </Link>
             <Link
               href="/register"
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-brand-gradient px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 md:min-h-0"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-brand-gradient px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 md:mouse:min-h-0"
             >
               Inizia Gratis
               <ArrowRight className="h-3.5 w-3.5" />
