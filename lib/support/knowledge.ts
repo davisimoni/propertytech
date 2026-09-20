@@ -149,7 +149,8 @@ Solo il **titolare** dell'agenzia gestisce piano e pagamenti; i collaboratori ve
   - **Passaggio a un piano superiore**: vale **subito**. Si paga adesso solo la differenza per i giorni che restano del periodo, e limiti e bonus nuovi sono attivi da subito.
   - **Passaggio a un piano inferiore** (e da annuale a mensile): parte **alla fine del periodo già pagato**. Fino ad allora restano attivi limiti e bonus del piano attuale. In **Impostazioni & Piano** e in **Bonus Riservati** compare un avviso "Il tuo piano passerà a [piano] il [data]", con i bonus che da quella data non saranno più inclusi, e il titolare può annullare o modificare il cambio.
   - Dopo un cambio la pagina si aggiorna in pochi secondi. Se il piano mostrato non cambia subito, basta ricaricarla.
-- **Fatture, ricevute, carta e dati di fatturazione**: **Piani & Fatturazione → Gestisci Fatture e Metodo di Pagamento**, che apre il Portale Clienti di Stripe. I dati della carta non passano mai da PropertyTech.
+- **Ricevute degli addebiti, carta e dati di fatturazione**: **Piani & Fatturazione → Gestisci Fatture e Metodo di Pagamento**, che apre il Portale Clienti di Stripe. I dati della carta non passano mai da PropertyTech.
+- **Fattura elettronica**: non si scarica dal portale. Viene emessa e trasmessa **tramite SDI** e arriva nel **cassetto fiscale** dell'agenzia, come qualsiasi altra fattura elettronica. Dal portale Stripe si scaricano le ricevute dei pagamenti.
 - **Disdetta**: dal proprio piano in **Piani & Fatturazione → Annulla abbonamento**, oppure dal Portale Clienti. Non ci sono penali: l'abbonamento resta attivo fino alla fine del periodo pagato, poi l'agenzia torna al Free Trial. Fino a quel giorno si può riattivare dallo stesso portale.
 - **Codici sconto**: si inseriscono nella pagina di pagamento di Stripe, alla voce **Aggiungi codice promozionale**, e anche nel Portale Clienti. Valgono sugli abbonamenti, non sui pacchetti di crediti.
 

@@ -15,9 +15,15 @@ export function BillingPortalButton() {
             <CreditCard className="h-4 w-4 text-primary" aria-hidden="true" />
             Fatture e metodo di pagamento
           </h3>
+          {/* "Ricevute degli addebiti" e non "fatture": dal portale Stripe si
+              scaricano le ricevute di pagamento, mentre la fattura elettronica
+              con valore fiscale viaggia per SDI e arriva nel cassetto fiscale.
+              Chiamarle entrambe "fatture" mandava il commercialista a cercare
+              nel posto sbagliato un documento che lì non c'è. */}
           <p className="mt-1 text-sm text-muted-foreground">
-            Scarica le fatture, aggiorna la carta o i dati di fatturazione. Si apre il portale
-            sicuro di Stripe: i dati della carta non passano mai da PropertyTech.
+            Scarica le ricevute degli addebiti, aggiorna la carta o gestisci l&apos;abbonamento. Le
+            fatture elettroniche fiscali vengono inviate direttamente al tuo cassetto fiscale
+            tramite SDI.
           </p>
         </div>
 
