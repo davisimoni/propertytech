@@ -21,6 +21,7 @@
  * # Uso
  *
  *   npx --yes tsx scripts/assegna-piano.ts --lista
+ *   npx --yes tsx scripts/assegna-piano.ts --stato <email | organizationId>
  *   npx --yes tsx scripts/assegna-piano.ts <email | organizationId> <piano>
  *   npx --yes tsx scripts/assegna-piano.ts mario@agenzia.it enterprise
  *   npx --yes tsx scripts/assegna-piano.ts mario@agenzia.it trial        # revoca
@@ -65,11 +66,89 @@ async function elencaAgenzie(): Promise<void> {
   }
 }
 
+/**
+ * Stato di un singolo account, prima di consegnarlo a qualcuno.
+ *
+ * # Perché serve, e perché il piano da solo non basta
+ *
+ * Assegnare l'Enterprise sblocca le funzioni, ma non è l'unica cosa che può
+ * fermare chi accede. L'area riservata mostra **solo** l'accettazione del DPA
+ * finché `dpaAcceptedAt` è vuoto (`app/(app)/layout.tsx`): un account creato
+ * via Google o Microsoft non passa dal form di registrazione e quindi ci
+ * arriva senza. Chi entra non vede la dashboard, vede un modulo da firmare —
+ * e se è un revisore esterno, per esempio quello dell'App Review di Meta, non
+ * ha modo di sapere che dietro c'è tutto il resto.
+ *
+ * Quel campo non si compila da qui, mai: vale come prova di un consenso
+ * prestato da una persona, e precompilarlo significherebbe fabbricare quella
+ * prova. Il comando lo **segnala** e basta; ad accettare va chi possiede
+ * l'account, dalla dashboard.
+ *
+ * Dei segreti si stampa l'esistenza, non il valore: un token WhatsApp finito
+ * in un terminale è un token da revocare.
+ */
+async function mostraStato(riferimento: string): Promise<void> {
+  const organizzazione = await prisma.organization.findFirst({
+    where: {
+      OR: [{ id: riferimento }, { users: { some: { email: riferimento.toLowerCase() } } }],
+    },
+    select: {
+      id: true,
+      agencyName: true,
+      dpaAcceptedAt: true,
+      dpaAcceptedVersion: true,
+      subscription: { select: { status: true, stripeSubscriptionId: true, billingCycleAnchor: true } },
+      whatsAppConfig: { select: { provider: true, isConnected: true, metaAccessToken: true } },
+      users: { select: { email: true, role: true }, orderBy: { createdAt: "asc" } },
+    },
+  });
+
+  if (!organizzazione) {
+    esci(`Nessuna agenzia trovata per "${riferimento}".`);
+  }
+
+  const wa = organizzazione.whatsAppConfig;
+  const spunta = (condizione: boolean) => (condizione ? "✔" : "✘");
+
+  console.log(`\n${organizzazione.agencyName ?? "—"}`);
+  console.log(`  id: ${organizzazione.id}`);
+  console.log(`  piano: ${organizzazione.subscription?.status ?? "nessun abbonamento"}`);
+  console.log(
+    `  abbonamento Stripe: ${organizzazione.subscription?.stripeSubscriptionId ?? "nessuno (piano assegnato a mano)"}`
+  );
+  // Da qui ripartono i crediti ogni mese anche senza Stripe: su un piano dato
+  // a mano è l'unica data che dice quando il contatore si azzera.
+  console.log(
+    `  crediti rinnovati dal: ${
+      organizzazione.subscription?.billingCycleAnchor?.toISOString().slice(0, 10) ?? "—"
+    } di ogni mese`
+  );
+  console.log(
+    `  ${spunta(Boolean(organizzazione.dpaAcceptedAt))} DPA accettato: ` +
+      (organizzazione.dpaAcceptedAt
+        ? `${organizzazione.dpaAcceptedAt.toISOString().slice(0, 10)} (versione ${organizzazione.dpaAcceptedVersion ?? "—"})`
+        : "NO — chi accede vede solo il modulo di accettazione, non la dashboard")
+  );
+  console.log(
+    `  ${spunta(Boolean(wa?.isConnected))} WhatsApp: ` +
+      (wa
+        ? `provider ${wa.provider}, ${wa.isConnected ? "collegato" : "non collegato"}, token ${wa.metaAccessToken ? "presente" : "assente"}`
+        : "nessuna configurazione")
+  );
+  console.log(`  utenti: ${organizzazione.users.map((u) => `${u.email} (${u.role})`).join(", ")}\n`);
+}
+
 async function main(): Promise<void> {
   const [riferimento, piano] = process.argv.slice(2);
 
   if (riferimento === "--lista" || riferimento === "--list") {
     await elencaAgenzie();
+    return;
+  }
+
+  if (riferimento === "--stato") {
+    if (!piano) esci("Uso: npx --yes tsx scripts/assegna-piano.ts --stato <email | organizationId>");
+    await mostraStato(piano);
     return;
   }
 
