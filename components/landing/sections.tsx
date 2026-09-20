@@ -31,33 +31,29 @@ export function HeroSection() {
       {/* Entrata in dissolvenza al caricamento, non allo scorrimento: l'hero è
           già sullo schermo. Si spegne con prefers-reduced-motion. */}
       <div className="animate-rise-in relative mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 sm:py-28">
+        {/* L'occhiello dice **che cosa è** il prodotto, non a chi è destinato.
+            "Creato per le agenzie immobiliari italiane" diceva la seconda cosa
+            due volte — il titolo la ripete — e lasciava scoperta la prima: chi
+            atterra qui da una ricerca deve capire la categoria merceologica
+            prima ancora di leggere il titolo. */}
         <span className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary">
           <Sparkles className="h-3.5 w-3.5" />
-          Creato per le agenzie immobiliari italiane
+          Software AI per agenzie immobiliari italiane
         </span>
 
-{/* Il titolo dice le tre cose che il software fa, con le parole con cui
-            un agente le chiamerebbe. Niente "piattaforma": si sa gia' che e' un
-            software, e quella parola occupa il posto di un'informazione. */}
-{/* Due versioni dello stesso titolo, in un solo `<h1>`.
+        {/* Un titolo solo, uguale su tutti gli schermi.
 
-            Sotto i 768px la versione completa occupava sette righe e spingeva
-            il pulsante di prova sotto la piega: chi apre la pagina dal
-            telefono vedeva solo testo. Le due versioni stanno in due `span`
-            dentro lo stesso titolo, non in due titoli: `hidden` toglie quella
-            nascosta anche dall'albero di accessibilità, e la pagina resta con
-            un `<h1>` solo, che e' quello che si aspettano i lettori di schermo. */}
-        <h1 className="mt-6 text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl md:text-5xl">
-          <span className="md:hidden">
-            Il software AI che qualifica i tuoi lead su WhatsApp
-            <span className="bg-brand-gradient bg-clip-text text-transparent"> 24/7</span> e azzera
-            la burocrazia immobiliare
-          </span>
-          <span className="hidden md:inline">
-            Il software per agenzie immobiliari che qualifica i lead su WhatsApp
-            <span className="bg-brand-gradient bg-clip-text text-transparent"> 24 ore su 24</span>,
-            legge visure e atti in pochi secondi e scrive i tuoi annunci
-          </span>
+            La versione estesa per desktop contava venticinque parole: leggibile,
+            ma non in tre secondi, che è il tempo che un visitatore concede a una
+            pagina che non conosce. La versione breve nata per il telefono dice
+            le stesse cose ed è quella che regge la prova — quindi vale anche
+            sul monitor grande, dove il tempo di attenzione non è più lungo.
+            Il dettaglio (quali portali, cosa succede dopo) sta nella riga sotto,
+            che è il posto giusto per leggerlo. */}
+        <h1 className="mt-6 text-balance text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl md:text-5xl">
+          Il software AI che qualifica i tuoi lead su WhatsApp
+          <span className="bg-brand-gradient bg-clip-text text-transparent"> 24/7</span> e azzera la
+          burocrazia immobiliare
         </h1>
 
         <p className="mx-auto mt-5 max-w-2xl text-base text-muted-foreground sm:text-lg">
@@ -66,8 +62,8 @@ export function HeroSection() {
             i tuoi annunci in un clic.
           </span>
           <span className="hidden md:inline">
-            Rispondi all&apos;istante alle richieste di Immobiliare.it, Idealista e Casa.it, fissi
-            gli appuntamenti in agenda da solo e arrivi alla visita con i documenti già
+            Rispondi all&apos;istante alle richieste di Immobiliare.it, Idealista e Casa.it, gli
+            appuntamenti entrano in agenda da soli e arrivi alla visita con i documenti già
             controllati.
           </span>
         </p>
@@ -100,6 +96,34 @@ export function HeroSection() {
             )
           )}
         </ul>
+
+        {/* Il risultato concreto, già nella prima schermata.
+            Titolo e sottotitolo dicono cosa fa il software; queste quattro voci
+            dicono cosa se ne porta a casa l'agente, che è la domanda vera di
+            chi sta valutando. Stanno **sotto** i pulsanti e non sopra: quattro
+            righe in più prima della CTA la rispedirebbero sotto la piega sul
+            telefono, che è esattamente il difetto appena corretto. */}
+        <div className="mx-auto mt-10 max-w-3xl rounded-2xl border border-border bg-card/60 p-4 text-left sm:p-5">
+          <p className="text-center text-xs font-semibold uppercase tracking-widest text-muted-foreground sm:text-left">
+            Ogni giorno ti ritrovi in mano
+          </p>
+          <ul className="mt-3 grid gap-x-6 gap-y-2.5 sm:grid-cols-2">
+            {[
+              "Lead qualificati, con budget e tempi",
+              "Appuntamenti già fissati nella tua agenda",
+              "Visure e atti letti, dati catastali in chiaro",
+              "Annunci, post social e report pronti da inviare",
+            ].map((voce) => (
+              <li key={voce} className="flex items-start gap-2 text-sm text-foreground">
+                <Check
+                  className="mt-0.5 h-4 w-4 shrink-0 text-status-qualified"
+                  aria-hidden="true"
+                />
+                {voce}
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </section>
   );

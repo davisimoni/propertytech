@@ -11,6 +11,7 @@ import {
   AcquisitionSection,
 } from "@/components/landing/sections";
 import { RadarSection } from "@/components/landing/radar-section";
+import { ResultsSection } from "@/components/landing/results-section";
 import { LandingFooter } from "@/components/landing/site-footer";
 import { PricingSection } from "@/components/landing/pricing-section";
 import { StatsSection } from "@/components/landing/stats-section";
@@ -53,6 +54,10 @@ export default async function LandingPage() {
         <StatsSection />
         <ProblemSection />
         <SolutionSection />
+        {/* Subito dopo i moduli, perché è lì che il lettore si chiede "e io
+            cosa ci guadagno": i pilastri dicono cosa fa il software, questa
+            dice cosa se ne porta a casa l'agenzia. */}
+        <ResultsSection />
         {/* Il lato acquisizione ha una sezione propria: risponde a una
             domanda diversa da quella dei moduli — non "cosa fa per i miei
             acquirenti" ma "cosa mi porta in acquisizione". */}
