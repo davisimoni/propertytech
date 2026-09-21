@@ -27,6 +27,12 @@
  *
  *   npx --yes tsx scripts/meta-chiamata-commenti.ts --lista
  *   npx --yes tsx scripts/meta-chiamata-commenti.ts [email | organizationId]
+ *   npx --yes tsx scripts/meta-chiamata-commenti.ts --media 18113753216045756
+ *   npx --yes tsx scripts/meta-chiamata-commenti.ts --media <id> --commento "Testo"
+ *
+ * `--media` salta la ricerca del post e interroga quello indicato.
+ * `--commento` pubblica davvero un commento sotto quel post: si usa solo per
+ * mostrare la scrittura nel video della revisione, e va cancellato dopo.
  *
  * `--conditions=react-server` serve perché `lib/crypto/secrets.ts` importa
  * `server-only`, che fuori da Next.js lancia. Con quella condizione il pacchetto
@@ -132,13 +138,36 @@ async function elencaCollegamenti(): Promise<void> {
   }
 }
 
-async function main(): Promise<void> {
-  const riferimento = process.argv[2];
+interface Opzioni {
+  /** Email o id dell'agenzia da cui prendere il token salvato. */
+  riferimento?: string;
+  /** Media da interrogare, quando lo si conosce già: salta la ricerca. */
+  mediaId?: string;
+  /** Testo di un commento da pubblicare. Assente = nessuna scrittura. */
+  commento?: string;
+}
 
-  if (riferimento === "--lista" || riferimento === "--list") {
+function leggiArgomenti(argv: string[]): Opzioni {
+  const opzioni: Opzioni = {};
+  for (let i = 0; i < argv.length; i++) {
+    const voce = argv[i];
+    if (voce === "--media") opzioni.mediaId = argv[++i];
+    else if (voce === "--commento") opzioni.commento = argv[++i];
+    else if (!voce.startsWith("--")) opzioni.riferimento = voce;
+  }
+  return opzioni;
+}
+
+async function main(): Promise<void> {
+  const argomenti = process.argv.slice(2);
+
+  if (argomenti[0] === "--lista" || argomenti[0] === "--list") {
     await elencaCollegamenti();
     return;
   }
+
+  const opzioni = leggiArgomenti(argomenti);
+  const riferimento = opzioni.riferimento;
 
   const appId = process.env.NEXT_PUBLIC_META_APP_ID;
   const appSecret = process.env.META_APP_SECRET;
@@ -154,16 +183,24 @@ async function main(): Promise<void> {
   const tokenManuale = process.env.META_TEST_TOKEN?.trim();
 
   if (tokenManuale) {
-    const igManuale = process.env.META_TEST_IG_USER_ID?.trim() ?? (await scopriAccountInstagram(tokenManuale, appSecret));
-    if (!igManuale) {
+    console.log("\nToken fornito dall'ambiente (META_TEST_TOKEN)");
+
+    // Con il media già noto non serve risalire all'account: l'endpoint dei
+    // commenti sta sotto il post, e una ricerca in meno è un motivo in meno
+    // per fallire prima di arrivare alla chiamata che conta.
+    const igManuale = opzioni.mediaId
+      ? null
+      : process.env.META_TEST_IG_USER_ID?.trim() ??
+        (await scopriAccountInstagram(tokenManuale, appSecret));
+
+    if (!opzioni.mediaId && !igManuale) {
       esci(
         "Il token non porta a nessun account Instagram Business.\n" +
-          "Indicalo a mano con META_TEST_IG_USER_ID, oppure collega l'account Instagram alla Pagina."
+          "Indica il media con --media <id>, o l'account con META_TEST_IG_USER_ID."
       );
     }
-    console.log("\nToken fornito dall'ambiente (META_TEST_TOKEN)");
-    console.log(`Instagram: ${igManuale}\n`);
-    await eseguiVerifica(tokenManuale, igManuale, appId, appSecret);
+
+    await eseguiVerifica(tokenManuale, igManuale, appId, appSecret, opzioni);
     return;
   }
 
@@ -210,7 +247,7 @@ async function main(): Promise<void> {
   console.log(`\n${collegamento.organization.agencyName} — Pagina "${collegamento.facebookPageName}"`);
   console.log(`Instagram: @${collegamento.instagramUsername} (${collegamento.instagramUserId})\n`);
 
-  await eseguiVerifica(token, collegamento.instagramUserId, appId, appSecret);
+  await eseguiVerifica(token, collegamento.instagramUserId, appId, appSecret, opzioni);
 }
 
 /** L'account Instagram Business agganciato alla prima Pagina del token. */
@@ -232,9 +269,10 @@ async function scopriAccountInstagram(token: string, appSecret: string): Promise
 
 async function eseguiVerifica(
   token: string,
-  instagramUserId: string,
+  instagramUserId: string | null,
   appId: string,
-  appSecret: string
+  appSecret: string,
+  opzioni: Opzioni = {}
 ): Promise<void> {
   /*
    * Primo passo: quali permessi ha davvero questo token.
@@ -251,10 +289,29 @@ async function eseguiVerifica(
     "debug_token"
   );
 
-  const dati = (debug.corpo?.data ?? {}) as { scopes?: string[]; type?: string };
+  const dati = (debug.corpo?.data ?? {}) as { scopes?: string[]; type?: string; app_id?: string };
   const permessi = dati.scopes ?? [];
   console.log(`      tipo: ${dati.type ?? "—"}`);
+  console.log(`      app del token: ${dati.app_id ?? "—"}`);
   console.log(`      concessi: ${permessi.length ? permessi.join(", ") : "—"}`);
+
+  /*
+   * L'app a cui il token appartiene, confrontata con la nostra.
+   *
+   * È la causa più comune di un contatore fermo a zero pur avendo ricevuto un
+   * 200: l'Explorer ricorda l'ultima app usata, e una chiamata riuscita con il
+   * token di un'altra app viene registrata nella telemetria di quell'altra.
+   * Dal lato di chi guarda la dashboard è indistinguibile da una chiamata mai
+   * partita, ed è per questo che va detto qui e non lasciato indovinare.
+   */
+  if (dati.app_id && dati.app_id !== appId) {
+    esci(
+      `\n✘ Il token appartiene all'app ${dati.app_id}, non alla nostra (${appId}).\n\n` +
+        "Le chiamate fatte con questo token contano per quell'altra app: il\n" +
+        "contatore della nostra revisione resta fermo qualunque esito abbiano.\n" +
+        "Nell'Explorer va riselezionata l'app corretta e rigenerato il token.\n"
+    );
+  }
 
   if (!permessi.includes(PERMESSO)) {
     esci(
@@ -270,31 +327,40 @@ async function eseguiVerifica(
    * Serve un media di cui chiedere i commenti: l'endpoint vive sotto un post,
    * non sull'account. Un profilo senza post non può produrre la chiamata.
    */
-  console.log("\nUltimo media pubblicato:");
-  const media = await chiama(
-    urlGraph(`${instagramUserId}/media`, token, appSecret, {
-      fields: "id,caption,timestamp",
-      limit: "1",
-    }),
-    "GET /{ig-user-id}/media"
-  );
+  let mediaId = opzioni.mediaId;
 
-  const elenco = (media.corpo?.data ?? []) as Array<{ id: string; timestamp?: string }>;
-  const primo = elenco[0];
-  if (!primo) {
-    esci(
-      "\n✘ L'account Instagram non ha post pubblicati.\n" +
-        "L'endpoint dei commenti vive sotto un media: senza almeno un post non c'è\n" +
-        "niente da chiamare. Pubblica un post qualsiasi dall'app Instagram e riprova.\n"
+  if (!mediaId) {
+    console.log("\nUltimo media pubblicato:");
+    const media = await chiama(
+      urlGraph(`${instagramUserId}/media`, token, appSecret, {
+        fields: "id,caption,timestamp",
+        limit: "1",
+      }),
+      "GET /{ig-user-id}/media"
     );
-  }
 
-  console.log(`      media ${primo.id}${primo.timestamp ? ` del ${primo.timestamp.slice(0, 10)}` : ""}`);
+    const elenco = (media.corpo?.data ?? []) as Array<{ id: string; timestamp?: string }>;
+    const primo = elenco[0];
+    if (!primo) {
+      esci(
+        "\n✘ L'account Instagram non ha post pubblicati.\n" +
+          "L'endpoint dei commenti vive sotto un media: senza almeno un post non c'è\n" +
+          "niente da chiamare. Pubblica un post qualsiasi dall'app Instagram e riprova.\n"
+      );
+    }
+
+    mediaId = primo.id;
+    console.log(
+      `      media ${primo.id}${primo.timestamp ? ` del ${primo.timestamp.slice(0, 10)}` : ""}`
+    );
+  } else {
+    console.log(`\nMedia indicato: ${mediaId}`);
+  }
 
   // La chiamata che conta: è questa che usa il permesso in revisione.
   console.log(`\nChiamata con "${PERMESSO}":`);
   const commenti = await chiama(
-    urlGraph(`${primo.id}/comments`, token, appSecret, {
+    urlGraph(`${mediaId}/comments`, token, appSecret, {
       fields: "id,text,timestamp,username",
       limit: "25",
     }),
@@ -303,14 +369,35 @@ async function eseguiVerifica(
 
   const trovati = (commenti.corpo?.data ?? []) as unknown[];
 
-  if (commenti.ok) {
-    console.log(`\n✔ HTTP ${commenti.status} — ${trovati.length} commenti letti.`);
-    console.log("  La chiamata è registrata nei log di Meta. Il contatore dell'App Review");
-    console.log("  si aggiorna entro qualche minuto (a volte fino a 24 ore).\n");
-    return;
+  if (!commenti.ok) {
+    esci(`\n✘ Chiamata non riuscita (HTTP ${commenti.status}). Il contatore non si muove.\n`);
   }
 
-  esci(`\n✘ Chiamata non riuscita (HTTP ${commenti.status}). Il contatore non si muove.\n`);
+  console.log(`\n✔ HTTP ${commenti.status} — ${trovati.length} commenti letti.`);
+
+  /*
+   * La scrittura, solo se richiesta esplicitamente.
+   *
+   * Un commento pubblicato resta sotto un post vero, visibile a chiunque
+   * segua l'account: non è il genere di cosa che un comando fa "anche", per
+   * sicurezza, mentre ne stava facendo un'altra. Per la telemetria la lettura
+   * basta; questa serve a chi deve mostrare nel video della revisione che
+   * l'app scrive davvero.
+   */
+  if (opzioni.commento) {
+    console.log(`\nPubblicazione del commento (POST, visibile pubblicamente):`);
+    const url = urlGraph(`${mediaId}/comments`, token, appSecret, { message: opzioni.commento });
+    const pubblicato = await fetch(url, { method: "POST", signal: AbortSignal.timeout(20_000) });
+    const corpo = (await pubblicato.json().catch(() => null)) as Record<string, unknown> | null;
+    const errore = corpo?.error as { message?: string; code?: number } | undefined;
+
+    console.log(`  ${pubblicato.ok && !errore ? "✔" : "✘"} POST /{ig-media-id}/comments → HTTP ${pubblicato.status}`);
+    if (errore) console.log(`      ${errore.message ?? "errore senza messaggio"} (code ${errore.code ?? "—"})`);
+    else console.log(`      commento ${String(corpo?.id ?? "—")} — ricordati di cancellarlo dopo la revisione`);
+  }
+
+  console.log("\n  La chiamata è registrata nei log di Meta. Il contatore dell'App Review");
+  console.log("  si aggiorna entro qualche minuto (a volte fino a 24 ore).\n");
 }
 
 main()
