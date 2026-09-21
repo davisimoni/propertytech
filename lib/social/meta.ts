@@ -1,5 +1,6 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import type { SocialConnection } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { readSecret } from "@/lib/env";
 import { decryptSecret, encryptSecret, isEncryptionAvailable } from "@/lib/crypto/secrets";
@@ -593,15 +594,11 @@ export async function setAutoPublish(
  * frase utile.
  */
 export type CredenzialiMeta =
-  | { ok: true; connection: NonNullable<Awaited<ReturnType<typeof caricaConnessione>>>; token: string }
+  | { ok: true; connection: SocialConnection; token: string }
   | { ok: false; errore: string };
 
-function caricaConnessione(organizationId: string) {
-  return prisma.socialConnection.findUnique({ where: { organizationId } });
-}
-
 export async function credenzialiMeta(organizationId: string): Promise<CredenzialiMeta> {
-  const connection = await caricaConnessione(organizationId);
+  const connection = await prisma.socialConnection.findUnique({ where: { organizationId } });
   if (!connection) {
     return {
       ok: false,

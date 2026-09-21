@@ -24,6 +24,10 @@
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": [
     "node_modules",
+    // Utilitari da riga di comando: `next build` si ferma al primo file che
+    // non compila, e uno strumento interno non deve poter bloccare un deploy.
+    // Il prezzo di questa scelta è spiegato in CLAUDE.md §6.
+    "scripts",
     "backups",
     "cache",
     "downloads",

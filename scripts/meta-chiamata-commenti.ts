@@ -149,12 +149,32 @@ interface Opzioni {
 
 function leggiArgomenti(argv: string[]): Opzioni {
   const opzioni: Opzioni = {};
+
   for (let i = 0; i < argv.length; i++) {
     const voce = argv[i];
-    if (voce === "--media") opzioni.mediaId = argv[++i];
-    else if (voce === "--commento") opzioni.commento = argv[++i];
-    else if (!voce.startsWith("--")) opzioni.riferimento = voce;
+    if (!voce) continue;
+
+    /*
+     * Opzione senza valore: si ferma invece di proseguire.
+     *
+     * `--media` in coda al comando lasciava `mediaId` a `undefined`, e il
+     * comando passava tranquillamente a cercare l'ultimo post pubblicato:
+     * l'esito era una chiamata riuscita su un media diverso da quello
+     * chiesto, che è il tipo di errore che non si nota finché non si guarda
+     * la telemetria e non torna.
+     */
+    if (voce === "--media" || voce === "--commento") {
+      const valore = argv[++i];
+      if (!valore) esci(`L'opzione ${voce} richiede un valore.`);
+
+      if (voce === "--media") opzioni.mediaId = valore;
+      else opzioni.commento = valore;
+      continue;
+    }
+
+    if (!voce.startsWith("--")) opzioni.riferimento = voce;
   }
+
   return opzioni;
 }
 
