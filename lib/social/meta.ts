@@ -50,6 +50,16 @@ export const META_SCOPES = [
   "pages_manage_posts",
   "instagram_basic",
   "instagram_content_publish",
+  /*
+   * Commenti: leggerli, rispondere, nasconderli (`lib/social/comments.ts`).
+   *
+   * Un token generato prima che questo permesso comparisse qui **non lo
+   * porta**: chi si era collegato prima continua a pubblicare ma sui commenti
+   * riceve un errore, e l'unica cura è ricollegare la Pagina. È il motivo per
+   * cui gli errori di quel modulo dicono esattamente questo invece di
+   * proporre un generico "riprova".
+   */
+  "instagram_manage_comments",
   "business_management",
 ].join(",");
 
@@ -216,7 +226,7 @@ async function graphGet<T>(url: URL | string): Promise<RispostaGraph<T>> {
   }
 }
 
-function urlGraph(
+export function urlGraph(
   percorso: string,
   token: string,
   appSecret: string,
@@ -567,6 +577,51 @@ export async function setAutoPublish(
   return getConnectionStatus(organizationId);
 }
 
+/**
+ * Il collegamento di un'agenzia, con il token già in chiaro.
+ *
+ * # Perché passa tutto di qui
+ *
+ * Perché la decifratura del token è un confine, e i confini reggono finché
+ * sono uno solo. Vale per WhatsApp (`lib/whatsapp/credentials.ts`, CLAUDE.md
+ * §5) e vale qui: sparpagliare `decryptSecret` sui singoli punti di lettura
+ * significa che il prossimo che aggiunge una funzione se ne dimentica, e il
+ * difetto non si vede finché non è in produzione.
+ *
+ * Non lancia: restituisce l'errore già scritto per l'agente, perché chi chiama
+ * lo deve mostrare in schermata e non ha modo di tradurre un'eccezione in una
+ * frase utile.
+ */
+export type CredenzialiMeta =
+  | { ok: true; connection: NonNullable<Awaited<ReturnType<typeof caricaConnessione>>>; token: string }
+  | { ok: false; errore: string };
+
+function caricaConnessione(organizationId: string) {
+  return prisma.socialConnection.findUnique({ where: { organizationId } });
+}
+
+export async function credenzialiMeta(organizationId: string): Promise<CredenzialiMeta> {
+  const connection = await caricaConnessione(organizationId);
+  if (!connection) {
+    return {
+      ok: false,
+      errore: "Nessuna Pagina collegata. Collegala da Impostazioni → Integrazioni Social.",
+    };
+  }
+
+  const token = decryptSecret(connection.accessToken);
+  if (!token) {
+    // Token non decifrabile: chiave cambiata o valore manomesso. Si rifiuta
+    // invece di provare a usarlo in chiaro.
+    return {
+      ok: false,
+      errore: "Il collegamento non è più valido. Ricollega la Pagina dalle Impostazioni.",
+    };
+  }
+
+  return { ok: true, connection, token };
+}
+
 export type PublishTarget = "facebook" | "instagram";
 
 export interface PublishResult {
@@ -608,26 +663,12 @@ export async function publishToMeta(params: {
     url.startsWith("http") ? url : new URL(url, SITE_URL).toString()
   );
 
-  const connection = await prisma.socialConnection.findUnique({ where: { organizationId } });
-  if (!connection) {
-    return targets.map((target) => ({
-      target,
-      ok: false,
-      error: "Nessuna Pagina collegata. Collegala da Impostazioni → Integrazioni Social.",
-    }));
+  const credenziali = await credenzialiMeta(organizationId);
+  if (!credenziali.ok) {
+    return targets.map((target) => ({ target, ok: false, error: credenziali.errore }));
   }
 
-  const token = decryptSecret(connection.accessToken);
-  if (!token) {
-    // Token non decifrabile: chiave cambiata o valore manomesso. Si rifiuta
-    // invece di provare a usarlo in chiaro.
-    return targets.map((target) => ({
-      target,
-      ok: false,
-      error: "Il collegamento non è più valido. Ricollega la Pagina dalle Impostazioni.",
-    }));
-  }
-
+  const { connection, token } = credenziali;
   const esiti: PublishResult[] = [];
 
   for (const target of targets) {
