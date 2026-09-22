@@ -487,6 +487,7 @@ model Organization {
   voiceReports         VoiceReport[]
   portfolioMatches     PortfolioMatch[]
   properties           Property[]
+  propertyAudits       PropertyAudit[]
   propertyImages       PropertyImage[]
   socialMediaAssets    SocialMediaAsset[]
   propertyMatches      PropertyLeadMatch[]
@@ -1079,6 +1080,7 @@ model Property {
   leadMatches    PropertyLeadMatch[]
   documents      AgencyDocument[]
   aiGenerations  AiGeneration[]
+  audit          PropertyAudit?
 
   /// Il riferimento è unico per agenzia: due immobili con lo stesso codice
   /// renderebbero ambiguo il feed verso i portali.
@@ -2130,4 +2132,45 @@ model DataDeletionRequest {
   createdAt      DateTime @default(now())
 
   @@index([facebookUserId])
+}
+
+/// Checklist di conformità compilata su un immobile del portafoglio.
+///
+/// # Perché una tabella e non un campo sull'immobile
+///
+/// Perché è lavoro che si svolge in più riprese e in più persone: chi fa il
+/// sopralluogo segna l'APE, chi sente l'amministratore segna le spese. Tenuta
+/// nel browser andava persa a ogni ricarica, e con essa la ragione per cui una
+/// voce risultava a posto.
+///
+/// # Perché JSON e non una colonna per voce
+///
+/// L'elenco delle voci vive nel codice (`lib/audit/checklist.ts`) e cambia
+/// quando cambia la prassi: una colonna per voce trasformerebbe ogni ritocco
+/// alla checklist in una migrazione, e una voce rimossa cancellerebbe le note
+/// già scritte. Le chiavi ignote vengono scartate in lettura, non in scrittura:
+/// una voce tolta oggi e rimessa domani ritrova il proprio stato.
+model PropertyAudit {
+  id String @id @default(cuid())
+
+  /// `{ "<id voce>": "ok" | "manca" | "verificare" }`
+  states Json
+  /// `{ "<id voce>": "nota dell'agente" }`
+  notes Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Una sola checklist per immobile: due schede parallele sullo stesso
+  /// immobile direbbero cose diverse sullo stesso rogito.
+  propertyId String   @unique
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  /// Ridondante rispetto a `property.organizationId`, e voluto: ogni tabella
+  /// con dati di tenant filtra sul proprio `organizationId` (CLAUDE.md §5),
+  /// senza dipendere da una join per l'isolamento.
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
 }
