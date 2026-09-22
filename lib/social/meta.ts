@@ -49,6 +49,17 @@ export const META_SCOPES = [
   "pages_show_list",
   "pages_read_engagement",
   "pages_manage_posts",
+  /*
+   * Commenti delle Pagine Facebook (`lib/social/comments.ts`).
+   *
+   * Sono due permessi e non uno perché Meta separa il leggere dal rispondere:
+   * `pages_read_user_content` copre i commenti scritti **da altri** sotto i
+   * post della Pagina — `pages_read_engagement` da solo legge i contenuti
+   * della Pagina, non quelli dei visitatori — e `pages_manage_engagement`
+   * copre rispondere e nascondere a nome della Pagina.
+   */
+  "pages_read_user_content",
+  "pages_manage_engagement",
   "instagram_basic",
   "instagram_content_publish",
   /*

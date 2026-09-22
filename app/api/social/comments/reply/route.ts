@@ -28,6 +28,7 @@ export const maxDuration = 30;
 
 const schema = z.object({
   commentId: z.string().trim().min(1, "Commento non indicato"),
+  piattaforma: z.enum(["instagram", "facebook"]).default("instagram"),
   azione: z.enum(["rispondi", "nascondi", "mostra"]).default("rispondi"),
   message: z
     .string()
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { commentId, azione } = parsed.data;
+  const { commentId, azione, piattaforma } = parsed.data;
 
   if (azione === "rispondi") {
     // Il testo è obbligatorio solo qui: lo schema non può dichiararlo
@@ -70,6 +71,7 @@ export async function POST(request: Request) {
 
     const esito = await rispondiACommento(
       session.user.organizationId,
+      piattaforma,
       commentId,
       parsed.data.message
     );
@@ -83,6 +85,7 @@ export async function POST(request: Request) {
 
   const esito = await nascondiCommento(
     session.user.organizationId,
+    piattaforma,
     commentId,
     azione === "nascondi"
   );

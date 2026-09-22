@@ -189,8 +189,8 @@ Come si usano:
 ## Social & Annunci (piano ${pianoSocial})
 - Da poche righe sull'immobile, o dal link di un annuncio già online, genera l'**annuncio per i portali**, il **post per Instagram e Facebook** e lo **script del Reel**. Compila anche la scheda dati dell'immobile, che si salva in **Portafoglio Immobili** e alimenta il feed per i portali. I dati che la fonte non contiene restano vuoti: non vengono inventati.
 - **Pubblicazione diretta su Facebook e Instagram**: si collega una volta la Pagina Facebook dell'agenzia con il suo account Instagram professionale in **Impostazioni → Integrazioni & CRM**, poi dai contenuti generati si pubblica con **Pubblica su Facebook** o **Pubblica su Instagram**.
-- **Commenti Instagram**: in **Social & Annunci → Commenti Instagram** si vedono i commenti ricevuti sui post dell'account collegato. Per ognuno si può rispondere (scrivendo a mano oppure facendo scrivere una bozza all'AI, che resta modificabile prima di pubblicarla) e si può nascondere un commento, scelta reversibile in qualsiasi momento. **La risposta parte solo quando l'agente preme Pubblica**: niente risposte automatiche, perché un commento sotto un post è pubblico e non si può richiamare.
-- **Messaggi diretti (DM) di Instagram e Facebook**: non vengono letti né gestiti. Le risposte automatiche ai clienti avvengono solo su **WhatsApp**.
+- **Commenti social**: in **Social & Annunci → Commenti Social** si vedono i commenti ricevuti sui post, con un selettore per passare fra **Instagram** e la **Pagina Facebook** collegata. Per ognuno si può rispondere (scrivendo a mano oppure facendo scrivere una bozza all'AI, che resta modificabile prima di pubblicarla) e si può nascondere un commento, scelta reversibile in qualsiasi momento. **La risposta parte solo quando l'agente preme Pubblica**: niente risposte automatiche, perché un commento sotto un post è pubblico e non si può richiamare.
+- **Messaggi diretti (DM) di Instagram e Facebook**: non vengono letti né gestiti, né quelli della Pagina né quelli del profilo. Le risposte automatiche ai clienti avvengono solo su **WhatsApp**.
 
 ## Analisi Documenti (lettura visure e atti)
 - Da **Analisi Documenti** carichi il PDF di una **visura catastale, planimetria, atto di provenienza o APE** (solo PDF, fino a 15 MB). In pochi secondi l'AI estrae intestatari, quote di proprietà, comune, foglio, particella, subalterno, categoria e rendita catastale, più due righe su cosa manca o non torna.
@@ -232,7 +232,7 @@ Appena uscito dalla visita registri una nota vocale, o la scrivi: ne esce un rep
 - **Fascicolo documentale** (dal piano ${pianoFascicolo}): archivio per immobile e per cliente, con avviso **60 giorni prima** della scadenza di APE e conformità impianti.
 
 ## Cosa PropertyTech NON fa
-- **Non risponde da solo ai commenti Instagram**: le bozze le scrive l'AI, ma a pubblicare è sempre l'agente. E **non legge i messaggi diretti** di Instagram e Facebook: lì non arriva. Le risposte automatiche sono solo su WhatsApp.
+- **Non risponde da solo ai commenti** (né Instagram né Facebook): le bozze le scrive l'AI, ma a pubblicare è sempre l'agente. E **non legge i messaggi diretti** di Instagram e Facebook: lì non arriva. Le risposte automatiche sono solo su WhatsApp.
 - Non cerca aste o immobili sul web da solo.
 - Non offre firma digitale, servizi antiriciclaggio o certificazioni di conformità.
 - Non vende postazioni aggiuntive dall'app (si chiedono al supporto).

@@ -3,7 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { reportAiError } from "@/lib/observability/report-error";
 
 /**
- * Bozza di risposta a un commento Instagram.
+ * Bozza di risposta a un commento Instagram o Facebook.
  *
  * # Perché è una bozza e non un invio
  *
@@ -36,6 +36,8 @@ const MODELLO = "claude-opus-5";
 const MAX_TOKEN = 300;
 
 export interface RichiestaRisposta {
+  /** Dove è stato scritto: cambia il registro, non le regole. */
+  piattaforma: "instagram" | "facebook";
   /** Il commento a cui si risponde. */
   commento: string;
   /** Chi l'ha scritto, per poterlo nominare. */
@@ -46,7 +48,13 @@ export interface RichiestaRisposta {
   agenzia: string;
 }
 
-const SYSTEM = `Sei l'addetto social di un'agenzia immobiliare italiana. Scrivi la risposta a un commento ricevuto sotto un post Instagram dell'agenzia.
+function systemPrompt(piattaforma: RichiestaRisposta["piattaforma"]): string {
+  const dove =
+    piattaforma === "facebook"
+      ? "sotto un post della Pagina Facebook dell'agenzia"
+      : "sotto un post Instagram dell'agenzia";
+
+  return `Sei l'addetto social di un'agenzia immobiliare italiana. Scrivi la risposta a un commento ricevuto ${dove}.
 
 # Registro
 - Dai del **lei**, sempre, anche se il commento dà del tu: parla l'agenzia a una persona che non conosce.
@@ -67,6 +75,7 @@ const SYSTEM = `Sei l'addetto social di un'agenzia immobiliare italiana. Scrivi 
 - Complimento senza domanda: ringrazia in una riga, senza attaccare una proposta commerciale.
 
 Rispondi **solo** con il testo della risposta, senza virgolette, senza firma e senza prefissi come "Risposta:".`;
+}
 
 export async function generaRispostaCommento(
   richiesta: RichiestaRisposta
@@ -78,14 +87,15 @@ export async function generaRispostaCommento(
     didascalia
       ? `Didascalia del post:\n"""\n${didascalia.slice(0, 1500)}\n"""`
       : "Didascalia del post: non disponibile.",
-    `Commento di @${richiesta.autore}:\n"""\n${richiesta.commento.slice(0, 1000)}\n"""`,
+    `Piattaforma: ${richiesta.piattaforma === "facebook" ? "Facebook" : "Instagram"}`,
+    `Commento di ${richiesta.piattaforma === "facebook" ? "" : "@"}${richiesta.autore}:\n"""\n${richiesta.commento.slice(0, 1000)}\n"""`,
   ].join("\n\n");
 
   try {
     const risposta = await client.messages.create({
       model: MODELLO,
       max_tokens: MAX_TOKEN,
-      system: SYSTEM,
+      system: systemPrompt(richiesta.piattaforma),
       messages: [{ role: "user", content: contesto }],
     });
 

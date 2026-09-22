@@ -7,6 +7,7 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  Facebook,
   Instagram,
   Loader2,
   MessageCircle,
@@ -20,7 +21,8 @@ import { AI_DISCLAIMER } from "@/lib/compliance";
 import { cn } from "@/lib/utils";
 
 /**
- * Commenti dei post Instagram: leggere, rispondere, moderare.
+ * Commenti dei post Instagram e della Pagina Facebook: leggere, rispondere,
+ * moderare.
  *
  * # Cosa fa fare, e in che ordine
  *
@@ -28,6 +30,14 @@ import { cn } from "@/lib/utils";
  * post, non l'id del commento. Scelto il post arrivano i suoi commenti, e
  * ogni commento ha accanto le due sole azioni che servono davvero —
  * rispondere e nascondere.
+ *
+ * # Una scheda sola con un selettore, non due schede
+ *
+ * Perché il gesto è lo stesso su entrambe le piattaforme: qualcuno ha scritto
+ * sotto un mio post, gli rispondo. Due schede nella barra in alto
+ * costringerebbero a scegliere la piattaforma prima di sapere dove sono
+ * arrivati i commenti, e su un telefono sarebbero due etichette in più in una
+ * riga che già scorre.
  *
  * # Perché l'AI scrive ma non pubblica
  *
@@ -37,8 +47,16 @@ import { cn } from "@/lib/utils";
  * fino all'ultimo, invece di essere un messaggio "approva o rifiuta".
  */
 
-interface PostInstagram {
+type Piattaforma = "instagram" | "facebook";
+
+const PIATTAFORME: { id: Piattaforma; label: string; icona: typeof Instagram }[] = [
+  { id: "instagram", label: "Instagram", icona: Instagram },
+  { id: "facebook", label: "Facebook", icona: Facebook },
+];
+
+interface PostSocial {
   id: string;
+  piattaforma: Piattaforma;
   didascalia: string | null;
   anteprima: string | null;
   permalink: string | null;
@@ -53,7 +71,7 @@ interface RispostaCommento {
   scrittoIl: string | null;
 }
 
-interface CommentoInstagram {
+interface CommentoSocial {
   id: string;
   testo: string;
   autore: string;
@@ -87,9 +105,10 @@ function quandoScritto(iso: string | null): string {
 }
 
 export function CommentsPanel() {
-  const [post, setPost] = useState<PostInstagram[] | null>(null);
-  const [selezionato, setSelezionato] = useState<PostInstagram | null>(null);
-  const [commenti, setCommenti] = useState<CommentoInstagram[] | null>(null);
+  const [piattaforma, setPiattaforma] = useState<Piattaforma>("instagram");
+  const [post, setPost] = useState<PostSocial[] | null>(null);
+  const [selezionato, setSelezionato] = useState<PostSocial | null>(null);
+  const [commenti, setCommenti] = useState<CommentoSocial[] | null>(null);
   const [caricamento, setCaricamento] = useState(true);
   const [caricamentoCommenti, setCaricamentoCommenti] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
@@ -135,7 +154,7 @@ export function CommentsPanel() {
     setErrore(null);
 
     try {
-      const risposta = await fetch("/api/social/comments");
+      const risposta = await fetch(`/api/social/comments?piattaforma=${piattaforma}`);
       if (await intercettaPaywall(risposta, false)) return;
 
       const corpo = await risposta.json().catch(() => null);
@@ -144,26 +163,36 @@ export function CommentsPanel() {
         return;
       }
 
-      const elenco: PostInstagram[] = corpo.posts ?? [];
+      const elenco: PostSocial[] = corpo.posts ?? [];
       setPost(elenco);
-      // Il primo post è già selezionato: aprire la scheda su una lista vuota
-      // con scritto "scegli un post" è un passaggio in più per tutti, sempre.
-      setSelezionato((precedente) => precedente ?? elenco[0] ?? null);
+      /*
+       * Il primo post è già selezionato: aprire la scheda su una lista vuota
+       * con scritto "scegli un post" è un passaggio in più per tutti, sempre.
+       *
+       * Cambiando piattaforma la selezione precedente non vale più: un post
+       * Instagram resterebbe selezionato mentre l'elenco mostra quelli della
+       * Pagina, e i commenti sotto sarebbero di un altro post.
+       */
+      setSelezionato((precedente) =>
+        precedente && precedente.piattaforma === piattaforma ? precedente : (elenco[0] ?? null)
+      );
     } catch {
       setErrore("Non riesco a contattare il server. Controlla la connessione.");
     } finally {
       setCaricamento(false);
     }
-  }, [intercettaPaywall]);
+  }, [intercettaPaywall, piattaforma]);
 
   const caricaCommenti = useCallback(
-    async (mediaId: string) => {
+    async (postId: string) => {
       setCaricamentoCommenti(true);
       setCommenti(null);
       setErrore(null);
 
       try {
-        const risposta = await fetch(`/api/social/comments?mediaId=${encodeURIComponent(mediaId)}`);
+        const risposta = await fetch(
+          `/api/social/comments?piattaforma=${piattaforma}&postId=${encodeURIComponent(postId)}`
+        );
         if (await intercettaPaywall(risposta, false)) return;
 
         const corpo = await risposta.json().catch(() => null);
@@ -179,7 +208,7 @@ export function CommentsPanel() {
         setCaricamentoCommenti(false);
       }
     },
-    [intercettaPaywall]
+    [intercettaPaywall, piattaforma]
   );
 
   useEffect(() => {
@@ -190,14 +219,14 @@ export function CommentsPanel() {
     if (selezionato) void caricaCommenti(selezionato.id);
   }, [selezionato, caricaCommenti]);
 
-  function apriRisposta(commento: CommentoInstagram) {
+  function apriRisposta(commento: CommentoSocial) {
     setInRisposta(commento.id);
     setBozza("");
     setBozzaDaAi(false);
     setConferma(null);
   }
 
-  async function scriviConAi(commento: CommentoInstagram) {
+  async function scriviConAi(commento: CommentoSocial) {
     setGenerazione(true);
     setErrore(null);
 
@@ -206,6 +235,7 @@ export function CommentsPanel() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          piattaforma,
           commento: commento.testo,
           autore: commento.autore,
           didascalia: selezionato?.didascalia ?? undefined,
@@ -229,7 +259,7 @@ export function CommentsPanel() {
     }
   }
 
-  async function pubblica(commento: CommentoInstagram) {
+  async function pubblica(commento: CommentoSocial) {
     const testo = bozza.trim();
     if (!testo) return;
 
@@ -240,7 +270,12 @@ export function CommentsPanel() {
       const risposta = await fetch("/api/social/comments/reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ commentId: commento.id, azione: "rispondi", message: testo }),
+        body: JSON.stringify({
+          piattaforma,
+          commentId: commento.id,
+          azione: "rispondi",
+          message: testo,
+        }),
       });
 
       if (await intercettaPaywall(risposta, true)) return;
@@ -262,7 +297,7 @@ export function CommentsPanel() {
     }
   }
 
-  async function cambiaVisibilita(commento: CommentoInstagram) {
+  async function cambiaVisibilita(commento: CommentoSocial) {
     setAzioneSuCommento(commento.id);
     setErrore(null);
 
@@ -271,6 +306,7 @@ export function CommentsPanel() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          piattaforma,
           commentId: commento.id,
           azione: commento.nascosto ? "mostra" : "nascondi",
         }),
@@ -291,6 +327,55 @@ export function CommentsPanel() {
       setAzioneSuCommento(null);
     }
   }
+
+  /*
+   * Il selettore compare in tutti gli stati, anche in errore.
+   *
+   * Un'agenzia senza account Instagram collegato vede l'errore di Instagram:
+   * se il selettore vivesse solo nella schermata riuscita, resterebbe chiusa
+   * fuori da Facebook, che invece funziona. L'uscita da un errore non deve
+   * essere ricaricare la pagina.
+   */
+  const selettore = (
+    <div
+      role="tablist"
+      aria-label="Piattaforma dei commenti"
+      className="inline-flex rounded-xl border border-border bg-card p-1"
+    >
+      {PIATTAFORME.map(({ id, label, icona: Icona }) => (
+        <button
+          key={id}
+          type="button"
+          role="tab"
+          aria-selected={piattaforma === id}
+          onClick={() => {
+            if (id === piattaforma) return;
+            setPiattaforma(id);
+            // L'elenco mostrato appartiene all'altra piattaforma: tenerlo
+            // visibile mentre si carica il nuovo farebbe cliccare su post
+            // che stanno per sparire.
+            setPost(null);
+            setCommenti(null);
+            setErrore(null);
+            setInRisposta(null);
+            setCaricamento(true);
+          }}
+          className={cn(
+            "inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors md:mouse:min-h-0",
+            piattaforma === id
+              ? "bg-brand-gradient text-white shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Icona className="h-4 w-4" aria-hidden="true" />
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const nomePiattaforma = piattaforma === "facebook" ? "Facebook" : "Instagram";
+  const IconaPiattaforma = piattaforma === "facebook" ? Facebook : Instagram;
 
   if (paywall) {
     return <UpgradeLimitModal feature="social" reason={paywall.reason} requiredPlan={paywall.requiredPlan} />;
@@ -323,7 +408,8 @@ export function CommentsPanel() {
 
   if (caricamento) {
     return (
-      <div className="space-y-3" aria-busy="true">
+      <div className="space-y-4" aria-busy="true">
+        {selettore}
         <div className="h-20 animate-pulse rounded-xl bg-muted" />
         <div className="h-32 animate-pulse rounded-xl bg-muted" />
       </div>
@@ -334,40 +420,55 @@ export function CommentsPanel() {
   // strada è una sola, e conviene che sia un pulsante invece di una frase.
   if (errore && !post) {
     return (
-      <div className="card-surface space-y-4 p-6 text-center">
+      <div className="space-y-4">
+        {selettore}
+        <div className="card-surface space-y-4 p-6 text-center">
         <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Instagram className="h-5 w-5" aria-hidden="true" />
+          <IconaPiattaforma className="h-5 w-5" aria-hidden="true" />
         </span>
         <div>
-          <h2 className="text-base font-semibold text-foreground">Commenti non disponibili</h2>
+          <h2 className="text-base font-semibold text-foreground">
+            Commenti {nomePiattaforma} non disponibili
+          </h2>
           <p className="mx-auto mt-1.5 max-w-md text-sm text-muted-foreground">{errore}</p>
         </div>
         <Link href="/settings?tab=integrations" className="btn-brand mx-auto w-full sm:w-auto">
           Vai alle Integrazioni
         </Link>
+        </div>
       </div>
     );
   }
 
   if (post && post.length === 0) {
     return (
-      <div className="card-surface space-y-2 p-6 text-center">
-        <h2 className="text-base font-semibold text-foreground">Nessun post pubblicato</h2>
-        <p className="mx-auto max-w-md text-sm text-muted-foreground">
-          I commenti vivono sotto i post. Pubblica il primo contenuto da qui o da Instagram, poi
-          torna in questa scheda.
-        </p>
+      <div className="space-y-4">
+        {selettore}
+        <div className="card-surface space-y-2 p-6 text-center">
+          <h2 className="text-base font-semibold text-foreground">
+            Nessun post su {nomePiattaforma}
+          </h2>
+          <p className="mx-auto max-w-md text-sm text-muted-foreground">
+            I commenti vivono sotto i post. Pubblica il primo contenuto da qui o da
+            {" "}
+            {nomePiattaforma}, poi torna in questa scheda.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-5">
+      {selettore}
+
       {/* Striscia dei post: scorrevole sul telefono, dove non ci stanno in
           riga, e a capo sullo schermo grande. */}
-      <section aria-label="Post recenti">
+      <section aria-label={`Post recenti su ${nomePiattaforma}`}>
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-foreground">Post recenti</h2>
+          <h2 className="text-sm font-semibold text-foreground">
+            Post recenti su {nomePiattaforma}
+          </h2>
           <button
             type="button"
             onClick={() => void caricaPost()}
@@ -387,7 +488,7 @@ export function CommentsPanel() {
                   type="button"
                   onClick={() => setSelezionato(elemento)}
                   aria-pressed={attivo}
-                  aria-label={`Post del ${elemento.pubblicatoIl?.slice(0, 10) ?? "—"}, ${elemento.commenti} commenti`}
+                  aria-label={`Post ${nomePiattaforma} del ${elemento.pubblicatoIl?.slice(0, 10) ?? "—"}, ${elemento.commenti} commenti`}
                   className={cn(
                     "relative block h-20 w-20 overflow-hidden rounded-xl border-2 transition-all",
                     attivo
@@ -403,10 +504,20 @@ export function CommentsPanel() {
                       className="h-full w-full object-cover"
                     />
                   ) : (
+                    // Un post Facebook di solo testo non ha immagine: al suo
+                    // posto l'icona della piattaforma, non un riquadro vuoto
+                    // che sembra un caricamento mai finito.
                     <span className="flex h-full w-full items-center justify-center bg-muted text-muted-foreground">
-                      <Instagram className="h-5 w-5" aria-hidden="true" />
+                      <IconaPiattaforma className="h-5 w-5" aria-hidden="true" />
                     </span>
                   )}
+
+                  {/* Badge della piattaforma: resta anche quando le due viste
+                      si somigliano, così un dubbio su "dove sto rispondendo"
+                      non richiede di guardare il selettore. */}
+                  <span className="absolute left-1 top-1 rounded-full bg-background/90 p-1 text-foreground">
+                    <IconaPiattaforma className="h-3 w-3" aria-hidden="true" />
+                  </span>
 
                   {elemento.commenti > 0 && (
                     <span className="absolute bottom-1 right-1 inline-flex items-center gap-0.5 rounded-full bg-background/90 px-1.5 py-0.5 text-[11px] font-semibold text-foreground">
@@ -441,7 +552,7 @@ export function CommentsPanel() {
                 rel="noopener noreferrer"
                 className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-primary hover:underline md:mouse:min-h-0"
               >
-                Apri su Instagram
+                Apri su {nomePiattaforma}
                 <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
               </a>
             )}
@@ -478,7 +589,7 @@ export function CommentsPanel() {
                 >
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="text-sm font-semibold text-foreground">
-                      @{commento.autore}
+                      {piattaforma === "facebook" ? commento.autore : `@${commento.autore}`}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {quandoScritto(commento.scrittoIl)}
@@ -499,7 +610,9 @@ export function CommentsPanel() {
                       {commento.risposte.map((risposta) => (
                         <li key={risposta.id}>
                           <p className="text-xs">
-                            <span className="font-semibold text-foreground">@{risposta.autore}</span>{" "}
+                            <span className="font-semibold text-foreground">
+                              {piattaforma === "facebook" ? risposta.autore : `@${risposta.autore}`}
+                            </span>{" "}
                             <span className="text-muted-foreground">
                               {quandoScritto(risposta.scrittoIl)}
                             </span>
@@ -514,14 +627,14 @@ export function CommentsPanel() {
 
                   {conferma === commento.id && (
                     <p className="mt-3 text-xs font-medium text-status-qualified">
-                      Risposta pubblicata su Instagram.
+                      Risposta pubblicata su {nomePiattaforma}.
                     </p>
                   )}
 
                   {inRisposta === commento.id ? (
                     <div className="mt-3 space-y-2">
                       <label htmlFor={`risposta-${commento.id}`} className="sr-only">
-                        Risposta a @{commento.autore}
+                        Risposta a {commento.autore}
                       </label>
                       <textarea
                         id={`risposta-${commento.id}`}

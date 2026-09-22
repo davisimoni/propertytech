@@ -26,6 +26,7 @@ import { generaRispostaCommento } from "@/lib/ai/comment-reply";
 export const maxDuration = 60;
 
 const schema = z.object({
+  piattaforma: z.enum(["instagram", "facebook"]).default("instagram"),
   commento: z.string().trim().min(1, "Il commento è vuoto").max(1000),
   autore: z.string().trim().min(1).max(100),
   didascalia: z.string().trim().max(2200).optional(),
@@ -56,6 +57,7 @@ export async function POST(request: Request) {
   });
 
   const esito = await generaRispostaCommento({
+    piattaforma: parsed.data.piattaforma,
     commento: parsed.data.commento,
     autore: parsed.data.autore,
     didascalia: parsed.data.didascalia ?? null,

@@ -13,7 +13,7 @@ type Scheda = "genera" | "commenti";
 
 const SCHEDE: { id: Scheda; label: string; icon: typeof Wand2 }[] = [
   { id: "genera", label: "Genera contenuti", icon: Wand2 },
-  { id: "commenti", label: "Commenti Instagram", icon: MessageCircle },
+  { id: "commenti", label: "Commenti Social", icon: MessageCircle },
 ];
 
 /*
