@@ -1,0 +1,20 @@
+{
+  // Controllo dei tipi per gli utilitari da riga di comando.
+  //
+  // `scripts/` è escluso dal tsconfig principale perché un errore lì dentro
+  // fermava `next build`, cioè un deploy di produzione (CLAUDE.md §6). Quella
+  // esclusione però toglieva ogni rete a file che scrivono nel database di
+  // produzione: qui torna, fuori dal percorso del deploy.
+  //
+  //   npx tsc -p tsconfig.scripts.json --noEmit
+  //
+  // I file di `lib/` importati dagli script vengono controllati come
+  // dipendenze, senza bisogno di elencarli.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "incremental": false
+  },
+  "include": ["scripts/**/*.ts"],
+  "exclude": ["node_modules"]
+}
