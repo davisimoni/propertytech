@@ -17,14 +17,15 @@ import { cn } from "@/lib/utils";
  *
  * # Perché il campo resta di testo libero
  *
- * Perché il caso più frequente di questa checklist è l'immobile che **non è
- * ancora** a portafoglio: la si compila durante il primo appuntamento, prima
- * dell'incarico. Un selettore che accetta solo schede esistenti escluderebbe
- * proprio il momento in cui serve di più.
+ * Perché il caso più frequente, negli strumenti che lo usano, è l'immobile che
+ * **non è ancora** a portafoglio: la checklist di conformità si compila al
+ * primo appuntamento e le obiezioni si preparano prima dell'incarico. Un
+ * selettore che accetta solo schede esistenti escluderebbe proprio il momento
+ * in cui serve di più.
  *
- * Il collegamento a una scheda è quindi esplicito e visibile: finché c'è, la
- * checklist si salva su quell'immobile; appena si riscrive il testo a mano il
- * collegamento si stacca, e lo si vede.
+ * Il collegamento a una scheda è esplicito e visibile: appena si riscrive il
+ * testo a mano si stacca, e lo si vede. Cosa comporti il collegamento lo dice
+ * chi lo usa, con `notaCollegato`, perché cambia da uno strumento all'altro.
  */
 
 export interface ImmobileInPortafoglio {
@@ -33,6 +34,17 @@ export interface ImmobileInPortafoglio {
   title: string;
   comune: string;
   indirizzo: string | null;
+  /*
+   * Campi facoltativi: `/api/properties` li restituisce sempre, ma non tutti
+   * i chiamanti li usano. Dichiararli obbligatori costringerebbe la checklist
+   * di conformità, che della scheda usa solo il riferimento, a portarsi
+   * dietro dati che non guarda.
+   */
+  type?: string;
+  zona?: string | null;
+  priceEur?: number;
+  squareMeters?: number;
+  energyClass?: string | null;
 }
 
 interface PropertyComboboxProps {
@@ -44,6 +56,17 @@ interface PropertyComboboxProps {
   onImmobileChange: (immobile: ImmobileInPortafoglio | null) => void;
   label?: string;
   descrizione?: string;
+  /**
+   * Prefisso degli id, perché due combobox nella stessa pagina non si
+   * contendano lo stesso `id`: due `label` che puntano allo stesso campo ne
+   * lasciano una senza bersaglio, e il lettore di schermo legge l'etichetta
+   * sbagliata.
+   */
+  idPrefisso?: string;
+  /** Cosa comporta il collegamento, che cambia da uno strumento all'altro. */
+  notaCollegato?: string;
+  /** Cosa comporta restare su un riferimento scritto a mano. */
+  notaManuale?: string;
 }
 
 /** Come si legge un immobile in elenco: riferimento, titolo, dove si trova. */
@@ -61,6 +84,9 @@ export function PropertyCombobox({
   onImmobileChange,
   label = "Immobile in verifica",
   descrizione,
+  idPrefisso = "immobile",
+  notaCollegato = "La checklist si salva su questa scheda.",
+  notaManuale = "Riferimento scritto a mano: la checklist resta su questa schermata e finisce nel PDF, ma non viene salvata su nessuna scheda.",
 }: PropertyComboboxProps) {
   const [immobili, setImmobili] = useState<ImmobileInPortafoglio[] | null>(null);
   const [aperto, setAperto] = useState(false);
@@ -137,7 +163,7 @@ export function PropertyCombobox({
 
   return (
     <div ref={contenitore} className="relative">
-      <label htmlFor="audit-immobile" className="block text-xs font-medium text-muted-foreground">
+      <label htmlFor={`${idPrefisso}-campo`} className="block text-xs font-medium text-muted-foreground">
         {label}
       </label>
       {descrizione && <p className="mt-0.5 text-xs text-muted-foreground">{descrizione}</p>}
@@ -148,11 +174,11 @@ export function PropertyCombobox({
           aria-hidden="true"
         />
         <input
-          id="audit-immobile"
+          id={`${idPrefisso}-campo`}
           type="text"
           role="combobox"
           aria-expanded={aperto}
-          aria-controls="audit-immobile-elenco"
+          aria-controls={`${idPrefisso}-elenco`}
           aria-autocomplete="list"
           autoComplete="off"
           value={valore}
@@ -178,7 +204,7 @@ export function PropertyCombobox({
             <Check className="h-3.5 w-3.5" aria-hidden="true" />
             Collegato a {collegato.reference}
           </span>
-          <span className="text-muted-foreground">La checklist si salva su questa scheda.</span>
+          <span className="text-muted-foreground">{notaCollegato}</span>
           <button
             type="button"
             onClick={() => onImmobileChange(null)}
@@ -190,16 +216,13 @@ export function PropertyCombobox({
         </p>
       ) : (
         valore.trim() && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            Riferimento scritto a mano: la checklist resta su questa schermata e finisce nel PDF,
-            ma non viene salvata su nessuna scheda.
-          </p>
+          <p className="mt-2 text-xs text-muted-foreground">{notaManuale}</p>
         )
       )}
 
       {aperto && (
         <ul
-          id="audit-immobile-elenco"
+          id={`${idPrefisso}-elenco`}
           role="listbox"
           aria-label="Immobili in portafoglio"
           className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-lg"
