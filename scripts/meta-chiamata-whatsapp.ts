@@ -83,12 +83,27 @@ async function chiama(
   metodo: "GET" | "POST" = "GET",
   corpoJson?: unknown
 ): Promise<Esito> {
+  /*
+   * Il guasto di rete si ferma qui, con la sua causa.
+   *
+   * `fetch` in Node fallisce con un laconico "fetch failed" e mette il motivo
+   * vero — DNS, connessione rifiutata, TLS, timeout — dentro `cause`. Senza
+   * stamparlo, un problema di rete e un token rifiutato si presentano con la
+   * stessa riga, e si finisce a rigenerare credenziali che andavano bene.
+   */
   const risposta = await fetch(url, {
     method: metodo,
     ...(corpoJson
       ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpoJson) }
       : {}),
     signal: AbortSignal.timeout(20_000),
+  }).catch((errore: unknown) => {
+    const causa = errore instanceof Error && errore.cause instanceof Error ? errore.cause : null;
+    esci(
+      `  ✘ ${etichetta} → rete non disponibile\n` +
+        `      ${errore instanceof Error ? errore.message : String(errore)}` +
+        (causa ? `\n      causa: ${causa.message}` : "")
+    );
   });
 
   const corpo = (await risposta.json().catch(() => null)) as Record<string, unknown> | null;
@@ -165,12 +180,49 @@ async function elencaConfigurazioni(): Promise<void> {
 }
 
 /**
+ * I WABA posseduti dai Business dell'utente.
+ *
+ * Serve perché la via breve spesso non porta a niente: un token generato
+ * nell'Explorer senza scegliere il Business ha i permessi WhatsApp ma
+ * `granular_scopes` **senza `target_ids`**, e da lì il WABA non si ricava. Il
+ * Business invece ce l'ha sempre, e chiederlo costa una chiamata.
+ *
+ * Senza questo ripiego l'unica strada era cercare l'id a mano in Business
+ * Suite: un comando che si ferma dicendo "trova tu l'identificativo" ha fatto
+ * metà del lavoro.
+ */
+async function wabaDaiBusiness(token: string, appSecret: string): Promise<string[]> {
+  const risposta = await chiama(
+    urlGraph("me/businesses", token, appSecret, {
+      fields: "id,name,owned_whatsapp_business_accounts{id,name}",
+      limit: "25",
+    }),
+    "GET /me/businesses"
+  );
+
+  const business = (risposta.corpo?.data ?? []) as Array<{
+    name?: string;
+    owned_whatsapp_business_accounts?: { data?: Array<{ id: string; name?: string }> };
+  }>;
+
+  const trovati: string[] = [];
+  for (const singolo of business) {
+    for (const waba of singolo.owned_whatsapp_business_accounts?.data ?? []) {
+      console.log(`      ${waba.name ?? "—"} (id ${waba.id}) — Business ${singolo.name ?? "—"}`);
+      trovati.push(waba.id);
+    }
+  }
+
+  return trovati;
+}
+
+/**
  * I WABA a cui il token dà accesso, letti dal token stesso.
  *
  * `granular_scopes` dice non solo *quali* permessi ha il token, ma su *quali
  * oggetti*: per i permessi WhatsApp quei `target_ids` sono gli identificativi
- * dei WhatsApp Business Account. È la via più corta per trovarli, e l'unica
- * che non richiede di sapere in anticipo come è organizzato il Business.
+ * dei WhatsApp Business Account. È la via più corta quando c'è, e non richiede
+ * nessuna chiamata in più.
  */
 function wabaDalToken(granulari: unknown): string[] {
   if (!Array.isArray(granulari)) return [];
@@ -266,13 +318,18 @@ async function main(): Promise<void> {
   let numeroDiProva = opzioni.numero;
 
   if (permessi.includes(PERMESSO_GESTIONE)) {
-    const waba = opzioni.waba ?? wabaDalToken(dati.granular_scopes)[0];
+    let waba = opzioni.waba ?? wabaDalToken(dati.granular_scopes)[0];
+
+    if (!waba) {
+      console.log("\nIl token non dichiara nessun WABA: li cerco fra i Business.");
+      waba = (await wabaDaiBusiness(token, appSecret))[0];
+    }
 
     if (!waba) {
       esci(
-        "\n✘ Nessun WhatsApp Business Account associato al token.\n" +
-          "Indicalo a mano con --waba <id>: lo trovi in Meta Business Suite,\n" +
-          "Impostazioni account WhatsApp, oppure nella scheda WhatsApp dell'app.\n"
+        "\n✘ Nessun WhatsApp Business Account trovato.\n" +
+          "Se l'app non ha ancora un numero di prova, si crea dalla scheda WhatsApp\n" +
+          "dell'app: Meta ne fornisce uno gratuito. Altrimenti indicalo con --waba <id>.\n"
       );
     }
 
