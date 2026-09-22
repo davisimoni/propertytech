@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Clipboard, Loader2, Sparkles } from "lucide-react";
+import { Check, Clipboard, Loader2, Plus, Sparkles } from "lucide-react";
 import {
   PropertyCombobox,
   type ImmobileInPortafoglio,
 } from "@/components/properties/property-combobox";
 import { UpgradeLimitModal } from "@/components/billing/upgrade-limit-modal";
 import { AI_DISCLAIMER } from "@/lib/compliance";
+import { cn } from "@/lib/utils";
 
 /**
  * Kit script e obiezioni per l'acquisizione dell'incarico.
@@ -184,19 +185,82 @@ interface ObiezioneAI {
 
 type Paywall = { reason: "limit_reached" | "not_in_plan"; requiredPlan?: string };
 
+/**
+ * Da dove arriva l'immobile su cui calcolare le obiezioni.
+ *
+ * # Perche' un selettore e non tutto in pagina
+ *
+ * Perche' le tre strade sono alternative, non cumulative: chi sceglie
+ * l'immobile dal portafoglio non compilera' mai i campi manuali, e viceversa.
+ * Mostrarli tutti insieme costringeva a capire quali ignorare, che e' lavoro
+ * mentale speso per niente, e su un telefono erano due schermate di campi
+ * prima di arrivare al pulsante.
+ */
+type Modalita = "portafoglio" | "manuale" | "generica";
+
+const MODALITA: { id: Modalita; label: string }[] = [
+  { id: "portafoglio", label: "\u{1F3E0} Seleziona immobile dal portafoglio" },
+  { id: "manuale", label: "\u270F\uFE0F Inserimento manuale dati immobile" },
+  { id: "generica", label: "\u26A1 Obiezioni generiche trattativa (senza immobile)" },
+];
+
+function SchedaObiezione({
+  id,
+  voce,
+  copiato,
+  onCopia,
+}: {
+  id: string;
+  voce: ObiezioneAI;
+  copiato: string | null;
+  onCopia: (id: string, testo: string) => void;
+}) {
+  return (
+    <article className="rounded-xl border border-border bg-card p-4 md:p-5">
+      <h3 className="text-sm font-semibold text-foreground">&laquo;{voce.obiezione}&raquo;</h3>
+
+      <p className="mt-3 whitespace-pre-line rounded-lg border border-border bg-muted/40 p-3 text-sm leading-relaxed text-foreground">
+        {voce.script}
+      </p>
+
+      <p className="mt-3 border-l-2 border-primary/30 pl-3 text-xs leading-relaxed text-muted-foreground">
+        <strong className="font-semibold text-foreground">Strategia.</strong> {voce.strategia}
+      </p>
+
+      <button
+        type="button"
+        onClick={() => onCopia(id, voce.script)}
+        className="btn-outline mt-3 w-full text-xs sm:w-auto"
+      >
+        {copiato === id ? (
+          <Check className="h-4 w-4 text-status-qualified" aria-hidden="true" />
+        ) : (
+          <Clipboard className="h-4 w-4" aria-hidden="true" />
+        )}
+        {copiato === id ? "Copiato" : "Copia la risposta"}
+      </button>
+    </article>
+  );
+}
+
 export function ScriptObiezioni({ agencyName }: { agencyName: string }) {
   const [proprietario, setProprietario] = useState("");
   const [prezzoTesto, setPrezzoTesto] = useState("");
   const [percentualeTesto, setPercentualeTesto] = useState("3");
   const [copiato, setCopiato] = useState<string | null>(null);
 
-  /* --- L'immobile: da portafoglio oppure scritto a mano --- */
+  /* --- L'immobile: da portafoglio, a mano, oppure nessuno --- */
+  const [modalita, setModalita] = useState<Modalita>("portafoglio");
   const [riferimento, setRiferimento] = useState("");
   const [scheda, setScheda] = useState<ImmobileInPortafoglio | null>(null);
   const [tipologia, setTipologia] = useState("");
   const [zona, setZona] = useState("");
-  const [puntiDiForza, setPuntiDiForza] = useState("");
   const [criticita, setCriticita] = useState("");
+  const [puntiDiForza, setPuntiDiForza] = useState("");
+  /* I punti di forza sono utili al modello ma non indispensabili: compaiono
+     su richiesta, come le note della checklist di conformita'. Un campo in
+     meno in apertura e' un campo in meno da capire. */
+  const [puntiAperti, setPuntiAperti] = useState(false);
 
   /* --- La generazione --- */
   const [obiezioni, setObiezioni] = useState<ObiezioneAI[] | null>(null);
@@ -227,9 +291,12 @@ export function ScriptObiezioni({ agencyName }: { agencyName: string }) {
    * scriverebbe le obiezioni generiche che stanno già qui sotto senza costare
    * un'attesa.
    */
-  const contestoPronto = Boolean(
-    scheda || prezzo || zona.trim() || criticita.trim() || tipologia.trim()
-  );
+  const contestoPronto =
+    modalita === "portafoglio"
+      ? Boolean(scheda)
+      : modalita === "manuale"
+        ? Boolean(prezzo || zona.trim() || criticita.trim() || tipologia.trim())
+        : false;
 
   async function generaObiezioni() {
     setInCorso(true);
@@ -242,10 +309,10 @@ export function ScriptObiezioni({ agencyName }: { agencyName: string }) {
         body: JSON.stringify({
           // Con la scheda collegata i dati li rilegge il server dal database:
           // qui viaggiano solo l'id e le due cose che in scheda non esistono.
-          propertyId: scheda?.id,
-          tipologia: scheda ? undefined : tipologia.trim() || undefined,
-          prezzoEur: scheda ? undefined : prezzo,
-          zona: scheda ? undefined : zona.trim() || undefined,
+          propertyId: modalita === "portafoglio" ? scheda?.id : undefined,
+          tipologia: modalita === "manuale" ? tipologia.trim() || undefined : undefined,
+          prezzoEur: modalita === "manuale" ? prezzo : undefined,
+          zona: modalita === "manuale" ? zona.trim() || undefined : undefined,
           puntiDiForza: puntiDiForza.trim() || undefined,
           criticita: criticita.trim() || undefined,
           trattativa: proprietario.trim()
@@ -278,10 +345,11 @@ export function ScriptObiezioni({ agencyName }: { agencyName: string }) {
     }
   }
 
-  async function copia(id: string, testo: string) {
-    await navigator.clipboard.writeText(testo);
-    setCopiato(id);
-    setTimeout(() => setCopiato(null), 2000);
+  function copia(id: string, testo: string) {
+    void navigator.clipboard.writeText(testo).then(() => {
+      setCopiato(id);
+      setTimeout(() => setCopiato(null), 2000);
+    });
   }
 
   if (paywall) {
@@ -295,15 +363,46 @@ export function ScriptObiezioni({ agencyName }: { agencyName: string }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* --- Da dove arriva l'immobile --- */}
+      <section className="rounded-xl border border-border bg-card p-4 md:p-5">
+        <label htmlFor="modalita" className="block text-sm font-semibold text-foreground">
+          Su cosa vuoi preparare le risposte
+        </label>
+        <select
+          id="modalita"
+          value={modalita}
+          onChange={(e) => {
+            setModalita(e.target.value as Modalita);
+            // Le obiezioni gia' calcolate valgono per la modalita' di prima:
+            // lasciarle sotto un contesto cambiato le farebbe leggere come se
+            // riguardassero il nuovo immobile.
+            setObiezioni(null);
+            setErroreAi(null);
+          }}
+          className="input-field mt-2 h-11 w-full bg-card text-base sm:h-10 sm:text-sm"
+        >
+          {MODALITA.map((voce) => (
+            <option key={voce.id} value={voce.id}>
+              {voce.label}
+            </option>
+          ))}
+        </select>
+      </section>
+
       {/* --- I dati che personalizzano gli script --- */}
       <section className="rounded-xl border border-border bg-card p-4 md:p-5">
         <h2 className="text-sm font-semibold text-foreground">Dati della trattativa</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Facoltativi. Servono a far uscire i testi già con il nome e i numeri giusti.
+        <p className="mt-1 text-xs text-muted-foreground">
+          Facoltativi: servono a far uscire gli script con il nome e le cifre giuste.
         </p>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+        <div
+          className={cn(
+            "mt-4 grid gap-4",
+            modalita === "manuale" ? "sm:grid-cols-2" : "sm:grid-cols-3"
+          )}
+        >
           <label className="block">
             <span className="text-xs font-medium text-muted-foreground">Nome del proprietario</span>
             <input
@@ -314,17 +413,19 @@ export function ScriptObiezioni({ agencyName }: { agencyName: string }) {
               className="input-field mt-1"
             />
           </label>
-          <label className="block">
-            <span className="text-xs font-medium text-muted-foreground">Prezzo richiesto</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={prezzoTesto}
-              onChange={(e) => setPrezzoTesto(e.target.value)}
-              placeholder="Es. 250000"
-              className="input-field mt-1"
-            />
-          </label>
+          {modalita !== "manuale" && (
+            <label className="block">
+              <span className="text-xs font-medium text-muted-foreground">Prezzo richiesto</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={prezzoTesto}
+                onChange={(e) => setPrezzoTesto(e.target.value)}
+                placeholder="Es. 250000"
+                className="input-field mt-1"
+              />
+            </label>
+          )}
           <label className="block">
             <span className="text-xs font-medium text-muted-foreground">Provvigione (%)</span>
             <input
@@ -362,15 +463,13 @@ export function ScriptObiezioni({ agencyName }: { agencyName: string }) {
         </p>
       </section>
 
-      {/* --- L'immobile: dal portafoglio o scritto a mano --- */}
+      {/* --- L'immobile: solo nelle due modalita' che ne prevedono uno --- */}
+      {modalita !== "generica" && (
       <section className="rounded-xl border border-border bg-card p-4 md:p-5">
         <h2 className="text-sm font-semibold text-foreground">Immobile in trattativa</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Serve a calcolare le obiezioni che riceverà <em>questo</em> immobile. Senza, restano
-          quelle valide per qualsiasi trattativa.
-        </p>
 
-        <div className="mt-4">
+        {modalita === "portafoglio" && (
+        <div className="mt-3">
           <PropertyCombobox
             valore={riferimento}
             onValoreChange={setRiferimento}
@@ -382,8 +481,10 @@ export function ScriptObiezioni({ agencyName }: { agencyName: string }) {
             notaManuale="Nessuna scheda collegata: compila qui sotto quello che sai."
           />
         </div>
+        )}
 
-        {scheda ? (
+        {modalita === "portafoglio" ? (
+          scheda && (
           /* Con la scheda collegata i dati non si ricopiano: si mostrano, così
              l'agente vede su cosa sta ragionando l'AI senza doverli ridigitare. */
           <dl className="mt-4 flex flex-wrap gap-x-5 gap-y-2 rounded-lg border border-primary/25 bg-primary/5 p-3 text-xs">
@@ -404,8 +505,9 @@ export function ScriptObiezioni({ agencyName }: { agencyName: string }) {
                 </div>
               ))}
           </dl>
+          )
         ) : (
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <label className="block">
               <span className="text-xs font-medium text-muted-foreground">Tipologia</span>
               <input
@@ -426,26 +528,25 @@ export function ScriptObiezioni({ agencyName }: { agencyName: string }) {
                 className="input-field mt-1"
               />
             </label>
-            <p className="text-xs text-muted-foreground sm:col-span-2">
-              Il prezzo è quello che hai scritto sopra in <strong>Prezzo richiesto</strong>:
-              non serve ripeterlo.
-            </p>
+            <label className="block">
+              <span className="text-xs font-medium text-muted-foreground">Prezzo richiesto</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={prezzoTesto}
+                onChange={(e) => setPrezzoTesto(e.target.value)}
+                placeholder="Es. 250000"
+                className="input-field mt-1"
+              />
+            </label>
           </div>
         )}
 
-        {/* Valgono in entrambe le modalità: sono le due cose che nessuna
-            scheda contiene e che l'agente invece sa, perché ci è stato dentro. */}
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="block">
-            <span className="text-xs font-medium text-muted-foreground">Punti di forza</span>
-            <textarea
-              rows={2}
-              value={puntiDiForza}
-              onChange={(e) => setPuntiDiForza(e.target.value)}
-              placeholder="Es. doppia esposizione, spese basse, box doppio"
-              className="input-field mt-1 w-full"
-            />
-          </label>
+        {/* La criticita' e' il dato che nessuna scheda contiene e che cambia di
+            piu' le obiezioni: resta sempre in vista. I punti di forza aiutano
+            il modello ma non servono a farlo partire, quindi si aprono a
+            richiesta invece di occupare mezzo schermo su un telefono. */}
+        <div className="mt-4">
           <label className="block">
             <span className="text-xs font-medium text-muted-foreground">Criticità note</span>
             <textarea
@@ -456,6 +557,28 @@ export function ScriptObiezioni({ agencyName }: { agencyName: string }) {
               className="input-field mt-1 w-full"
             />
           </label>
+
+          {puntiAperti ? (
+            <label className="mt-3 block">
+              <span className="text-xs font-medium text-muted-foreground">Punti di forza</span>
+              <textarea
+                rows={2}
+                value={puntiDiForza}
+                onChange={(e) => setPuntiDiForza(e.target.value)}
+                placeholder="Es. doppia esposizione, spese basse, box doppio"
+                className="input-field mt-1 w-full"
+              />
+            </label>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setPuntiAperti(true)}
+              className="mt-2 inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground md:mouse:min-h-0"
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              Aggiungi i punti di forza
+            </button>
+          )}
         </div>
 
         <button
@@ -474,8 +597,9 @@ export function ScriptObiezioni({ agencyName }: { agencyName: string }) {
 
         {!contestoPronto && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Scegli un immobile dal portafoglio, oppure indica almeno prezzo, zona o una
-            criticità.
+            {modalita === "portafoglio"
+              ? "Scegli un immobile dal portafoglio per continuare."
+              : "Indica almeno prezzo, zona o una criticità."}
           </p>
         )}
 
@@ -485,48 +609,46 @@ export function ScriptObiezioni({ agencyName }: { agencyName: string }) {
           </p>
         )}
       </section>
+      )}
 
-      {/* --- Le obiezioni di chi compra --- */}
+      {/* --- Le obiezioni calcolate su questo immobile --- */}
+      {obiezioni && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">
+            Obiezioni probabili su questo immobile
+          </h2>
+          <p className="text-xs text-muted-foreground">{AI_DISCLAIMER}</p>
+
+          {obiezioni.map((voce, indice) => (
+            <SchedaObiezione
+              key={`misura-${indice}`}
+              id={`misura-${indice}`}
+              voce={voce}
+              copiato={copiato}
+              onCopia={copia}
+            />
+          ))}
+        </section>
+      )}
+
+      {/* --- Le quattro classiche: sempre qui, qualunque modalità ---
+          Valgono in ogni trattativa e non dipendono dall'immobile: toglierle
+          quando l'AI ha prodotto le sue lascerebbe l'agente senza la risposta
+          a "ci devo pensare" proprio mentre gliela dicono. */}
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-foreground">
-          {obiezioni
-            ? "Obiezioni probabili su questo immobile"
-            : "Obiezioni di chi compra, valide in ogni trattativa"}
+          Obiezioni di chi compra, valide in ogni trattativa
         </h2>
-        {obiezioni && <p className="text-xs text-muted-foreground">{AI_DISCLAIMER}</p>}
 
-        {(obiezioni ?? OBIEZIONI_CLASSICHE).map((voce, indice) => {
-          const id = `acquirente-${indice}`;
-          return (
-            <article key={id} className="rounded-xl border border-border bg-card p-4 md:p-5">
-              <h3 className="text-sm font-semibold text-foreground">
-                &laquo;{voce.obiezione}&raquo;
-              </h3>
-
-              <p className="mt-3 whitespace-pre-line rounded-lg border border-border bg-muted/40 p-3 text-sm leading-relaxed text-foreground">
-                {voce.script}
-              </p>
-
-              <p className="mt-3 border-l-2 border-primary/30 pl-3 text-xs leading-relaxed text-muted-foreground">
-                <strong className="font-semibold text-foreground">Strategia.</strong>{" "}
-                {voce.strategia}
-              </p>
-
-              <button
-                type="button"
-                onClick={() => copia(id, voce.script)}
-                className="btn-outline mt-3 w-full text-xs sm:w-auto"
-              >
-                {copiato === id ? (
-                  <Check className="h-4 w-4 text-status-qualified" aria-hidden="true" />
-                ) : (
-                  <Clipboard className="h-4 w-4" aria-hidden="true" />
-                )}
-                {copiato === id ? "Copiato" : "Copia la risposta"}
-              </button>
-            </article>
-          );
-        })}
+        {OBIEZIONI_CLASSICHE.map((voce, indice) => (
+          <SchedaObiezione
+            key={`acquirente-${indice}`}
+            id={`acquirente-${indice}`}
+            voce={voce}
+            copiato={copiato}
+            onCopia={copia}
+          />
+        ))}
       </section>
 
       {/* --- Gli script per il proprietario --- */}
