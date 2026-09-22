@@ -198,10 +198,20 @@ type Paywall = { reason: "limit_reached" | "not_in_plan"; requiredPlan?: string 
  */
 type Modalita = "portafoglio" | "manuale" | "generica";
 
+/*
+ * Etichette di solo testo.
+ *
+ * Le emoji in un `<option>` non sono decorazione neutra: i lettori di schermo
+ * le annunciano per esteso ("casa con giardino", "matita") prima
+ * dell'etichetta vera, e fra sistemi operativi cambiano forma al punto da
+ * significare cose diverse. Qui le tre voci si distinguono gia' dalle parole,
+ * e la distinzione visiva la porta il resto della pagina con le icone Lucide,
+ * che sono SVG e restano identiche ovunque.
+ */
 const MODALITA: { id: Modalita; label: string }[] = [
-  { id: "portafoglio", label: "\u{1F3E0} Seleziona immobile dal portafoglio" },
-  { id: "manuale", label: "\u270F\uFE0F Inserimento manuale dati immobile" },
-  { id: "generica", label: "\u26A1 Obiezioni generiche trattativa (senza immobile)" },
+  { id: "portafoglio", label: "Seleziona immobile dal portafoglio" },
+  { id: "manuale", label: "Inserimento manuale dati immobile" },
+  { id: "generica", label: "Obiezioni generiche trattativa (senza immobile)" },
 ];
 
 function SchedaObiezione({
