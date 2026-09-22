@@ -108,7 +108,15 @@ function messaggioErrore(errore: ErroreMeta | null, status: number): string {
     return "Mancano i permessi per gestire i commenti. Ricollega la Pagina da Impostazioni → Integrazioni Social e concedi anche la lettura e la gestione dei commenti.";
   }
   if (codice === 100) {
-    return "Il post o il commento non esiste più, oppure non appartiene all'account collegato.";
+    /*
+     * Il caso di gran lunga più frequente è l'elenco invecchiato: la scheda
+     * resta aperta, il post o il commento viene cancellato da chi l'ha
+     * scritto o dalla Pagina, e la risposta parte verso un oggetto che non
+     * c'è più. Dire "aggiorna l'elenco" indica il gesto che risolve; dire
+     * solo "non esiste" lasciava l'agente davanti a un elenco che continuava
+     * a mostrarglielo.
+     */
+    return "Questo post o commento non è più disponibile: potrebbe essere stato eliminato. Aggiorna l'elenco e riprova.";
   }
   if (codice === 4 || codice === 17 || codice === 32) {
     return "Meta ha temporaneamente limitato le richieste. Riprova fra qualche minuto.";
@@ -126,11 +134,22 @@ async function chiamaGraph<T>(url: URL, metodo: "GET" | "POST" = "GET"): Promise
     const corpo = (await risposta.json().catch(() => null)) as (T & { error?: ErroreMeta }) | null;
 
     if (!risposta.ok || corpo?.error) {
-      // Nel log l'indirizzo non entra mai: porta il token e la prova del
-      // segreto nella query.
+      /*
+       * Nel log il messaggio di Meta, non solo il codice. Mai l'indirizzo:
+       * quello porta il token e la prova del segreto nella query.
+       *
+       * Il codice 100 copre decine di casi diversi ("oggetto inesistente",
+       * "operazione non supportata", "parametro non valido"), e la frase che
+       * mostriamo all'agente ne sceglie uno. Senza il testo originale, una
+       * segnalazione dal campo costringe a indovinare quale dei decine sia:
+       * è esattamente il giro che questo difetto ci è costato. Il messaggio
+       * è testo dell'API, non un dato del cliente.
+       */
       console.error("[social/comments] Chiamata Graph non riuscita", {
         status: risposta.status,
         code: corpo?.error?.code ?? null,
+        subcode: corpo?.error?.error_subcode ?? null,
+        message: corpo?.error?.message ?? null,
       });
       return { ok: false, errore: messaggioErrore(corpo?.error ?? null, risposta.status) };
     }

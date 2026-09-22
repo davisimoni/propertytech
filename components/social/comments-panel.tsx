@@ -283,6 +283,15 @@ export function CommentsPanel() {
       const corpo = await risposta.json().catch(() => null);
       if (!risposta.ok) {
         setErrore(corpo?.message ?? "La risposta non è stata pubblicata.");
+        /*
+         * Elenco ricaricato anche quando la pubblicazione fallisce.
+         *
+         * La causa più comune è un commento che nel frattempo è stato
+         * eliminato: lasciarlo a schermo inviterebbe a riprovare sullo stesso
+         * oggetto inesistente, con lo stesso esito. Dopo il ricaricamento
+         * l'agente vede la situazione vera invece del suo ricordo.
+         */
+        if (selezionato) void caricaCommenti(selezionato.id);
         return;
       }
 
@@ -317,6 +326,7 @@ export function CommentsPanel() {
       const corpo = await risposta.json().catch(() => null);
       if (!risposta.ok) {
         setErrore(corpo?.message ?? "Non sono riuscito a cambiare la visibilità del commento.");
+        if (selezionato) void caricaCommenti(selezionato.id);
         return;
       }
 

@@ -34,6 +34,7 @@
  *   npx --yes tsx scripts/meta-chiamata-facebook-pages.ts --scrivi
  *   npx --yes tsx scripts/meta-chiamata-facebook-pages.ts --scrivi --mantieni
  *   npx --yes tsx scripts/meta-chiamata-facebook-pages.ts --post <post-id>
+ *   npx --yes tsx scripts/meta-chiamata-facebook-pages.ts --rispondi <comment-id>
  *
  * Il token è quello della Pagina collegata (decifrato dal database) oppure
  * `META_TEST_TOKEN`, se impostato, che ha la precedenza.
@@ -125,6 +126,15 @@ interface Opzioni {
   scrivi: boolean;
   mantieni: boolean;
   post?: string;
+  /**
+   * Commento preciso a cui rispondere.
+   *
+   * Serve a riprodurre una segnalazione dal campo: l'agente dice "ho risposto
+   * a questo commento e non è partita", e senza poter puntare a **quel**
+   * commento si finisce a indovinare fra le decine di significati del codice
+   * 100 di Meta.
+   */
+  rispondi?: string;
 }
 
 function leggiArgomenti(argv: string[]): Opzioni {
@@ -136,10 +146,17 @@ function leggiArgomenti(argv: string[]): Opzioni {
 
     if (voce === "--scrivi") opzioni.scrivi = true;
     else if (voce === "--mantieni") opzioni.mantieni = true;
-    else if (voce === "--post") {
+    else if (voce === "--post" || voce === "--rispondi") {
       const valore = argv[++i];
-      if (!valore) esci("L'opzione --post richiede un valore.");
-      opzioni.post = valore;
+      if (!valore) esci(`L'opzione ${voce} richiede un valore.`);
+
+      if (voce === "--post") opzioni.post = valore;
+      else {
+        opzioni.rispondi = valore;
+        // Puntare un commento è già la richiesta di scriverci sotto: chiedere
+        // anche --scrivi sarebbe una formalità che fa solo sbagliare comando.
+        opzioni.scrivi = true;
+      }
     }
   }
 
@@ -253,10 +270,19 @@ async function main(): Promise<void> {
 
   if (!postId) {
     console.log("\nUltimo post pubblicato:");
+    /*
+     * `limit` generoso anche se serve un post solo.
+     *
+     * Graph applica i filtri di visibilità **dopo** aver preso la pagina di
+     * risultati: con `limit=1` la risposta può tornare con `data` vuoto pur
+     * avendo la Pagina dei post, e il comando concluderebbe "nessun post
+     * pubblicato" su una Pagina che ne ha. È successo fra due esecuzioni a
+     * un'ora di distanza, sulla stessa Pagina.
+     */
     const post = await chiama(
       urlGraph(`${pageId}/published_posts`, token, appSecret, {
         fields: "id,message,created_time",
-        limit: "1",
+        limit: "25",
       }),
       "GET /{page-id}/published_posts"
     );
