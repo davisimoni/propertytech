@@ -84,6 +84,16 @@ export interface Job {
    * cambiare piano che non le serve.
    */
   paywallDetail?: { reason: "limit_reached" | "not_in_plan"; requiredPlan?: string };
+  /**
+   * L'avviso in basso a destra e' stato chiuso, il lavoro no.
+   *
+   * Due cose distinte, e confonderle costa il risultato: `clearJob` butta via
+   * l'elaborazione **insieme al suo `result`**, che e' proprio quello che il
+   * modulo rilegge quando l'agente torna sulla pagina. Un avviso che si
+   * chiudesse chiamando `clearJob` cancellerebbe l'annuncio appena generato.
+   * Questo flag nasconde solo la notifica.
+   */
+  noticeDismissed?: boolean;
 }
 
 /** Segnalato da `run` quando la rotta risponde 402. */
@@ -122,6 +132,8 @@ interface JobContextValue {
    * proprio il difetto che questo provider esiste per togliere.
    */
   updateResult: (kind: JobKind, result: unknown) => void;
+  /** Nasconde l'avviso di un'elaborazione, conservandone il risultato. */
+  dismissJobNotice: (id: string) => void;
   clearJob: (kind: JobKind) => void;
 }
 
@@ -148,6 +160,12 @@ export function JobProvider({ children }: { children: ReactNode }) {
   const updateResult = useCallback((kind: JobKind, result: unknown) => {
     setJobs((correnti) =>
       correnti.map((job) => (job.kind === kind ? { ...job, result } : job))
+    );
+  }, []);
+
+  const dismissJobNotice = useCallback((id: string) => {
+    setJobs((correnti) =>
+      correnti.map((job) => (job.id === id ? { ...job, noticeDismissed: true } : job))
     );
   }, []);
 
@@ -211,8 +229,8 @@ export function JobProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ jobs, jobFor, startJob, updateResult, clearJob }),
-    [jobs, jobFor, startJob, updateResult, clearJob]
+    () => ({ jobs, jobFor, startJob, updateResult, dismissJobNotice, clearJob }),
+    [jobs, jobFor, startJob, updateResult, dismissJobNotice, clearJob]
   );
 
   return <JobContext.Provider value={value}>{children}</JobContext.Provider>;

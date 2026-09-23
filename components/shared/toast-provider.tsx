@@ -44,8 +44,20 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-/** Quanto resta a schermo: il tempo di leggerlo senza restare fra i piedi. */
-const TOAST_DURATION_MS = 5000;
+/**
+ * Quanto resta a schermo: il tempo di leggerlo senza restare fra i piedi.
+ *
+ * Dieci secondi, la stessa durata degli avvisi di lavoro concluso
+ * (`components/jobs/job-indicator.tsx`). Una sola durata per tutte le
+ * notifiche: due tempi diversi si notano scorrendo l'app, e un feedback che
+ * cambia comportamento a seconda di dove compare insegna a non fidarsene.
+ *
+ * Il prezzo, dichiarato: questi avvisi stanno appena sopra la barra di
+ * navigazione mobile, cioè dove il pollice lavora. Raddoppiando la durata
+ * raddoppia anche il tempo in cui occupano quella zona, e la X resta l'uscita
+ * per chi ha fretta.
+ */
+const TOAST_DURATION_MS = 10_000;
 
 const TONE_CLASSES: Record<ToastTone, string> = {
   success: "border-status-qualified/40 bg-card",

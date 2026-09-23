@@ -1,10 +1,20 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { JOB_LABELS, JOB_ROUTES, useJobs, type Job } from "@/components/jobs/job-provider";
 import { cn } from "@/lib/utils";
+
+/**
+ * Quanto resta a schermo un avviso di lavoro concluso.
+ *
+ * Dieci secondi e non cinque: questo avviso compare **mentre l'agente e'
+ * altrove**, spesso a meta' di un'altra cosa, quindi il tempo di accorgersene
+ * non e' quello di un avviso che segue un clic appena dato.
+ */
+const DURATA_AVVISO_MS = 10_000;
 
 /**
  * Riquadro in basso a destra: cosa sta lavorando mentre l'agente è altrove.
@@ -22,16 +32,31 @@ import { cn } from "@/lib/utils";
  * cui l'agente può permettersi di cambiare pagina invece di restare a
  * guardare una barra.
  *
- * Non si chiude a mano: sparisce da sé tornando sul modulo, che è anche
- * l'unica azione utile. Una X in più darebbe da chiudere una notifica che si
- * chiude già da sola.
+ * Non si chiude a mano: sparisce da sé tornando sul modulo, oppure dopo dieci
+ * secondi quando il lavoro è concluso. Una X in più darebbe da chiudere una
+ * notifica che si chiude già da sola.
+ *
+ * # Cosa NON si chiude da sé, e perché
+ *
+ * Gli avvisi di lavoro **in corso** restano: dicono che c'è qualcosa che sta
+ * girando, e farli sparire lascerebbe l'agente a chiedersi se l'elaborazione
+ * sia ancora viva.
+ *
+ * Gli avvisi **non riusciti** restano anche loro. Un successo che sparisce non
+ * porta via niente — il risultato è nel modulo e nella Cronologia — mentre un
+ * errore che sparisce porta via l'unica notizia del fallimento: l'agente
+ * tornerebbe sul modulo convinto di trovare un annuncio che non è mai stato
+ * generato.
  */
 export function JobIndicator() {
   const { jobs } = useJobs();
   const pathname = usePathname();
 
   // Nulla di ciò che riguarda la pagina aperta: lì lo stato lo dà il modulo.
-  const daMostrare = jobs.filter((job) => pathname !== JOB_ROUTES[job.kind]);
+  // E nulla di già chiuso, a mano o dal tempo.
+  const daMostrare = jobs.filter(
+    (job) => pathname !== JOB_ROUTES[job.kind] && !job.noticeDismissed
+  );
 
   if (daMostrare.length === 0) return null;
 
@@ -50,8 +75,18 @@ export function JobIndicator() {
 }
 
 function RigaLavorazione({ job }: { job: Job }) {
+  const { dismissJobNotice } = useJobs();
   const inCorso = job.status === "running";
   const fallita = job.status === "error";
+
+  useEffect(() => {
+    // Solo i lavori conclusi bene: gli altri due stati hanno ragioni per
+    // restare, spiegate in testa al file.
+    if (inCorso || fallita) return;
+
+    const timer = window.setTimeout(() => dismissJobNotice(job.id), DURATA_AVVISO_MS);
+    return () => window.clearTimeout(timer);
+  }, [inCorso, fallita, job.id, dismissJobNotice]);
 
   return (
     <Link
