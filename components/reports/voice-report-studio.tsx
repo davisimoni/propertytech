@@ -34,6 +34,16 @@ const NOTA_ESEMPIO =
 
 type InputMode = "audio" | "text";
 
+/**
+ * Le classi del pulsante d'invio, dichiarate una volta.
+ *
+ * Le due forme (pulsante e collegamento) devono risultare **identiche**
+ * all'occhio: se divergessero, l'agente vedrebbe un comando diverso a seconda
+ * di com'e' configurato WhatsApp e non capirebbe che e' la stessa azione.
+ */
+const CLASSI_INVIO =
+  "inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 disabled:opacity-50";
+
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
 
 const INTEREST_CLASSES: Record<VoiceReportContent["interestLevel"], string> = {
@@ -147,13 +157,23 @@ export function VoiceReportStudio() {
   const [isSending, setIsSending] = useState(false);
   const [sent, setSent] = useState(false);
   /**
-   * L'invio automatico ha rifiutato: si mostra la via manuale via `wa.me`.
+   * WhatsApp risulta collegato per questa agenzia?
    *
-   * Non parte da subito perché la strada normale è quella automatica, che
-   * registra l'invio sul report e non richiede all'agente di premere "invia"
-   * una seconda volta dentro WhatsApp. Il ripiego compare quando serve.
+   * Si chiede **all'apertura**, non al momento dell'invio, e la differenza non
+   * è tecnica: sapendolo prima, il pulsante può essere direttamente un
+   * collegamento a `wa.me` per chi non ha l'API collegata. Un clic, la chat che
+   * si apre, nessun errore da leggere.
+   *
+   * Scoprirlo dopo il clic obbligherebbe ad aprire la scheda del browser a
+   * valle di una chiamata di rete, e lì i blocchi dei popup entrano in gioco:
+   * il gesto dell'utente è già stato "consumato" dalla chiamata, e Safari e
+   * Firefox rifiutano. Il risultato sarebbe un pulsante che a volte non fa
+   * niente, cioè esattamente il difetto da togliere.
+   *
+   * `null` finché non si sa: in dubbio si tratta come non collegato, che è
+   * l'ipotesi che porta comunque a una chat aperta.
    */
-  const [ripiegoManuale, setRipiegoManuale] = useState(false);
+  const [waCollegato, setWaCollegato] = useState<boolean | null>(null);
   /**
    * Le due 402 non dicono la stessa cosa e non vanno mostrate uguali: a un
    * utente Starter serve sapere che il modulo è di Enterprise, a uno in prova
@@ -163,6 +183,14 @@ export function VoiceReportStudio() {
   const locked = job?.paywallDetail ?? null;
 
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetch("/api/whatsapp/config")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((dati) => setWaCollegato(Boolean(dati?.isConnected)))
+      // In silenzio: senza risposta si va di `wa.me`, che funziona sempre.
+      .catch(() => setWaCollegato(false));
+  }, []);
 
   /** Caricamento da dispositivo: sostituisce l'eventuale registrazione. */
   function acceptAudio(file: File) {
@@ -258,6 +286,37 @@ export function VoiceReportStudio() {
     window.setTimeout(() => phoneInputRef.current?.focus(), 400);
   }
 
+  /**
+   * L'indirizzo `wa.me` del report, numero già ridotto a sole cifre.
+   *
+   * La sanificazione sta in `normalizePhoneForWaMe` (`lib/share.ts`) e non qui:
+   * "+39 331 447 2241", "0039...", "331.447.2241" diventano tutti
+   * `393314472241`, perché `wa.me` con un separatore qualsiasi apre una
+   * schermata di errore invece della chat.
+   */
+  function linkWhatsApp(): string {
+    const testo = report
+      ? `${report.sellerMessage}\n\n---\n${AI_DISCLAIMER_SHORT}`
+      : "";
+    return whatsappShareUrl(truncateForShare(testo), sellerPhone);
+  }
+
+  /**
+   * Apre WhatsApp dopo che l'invio automatico non è andato.
+   *
+   * `window.open` qui è già a valle di una chiamata di rete, quindi un blocco
+   * dei popup può rifiutarlo: se accade si prosegue nella stessa scheda, che
+   * nessun browser blocca. Meglio perdere la pagina che il messaggio — e il
+   * report resta in Cronologia.
+   */
+  function apriWhatsApp() {
+    const url = linkWhatsApp();
+    setToast("Apro WhatsApp: controlla il messaggio e premi invia.");
+
+    const scheda = window.open(url, "_blank", "noopener,noreferrer");
+    if (!scheda) window.location.assign(url);
+  }
+
   async function handleSend() {
     if (!reportId) return;
 
@@ -305,39 +364,39 @@ export function VoiceReportStudio() {
         }
 
         /*
-         * L'invio automatico non e' disponibile: si apre la strada manuale.
+         * L'invio automatico ha rifiutato: si apre WhatsApp, e basta.
          *
-         * WhatsApp non collegato, oppure il trasporto ha rifiutato: in
-         * entrambi i casi l'agente ha davanti un report finito, un numero e
-         * un proprietario che aspetta. Lasciarlo con un messaggio d'errore
-         * significa fargli ricopiare il testo a mano; `wa.me` gli apre la
-         * chat giusta con il messaggio gia' dentro, e l'invio lo fa lui dal
-         * proprio WhatsApp. Il report non risulta "inviato" — perche' da qui
-         * non possiamo saperlo — e resta segnato come da mandare.
+         * Niente banner, niente secondo pulsante da cercare. L'agente ha
+         * davanti un report finito, un numero e un proprietario che aspetta:
+         * quello che gli serve e' la chat aperta col messaggio dentro, non la
+         * spiegazione di quale dei due trasporti ha detto no. Il report **non**
+         * viene segnato come inviato, perche' da qui non possiamo saperlo:
+         * l'invio lo preme lui dentro WhatsApp.
          */
-        setRipiegoManuale(true);
-        setLocalError(
-          body.error === "whatsapp_not_connected"
-            ? "L'invio automatico non è disponibile: WhatsApp non risulta collegato. Puoi mandarlo comunque dal tuo WhatsApp con il pulsante qui sotto."
-            : `${body.message ?? "Invio non riuscito."} Puoi mandarlo dal tuo WhatsApp con il pulsante qui sotto.`
-        );
-        setToast(
-          body.error === "whatsapp_not_connected"
-            ? "Invio automatico non disponibile: usa «Apri in WhatsApp»."
-            : "Invio non riuscito: usa «Apri in WhatsApp»."
-        );
+        apriWhatsApp();
         return;
       }
 
       setSent(true);
       setToast("Report inviato al proprietario.");
     } catch {
-      setLocalError("Errore di rete durante l'invio.");
-      setToast("Errore di rete durante l'invio.");
+      // Anche la rete caduta finisce lì: il deep link non ha bisogno del
+      // nostro server per funzionare.
+      apriWhatsApp();
     } finally {
       setIsSending(false);
     }
   }
+
+  /**
+   * C'e' un numero, ed e' plausibile come recapito.
+   *
+   * Otto cifre e' la soglia sotto la quale non esiste un numero mobile con
+   * prefisso: serve a non aprire `wa.me` su un destinatario inesistente, che
+   * mostrerebbe la schermata d'errore di WhatsApp invece della chat.
+   */
+  const numeroUtilizzabile =
+    sellerPhone.trim().length > 0 && sellerPhone.replace(/\D/g, "").length >= 8;
 
   const canGenerate =
     propertyRef.trim().length >= 3 &&
@@ -773,39 +832,50 @@ export function VoiceReportStudio() {
             )}
 
             <div className="mt-5 flex flex-wrap gap-2 print:hidden">
-              <button
-                type="button"
-                onClick={handleSend}
-                disabled={isSending || sent}
-                className="inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 disabled:opacity-50"
-              >
-                {isSending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : sent ? (
-                  <Check className="h-4 w-4" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-                {sent ? "Report inviato" : "Invia Report al Proprietario via WhatsApp"}
-              </button>
+              {/*
+                Un solo pulsante per WhatsApp, in due forme.
 
-              {/* Ripiego manuale: compare solo dopo che l'invio automatico ha
-                  rifiutato. Apre la chat del proprietario con il messaggio già
-                  dentro — disclaimer compreso, come nell'invio automatico. */}
-              {ripiegoManuale && !sent && (
+                Con l'API collegata è un pulsante: chiama il server, che
+                spedisce e segna il report come inviato. Senza API è un
+                collegamento a `wa.me`: un clic, la chat si apre col messaggio
+                dentro, e non c'è nessun errore da leggere prima.
+
+                Due forme e non due pulsanti: il secondo pulsante verde
+                chiedeva all'agente di capire quale premere, proprio nel momento
+                in cui voleva solo mandare il report. E la forma `<a>` è anche
+                l'unica che nessun blocco dei popup può fermare, perché parte
+                dal gesto e non da una risposta di rete.
+              */}
+              {sent ? (
+                <span className={cn(CLASSI_INVIO, "opacity-60")}>
+                  <Check className="h-4 w-4" />
+                  Report inviato
+                </span>
+              ) : waCollegato === false && numeroUtilizzabile ? (
                 <a
-                  href={whatsappShareUrl(
-                    truncateForShare(`${report.sellerMessage}\n\n---\n${AI_DISCLAIMER_SHORT}`),
-                    sellerPhone
-                  )}
+                  href={linkWhatsApp()}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setToast("Controlla il messaggio e premi invia dentro WhatsApp.")}
-                  className="inline-flex items-center gap-2 rounded-xl border-2 border-status-qualified/50 px-4 py-2 text-sm font-medium text-status-qualified transition-all duration-200 hover:bg-status-qualified/10"
+                  className={CLASSI_INVIO}
                 >
-                  <MessageCircle className="h-4 w-4" />
-                  Apri in WhatsApp
+                  <Send className="h-4 w-4" />
+                  Invia Report al Proprietario via WhatsApp
                 </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSend}
+                  disabled={isSending}
+                  className={CLASSI_INVIO}
+                >
+                  {isSending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  Invia Report al Proprietario via WhatsApp
+                </button>
               )}
 
               {/* Il report è già in memoria: il PDF si costruisce da lì, senza
@@ -913,6 +983,16 @@ export function VoiceReportStudio() {
                 <p className="mt-1 text-sm text-foreground">{report.agentSummary.nextAction}</p>
               </div>
             </div>
+
+            {/* L'unico avviso rimasto, e solo quando serve davvero: senza numero
+                il pulsante non ha dove mandare il report. Il clic comunque
+                porta al campo e gli da' il fuoco, quindi questa riga previene
+                un giro inutile, non lo sostituisce. */}
+            {!numeroUtilizzabile && !sent && (
+              <p className="mt-2 text-xs text-muted-foreground print:hidden">
+                Inserisci il numero WhatsApp del proprietario in alto per inviare il report.
+              </p>
+            )}
 
             <ShareActions
               text={[
