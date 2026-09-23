@@ -5,6 +5,7 @@ import { checkFeatureAccess } from "@/lib/feature-access";
 import { publishToMeta } from "@/lib/social/meta";
 import { parsePublicHttpUrl } from "@/lib/net/safe-url";
 import { MAX_SOCIAL_MEDIA } from "@/lib/social/media-limits";
+import { risolviAllegati } from "@/lib/social/media-resolve";
 import { notificaPubblicazioneFallita } from "@/lib/notifications/social-publish";
 
 /**
@@ -13,7 +14,18 @@ import { notificaPubblicazioneFallita } from "@/lib/notifications/social-publish
  * Stesso gate di piano della generazione: il Social Multiplier è Enterprise, e
  * pubblicare è la coda di quella funzione, non una funzione a sé.
  */
-export const maxDuration = 60;
+/*
+ * Cinque minuti, non uno.
+ *
+ * Un post di sole foto si chiude in pochi secondi. Un video no: Instagram lo
+ * scarica dal nostro indirizzo e lo transcodifica, e finche' non ha finito il
+ * contenitore non e' pubblicabile. Con il minuto di prima la funzione moriva a
+ * meta' attesa, lasciando un video elaborato da Meta e **nessun post**
+ * pubblicato — cioe' il peggio dei due mondi. L'attesa lato nostro e' comunque
+ * limitata (`ATTESA_MAX_MS` in `lib/social/meta.ts`), cosi' il tetto della
+ * funzione non viene mai raggiunto per primo.
+ */
+export const maxDuration = 300;
 
 const publishSchema = z.object({
   message: z.string().trim().min(1, "Il testo del post è vuoto").max(2200),
@@ -84,16 +96,25 @@ export async function POST(request: Request) {
       {
         error: "instagram_requires_media",
         message:
-          "Instagram non pubblica post di solo testo: allega almeno una foto, oppure pubblica solo su Facebook.",
+          "Instagram non pubblica post di solo testo: allega almeno una foto o un video, oppure pubblica solo su Facebook.",
       },
       { status: 400 }
     );
   }
 
+  /*
+   * Il tipo di ogni allegato lo stabilisce il server, non il browser.
+   *
+   * Da quel dato dipende quale endpoint di Meta viene chiamato, quindi non e'
+   * un'informazione che abbia motivo di arrivare dal client: la si rilegge da
+   * dove e' stata scritta al caricamento (vedi `lib/social/media-resolve.ts`).
+   */
+  const media = await risolviAllegati(session.user.organizationId, mediaUrls);
+
   const esiti = await publishToMeta({
     organizationId: session.user.organizationId,
     message,
-    mediaUrls,
+    media,
     targets,
   });
 

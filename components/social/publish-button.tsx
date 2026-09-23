@@ -51,11 +51,11 @@ export function PublishButton({ testo, media = [] }: { testo: string; media?: st
 
     try {
       /*
-       * Instagram entra fra i canali solo con almeno una foto allegata.
+       * Instagram entra fra i canali solo con almeno un allegato.
        *
-       * Prima era escluso sempre, perche' da questa schermata un'immagine non
-       * c'era: ora c'e', e includerlo a vuoto produrrebbe un errore garantito
-       * su un canale che l'agente ha visto elencato.
+       * Vale per una foto come per un video: l'unica cosa che l'API rifiuta e'
+       * il post di solo testo. Includerlo a vuoto produrrebbe un errore
+       * garantito su un canale che l'agente ha visto elencato.
        */
       const targets = media.length > 0 ? ["facebook", "instagram"] : ["facebook"];
 
@@ -96,14 +96,14 @@ export function PublishButton({ testo, media = [] }: { testo: string; media?: st
 
       {/* L'avviso invece del silenzio.
 
-          Senza foto il post parte lo stesso, ma solo su Facebook: dirlo prima
-          evita che l'agente scopra dopo che su Instagram non e' comparso
+          Senza allegati il post parte lo stesso, ma solo su Facebook: dirlo
+          prima evita che l'agente scopra dopo che su Instagram non e' comparso
           niente e pensi a un guasto. */}
       {media.length === 0 && (
         <p className="mt-1.5 flex items-start gap-1.5 text-xs text-muted-foreground">
           <Instagram className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          Allega almeno una foto per pubblicare anche su Instagram: l&apos;API non accetta post di
-          solo testo.
+          Allega almeno una foto o un video per pubblicare anche su Instagram: l&apos;API non
+          accetta post di solo testo.
         </p>
       )}
 

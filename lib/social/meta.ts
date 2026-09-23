@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { readSecret } from "@/lib/env";
 import { decryptSecret, encryptSecret, isEncryptionAvailable } from "@/lib/crypto/secrets";
 import { SITE_URL } from "@/lib/seo";
+import type { MediaAllegato } from "@/lib/social/media-limits";
 
 /**
  * Collegamento e pubblicazione su Pagina Facebook e Instagram Business.
@@ -650,12 +651,18 @@ export async function publishToMeta(params: {
   organizationId: string;
   message: string;
   /**
-   * URL pubblici delle foto, in ordine: la prima e' la copertina.
+   * Gli allegati in ordine, col proprio tipo: la prima e' la copertina.
    *
    * Vuoto e' ammesso solo per Facebook. Instagram rifiuta un post senza media,
    * e la ragione la spiega `pubblicaSuInstagram`.
+   *
+   * Il tipo viaggia insieme all'indirizzo perche' dall'indirizzo non si ricava:
+   * senza object storage un allegato vive su `/api/social/media/<id>`, che di
+   * estensione non ne ha. A stabilirlo e' il server leggendo il tipo salvato,
+   * non il browser: e' un dato su cui si decide quale endpoint di Meta
+   * chiamare, e non ha motivo di essere dichiarato da chi chiama.
    */
-  mediaUrls?: string[];
+  media?: MediaAllegato[];
   targets: PublishTarget[];
 }): Promise<PublishResult[]> {
   const { organizationId, message, targets } = params;
@@ -667,9 +674,12 @@ export async function publishToMeta(params: {
    * un percorso relativo: a noi basta, ma a scaricarlo sono i server di Meta,
    * che partono da fuori e non hanno un'origine da cui risolverlo.
    */
-  const mediaUrls = (params.mediaUrls ?? []).map((url) =>
-    url.startsWith("http") ? url : new URL(url, SITE_URL).toString()
-  );
+  const media = (params.media ?? []).map((allegato) => ({
+    ...allegato,
+    url: allegato.url.startsWith("http")
+      ? allegato.url
+      : new URL(allegato.url, SITE_URL).toString(),
+  }));
 
   const credenziali = await credenzialiMeta(organizationId);
   if (!credenziali.ok) {
@@ -702,9 +712,9 @@ export async function publishToMeta(params: {
 
     try {
       if (target === "facebook") {
-        esiti.push(await pubblicaSuFacebook(connection.facebookPageId, token, message, mediaUrls));
+        esiti.push(await pubblicaSuFacebook(connection.facebookPageId, token, message, media));
       } else {
-        esiti.push(await pubblicaSuInstagram(connection.instagramUserId, token, message, mediaUrls));
+        esiti.push(await pubblicaSuInstagram(connection.instagramUserId, token, message, media));
       }
     } catch (error) {
       console.error("[social/meta] Pubblicazione non riuscita", { target, error });
@@ -719,12 +729,51 @@ async function pubblicaSuFacebook(
   pageId: string,
   token: string,
   message: string,
-  mediaUrls: string[]
+  media: MediaAllegato[]
 ): Promise<PublishResult> {
   // Solo testo: /feed. E' l'unico canale dei due che lo consente.
-  if (mediaUrls.length === 0) {
+  if (media.length === 0) {
     return chiamataFacebook(`${GRAPH}/${pageId}/feed`, { access_token: token, message });
   }
+
+  const video = media.filter((allegato) => allegato.kind === "video");
+  const foto = media.filter((allegato) => allegato.kind === "image");
+
+  /*
+   * Il video ha un endpoint suo, e non convive con le foto.
+   *
+   * Su una Pagina un post e' un album di foto oppure un video: `attached_media`
+   * accetta le foto caricate non pubblicate, non i video. Mescolarli
+   * pubblicherebbe due post distinti da un gesto solo, e l'agente ne vedrebbe
+   * uno e crederebbe che l'altro sia andato perso. Meglio dirlo prima.
+   */
+  if (video.length > 0) {
+    if (foto.length > 0) {
+      return {
+        target: "facebook",
+        ok: false,
+        error:
+          "Su Facebook un post porta un album di foto oppure un video, non entrambi. Pubblica il video da solo, o togli il video e lascia le foto.",
+      };
+    }
+    if (video.length > 1) {
+      return {
+        target: "facebook",
+        ok: false,
+        error: "Facebook pubblica un video per post: allegane uno solo.",
+      };
+    }
+
+    // `file_url` e non `source`: i byte li scarica Meta dal nostro indirizzo,
+    // esattamente come per le foto.
+    return chiamataFacebook(`${GRAPH}/${pageId}/videos`, {
+      access_token: token,
+      file_url: video[0]!.url,
+      description: message,
+    });
+  }
+
+  const mediaUrls = foto.map((allegato) => allegato.url);
 
   // Una foto sola: /photos con `url`. Non serve il giro in due tempi.
   const primaFoto = mediaUrls[0];
@@ -801,7 +850,7 @@ async function pubblicaSuInstagram(
   igUserId: string | null,
   token: string,
   caption: string,
-  mediaUrls: string[]
+  media: MediaAllegato[]
 ): Promise<PublishResult> {
   if (!igUserId) {
     return {
@@ -811,25 +860,50 @@ async function pubblicaSuInstagram(
     };
   }
 
-  if (mediaUrls.length === 0) {
+  if (media.length === 0) {
     // Detto come limite dell'API e non come nostro difetto: chi legge deve
-    // sapere che aggiungendo una foto funziona.
+    // sapere che aggiungendo una foto o un video funziona.
     return {
       target: "instagram",
       ok: false,
-      error: "Instagram richiede almeno una foto: un post di solo testo non è pubblicabile.",
+      error:
+        "Instagram richiede almeno una foto o un video: un post di solo testo non è pubblicabile.",
     };
   }
 
+  const mediaUrls = media.map((allegato) => allegato.url);
   let creationId: string | null;
 
-  if (mediaUrls.length === 1) {
-    // Due passaggi obbligatori: si crea un contenitore, poi lo si pubblica.
-    // Instagram non ha una chiamata unica.
-    creationId = await creaContenitore(igUserId, token, {
-      image_url: mediaUrls[0]!,
-      caption,
-    });
+  if (media.length === 1) {
+    const solo = media[0]!;
+
+    /*
+     * Un video da solo su Instagram e' un Reel, non un "post video".
+     *
+     * Da meta' 2023 l'API non pubblica piu' video nel feed come tipo a se':
+     * `media_type: REELS` e' l'unica strada, e il Reel compare anche nel
+     * profilo. Passare `video_url` senza dichiarare il tipo fa rifiutare il
+     * contenitore.
+     */
+    creationId = await creaContenitore(
+      igUserId,
+      token,
+      solo.kind === "video"
+        ? { media_type: "REELS", video_url: solo.url, caption }
+        : { image_url: solo.url, caption }
+    );
+
+    /*
+     * Il contenitore video va atteso: non e' pronto quando viene creato.
+     *
+     * Instagram scarica il file, lo transcodifica e solo allora accetta la
+     * pubblicazione. Chiamare `media_publish` subito restituisce un errore che
+     * sembra un rifiuto del contenuto mentre e' solo fretta.
+     */
+    if (creationId && solo.kind === "video") {
+      const pronto = await attendiContenitore(creationId, token);
+      if (!pronto.ok) return { target: "instagram", ok: false, error: pronto.errore };
+    }
   } else {
     /*
      * Carosello: un contenitore per foto, poi uno che li raccoglie.
@@ -839,18 +913,31 @@ async function pubblicaSuInstagram(
      * ripetuta o rifiutare la chiamata.
      */
     const figli: string[] = [];
-    for (const url of mediaUrls) {
-      const figlio = await creaContenitore(igUserId, token, {
-        image_url: url,
-        is_carousel_item: "true",
-      });
+    for (const allegato of media) {
+      // Dentro un carosello il video e' `VIDEO`, non `REELS`: quel tipo
+      // esiste solo per il contenuto singolo.
+      const figlio = await creaContenitore(
+        igUserId,
+        token,
+        allegato.kind === "video"
+          ? { media_type: "VIDEO", video_url: allegato.url, is_carousel_item: "true" }
+          : { image_url: allegato.url, is_carousel_item: "true" }
+      );
       if (!figlio) {
         return {
           target: "instagram",
           ok: false,
-          error: "Instagram non ha accettato una delle foto del carosello.",
+          error: "Instagram non ha accettato uno degli allegati del carosello.",
         };
       }
+
+      // Ogni figlio video va atteso prima di comporre il padre: un carosello
+      // che raccoglie un contenitore non pronto viene rifiutato per intero.
+      if (allegato.kind === "video") {
+        const pronto = await attendiContenitore(figlio, token);
+        if (!pronto.ok) return { target: "instagram", ok: false, error: pronto.errore };
+      }
+
       figli.push(figlio);
     }
 
@@ -885,6 +972,91 @@ async function pubblicaSuInstagram(
   }
 
   return { target: "instagram", ok: true, postId: risultato.id };
+}
+
+/** Quanto si aspetta che Instagram finisca di elaborare un video. */
+const ATTESA_MAX_MS = 180_000;
+/** Ogni quanto si richiede lo stato: piu' spesso non accelera l'elaborazione. */
+const ATTESA_INTERVALLO_MS = 3_000;
+
+/**
+ * Aspetta che un contenitore video diventi pubblicabile.
+ *
+ * # Perche' serve solo per i video
+ *
+ * Un contenitore foto e' pronto appena creato. Uno video no: Instagram deve
+ * scaricare il file dal nostro indirizzo e transcodificarlo, e finche' non ha
+ * finito `media_publish` risponde con un errore generico che sembra un rifiuto
+ * del contenuto.
+ *
+ * # Gli stati, e perche' si distinguono
+ *
+ * `FINISHED` e' l'unico che consente di pubblicare. `ERROR` significa che il
+ * file non va bene (formato, durata, proporzioni) e riprovare non serve:
+ * `status` porta il motivo, che vale piu' di qualsiasi frase nostra.
+ * `EXPIRED` significa che il contenitore e' rimasto in attesa troppo a lungo e
+ * va ricreato. `IN_PROGRESS` e' l'unico caso in cui ha senso richiedere.
+ */
+async function attendiContenitore(
+  creationId: string,
+  token: string
+): Promise<{ ok: true } | { ok: false; errore: string }> {
+  const scadenza = Date.now() + ATTESA_MAX_MS;
+
+  while (Date.now() < scadenza) {
+    const risposta = await fetch(
+      `${GRAPH}/${creationId}?fields=status_code,status&access_token=${encodeURIComponent(token)}`,
+      { signal: AbortSignal.timeout(20_000) }
+    );
+    const dati = (await risposta.json().catch(() => null)) as {
+      status_code?: string;
+      status?: string;
+      error?: { message?: string };
+    } | null;
+
+    if (!risposta.ok) {
+      return {
+        ok: false,
+        errore: dati?.error?.message ?? `Meta ha risposto ${risposta.status} controllando il video.`,
+      };
+    }
+
+    const stato = dati?.status_code;
+
+    if (stato === "FINISHED") return { ok: true };
+
+    if (stato === "ERROR") {
+      console.error("[social/meta] Video rifiutato da Instagram", { status: dati?.status });
+      return {
+        ok: false,
+        errore:
+          "Instagram ha rifiutato il video. Controlla formato (MP4 o MOV), durata e proporzioni, poi riprova.",
+      };
+    }
+
+    if (stato === "EXPIRED") {
+      return {
+        ok: false,
+        errore: "Instagram ha lasciato scadere il caricamento del video. Riprova la pubblicazione.",
+      };
+    }
+
+    await new Promise((risolvi) => setTimeout(risolvi, ATTESA_INTERVALLO_MS));
+  }
+
+  /*
+   * Tempo scaduto da parte nostra, non di Meta.
+   *
+   * Il contenitore potrebbe diventare pronto dopo, ma noi non siamo piu' qui
+   * ad attenderlo e il post **non risulta pubblicato**. Va detto per quello che
+   * e': un'attesa interrotta, non un rifiuto del video, altrimenti l'agente
+   * ricomprime un file che andava benissimo.
+   */
+  return {
+    ok: false,
+    errore:
+      "Instagram sta ancora elaborando il video e l'attesa e' scaduta: il post non e' stato pubblicato. Riprova fra qualche minuto, oppure carica un file piu' leggero.",
+  };
 }
 
 /** Crea un contenitore Instagram e ne restituisce l'id, o `null` se rifiutato. */

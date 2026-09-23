@@ -13,7 +13,13 @@ import {
 import { ALLOWED_IMAGE_MIME_TYPES } from "@/lib/listings/property-images";
 import { downscaleToDataUrl } from "@/lib/listings/downscale";
 import { useToast } from "@/components/shared/toast-provider";
-import { MAX_SOCIAL_MEDIA } from "@/lib/social/media-limits";
+import {
+  ALLOWED_VIDEO_MIME_TYPES,
+  MAX_SOCIAL_MEDIA,
+  MAX_VIDEO_BYTES,
+  isAllowedVideoMimeType,
+  kindFromExtension,
+} from "@/lib/social/media-limits";
 import { cn } from "@/lib/utils";
 
 /**
@@ -28,16 +34,39 @@ import { cn } from "@/lib/utils";
  * e senza il caricamento locale l'agenzia dovrebbe inventarsi un immobile finto
  * per pubblicarle.
  *
- * # Perché solo immagini
+ * # Foto sempre, video quando c'è dove metterli
  *
- * Perché il video oggi non arriverebbe a destinazione, e un pulsante che
- * fallisce sempre è peggio di un pulsante assente. Manca l'object storage
- * (`STORAGE_BUCKET_URL` non è configurata): un MP4 finirebbe come data URI in
- * PostgreSQL, dove le foto sono già limitate a 2 MB. Instagram inoltre
- * pubblica i video in modo asincrono — si crea il contenitore, si aspetta che
- * passi a FINISHED, e solo allora si pubblica — e quell'attesa supera il
- * minuto che la funzione ha a disposizione.
+ * La pubblicazione dei video su Meta è implementata (Reel con attesa
+ * dell'elaborazione su Instagram, `/videos` su Facebook). Quello che manca è la
+ * strada per far **arrivare** il file: senza object storage un MP4 finirebbe
+ * come data URI in PostgreSQL, e l'indirizzo che daremmo a Meta sarebbe una
+ * nostra funzione che restituisce base64 — per un video, un rifiuto a
+ * pubblicazione avviata.
+ *
+ * Quindi il pannello chiede alla rotta cosa sa accettare (`GET
+ * /api/social/media`) e lo dice **prima** che l'agente scelga il file. Un
+ * pulsante che accetta e poi fallisce è peggio di un pulsante che dichiara il
+ * proprio limite: il primo fa perdere il lavoro già fatto sul testo.
+ *
+ * Il tetto dei video oggi è basso (`MAX_VIDEO_BYTES`) e non per scelta nostra:
+ * il file passa nel corpo JSON di una funzione serverless, che accetta 4,5 MB.
+ * Sale quando il caricamento andrà diretto al bucket.
  */
+
+/**
+ * Legge un file come data URI, senza toccarne i byte.
+ *
+ * Serve ai video: le foto passano dal canvas per essere ridimensionate, un
+ * video no — da un canvas uscirebbe un fotogramma solo.
+ */
+function leggiComeDataUrl(file: File): Promise<string> {
+  return new Promise((risolvi, rifiuta) => {
+    const lettore = new FileReader();
+    lettore.onload = () => risolvi(String(lettore.result));
+    lettore.onerror = () => rifiuta(new Error("lettura non riuscita"));
+    lettore.readAsDataURL(file);
+  });
+}
 
 interface ImmobileConFoto {
   id: string;
@@ -57,9 +86,25 @@ export function MediaAttachments({
   const [isBusy, setIsBusy] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [mostraPortafoglio, setMostraPortafoglio] = useState(false);
+  /* `null` finché non si sa: l'interfaccia non deve promettere i video prima
+     di aver chiesto, né escluderli mentre la risposta è in arrivo. */
+  const [videoAmmessi, setVideoAmmessi] = useState<boolean | null>(null);
   const { showToast } = useToast();
 
+  useEffect(() => {
+    fetch("/api/social/media")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((dati) => setVideoAmmessi(Boolean(dati?.videoSupported)))
+      // In dubbio si resta alle foto: è la sola ipotesi che non produce un
+      // errore a pubblicazione avviata.
+      .catch(() => setVideoAmmessi(false));
+  }, []);
+
   const rimanenti = MAX_SOCIAL_MEDIA - media.length;
+  const tipiAccettati = [
+    ...ALLOWED_IMAGE_MIME_TYPES,
+    ...(videoAmmessi ? ALLOWED_VIDEO_MIME_TYPES : []),
+  ].join(",");
 
   async function carica(files: FileList | File[]) {
     const scelti = Array.from(files).slice(0, Math.max(0, rimanenti));
@@ -73,24 +118,42 @@ export function MediaAttachments({
 
     try {
       for (const file of scelti) {
-        /*
-         * Il video si ferma qui, con la ragione scritta.
-         *
-         * Lasciarlo passare significherebbe un errore dell'API di Meta a
-         * pubblicazione avviata, cioè nel momento peggiore: l'agente ha già
-         * scritto il testo e crede di aver finito.
-         */
-        if (file.type.startsWith("video/")) {
-          showToast("I video non sono ancora supportati: allega una foto.", "error");
+        const isVideo = file.type.startsWith("video/");
+
+        if (isVideo && !videoAmmessi) {
+          showToast(
+            "Per allegare video serve l'archivio esterno, non ancora attivo. Le foto funzionano.",
+            "error"
+          );
           continue;
         }
 
-        if (!(ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(file.type)) {
+        if (isVideo && !isAllowedVideoMimeType(file.type)) {
+          showToast(`${file.name}: formato video non supportato (MP4 o MOV).`, "error");
+          continue;
+        }
+
+        if (isVideo && file.size > MAX_VIDEO_BYTES) {
+          showToast(
+            `${file.name}: il video supera ${Math.round(MAX_VIDEO_BYTES / (1024 * 1024))} MB.`,
+            "error"
+          );
+          continue;
+        }
+
+        if (!isVideo && !(ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(file.type)) {
           showToast(`${file.name}: formato non supportato (JPG, PNG o WebP).`, "error");
           continue;
         }
 
-        const dataUrl = await downscaleToDataUrl(file);
+        /*
+         * Il ridimensionamento vale solo per le foto.
+         *
+         * `downscaleToDataUrl` passa per un canvas: su un video restituirebbe
+         * un fotogramma, cioè trasformerebbe silenziosamente un Reel in
+         * un'immagine. Il video si legge come byte e basta.
+         */
+        const dataUrl = isVideo ? await leggiComeDataUrl(file) : await downscaleToDataUrl(file);
         const response = await fetch("/api/social/media", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -144,8 +207,8 @@ export function MediaAttachments({
         <div>
           <h3 className="text-sm font-semibold text-foreground">Allegati multimediali</h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Instagram non pubblica post di solo testo: senza almeno una foto resta disponibile il
-            solo Facebook.
+            Instagram non pubblica post di solo testo: senza allegati resta disponibile il solo
+            Facebook.
           </p>
         </div>
         <span className="text-xs text-muted-foreground">
@@ -179,7 +242,7 @@ export function MediaAttachments({
         <input
           ref={inputRef}
           type="file"
-          accept={ALLOWED_IMAGE_MIME_TYPES.join(",")}
+          accept={tipiAccettati}
           multiple
           className="hidden"
           onChange={(e) => e.target.files && carica(e.target.files)}
@@ -205,8 +268,18 @@ export function MediaAttachments({
             : "border-border text-muted-foreground"
         )}
       >
-        Trascina qui le foto, oppure usa i pulsanti sopra. JPG, PNG o WebP.
+        {videoAmmessi
+          ? `Trascina qui foto o video, oppure usa i pulsanti sopra. JPG, PNG, WebP, MP4 o MOV (max ${Math.round(MAX_VIDEO_BYTES / (1024 * 1024))} MB per video).`
+          : "Trascina qui le foto, oppure usa i pulsanti sopra. JPG, PNG o WebP."}
       </div>
+
+      {videoAmmessi === false && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          I video non sono ancora allegabili su questo ambiente: manca l&apos;archivio esterno dove
+          Meta va a scaricarli. La pubblicazione dei Reel è già pronta e si attiva da sé quando
+          l&apos;archivio viene configurato.
+        </p>
+      )}
 
       {media.length > 0 && (
         <>
@@ -216,12 +289,33 @@ export function MediaAttachments({
                 key={`${url}-${indice}`}
                 className="group relative overflow-hidden rounded-lg border border-border"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={url}
-                  alt={`Allegato ${indice + 1}`}
-                  className="aspect-square w-full object-cover"
-                />
+                {/* Un video mostrato con `<img>` resta un riquadro rotto: il
+                    tipo si ricava dall'estensione dell'indirizzo del bucket,
+                    l'unico caso in cui un video puo' essere in elenco. */}
+                {kindFromExtension(url) === "video" ? (
+                  <video
+                    src={url}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    // `controls` no: in un riquadro da 80px i comandi coprono
+                    // l'anteprima e intercettano i tocchi delle frecce.
+                    className="aspect-square w-full bg-black object-cover"
+                  />
+                ) : (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={url}
+                    alt={`Allegato ${indice + 1}`}
+                    className="aspect-square w-full object-cover"
+                  />
+                )}
+
+                {kindFromExtension(url) === "video" && (
+                  <span className="absolute right-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                    Video
+                  </span>
+                )}
 
                 {indice === 0 && (
                   <span className="absolute left-1 top-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-medium text-white">
@@ -261,7 +355,7 @@ export function MediaAttachments({
             ))}
           </ul>
           <p className="mt-2 text-xs text-muted-foreground">
-            La prima foto è la copertina del post. Usa le frecce per riordinarle.
+            Il primo allegato è la copertina del post. Usa le frecce per riordinarli.
           </p>
         </>
       )}
