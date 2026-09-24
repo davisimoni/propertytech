@@ -31,11 +31,13 @@
 import { randomUUID } from "node:crypto";
 import {
   deleteObject,
+  objectKeyFromUrl,
   presignPutUrl,
   putObject,
   readStorageConfig,
 } from "../lib/storage/object-storage";
 import { MAX_VIDEO_BYTES } from "../lib/social/media-limits";
+import { recuperaVideoStock } from "../lib/social/stock-video";
 
 const CONTENUTO = Buffer.from("verifica PropertyTech: questo file viene cancellato subito.\n");
 
@@ -141,7 +143,35 @@ async function main(): Promise<void> {
 
   await deleteObject(config, chiaveVideo);
 
-  console.log("\n4. Pulizia:");
+  /*
+   * Il video stock: l'unico passo che esce dai nostri confini.
+   *
+   * Verifica la catena intera — ricerca su Pexels, scarico, deposito nel
+   * bucket, lettura pubblica — che e' quella che serve ai post generati. Non
+   * include invece la generazione dell'immagine: quella costa quattro centesimi
+   * a chiamata, e un controllo che si paga non lo si esegue per abitudine.
+   *
+   * Salta senza rumore quando la chiave non c'e': un ambiente senza archivio
+   * video resta valido, produce solo post senza video.
+   */
+  console.log("\n4. Video stock (Pexels -> bucket):");
+  const video = await recuperaVideoStock("verifica", "Appartamento in citta', post per i social");
+
+  if (!video) {
+    console.log("  - saltato: manca PEXELS_API_KEY, oppure l'archivio non ha risposto");
+  } else {
+    const lettura = await fetch(video.url, { signal: AbortSignal.timeout(30_000) });
+    const byte = lettura.ok ? (await lettura.arrayBuffer()).byteLength : 0;
+    console.log(
+      `  ${lettura.ok ? "\u2714" : "\u2718"} ${(byte / (1024 * 1024)).toFixed(1)} MB, ` +
+        `tipo ${lettura.headers.get("content-type")}, autore ${video.autore ?? "-"}`
+    );
+
+    const chiaveVid = objectKeyFromUrl(config, video.url);
+    if (chiaveVid) await deleteObject(config, chiaveVid);
+  }
+
+  console.log("\n5. Pulizia:");
   await deleteObject(config, chiave);
 
   /*
