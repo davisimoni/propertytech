@@ -381,6 +381,14 @@ export async function handleInboundWhatsAppMessage(
     });
 
     if (!verdetto.pertinente) {
+      // Stesso marcatore degli altri due scarti: qui non c'e' un leadId perche'
+      // la scheda non nasce, ed e' proprio il caso che si vuole poter contare.
+      console.info("[WA-INTENT-SKIP]", {
+        organizationId: config.organizationId,
+        motivo: verdetto.motivo,
+        stato: "primo-contatto",
+      });
+
       logDecision({
         organizationId: config.organizationId,
         from: clientPhone,
@@ -623,6 +631,40 @@ export async function handleInboundWhatsAppMessage(
           message.text,
           config.organization
         );
+      } else if (!verdettoChiuso.pertinente) {
+        /*
+         * Fuori tema su una pratica chiusa: silenzio, come sulle aperte.
+         *
+         * Era l'unico varco rimasto. Questo ramo mandava il messaggio di
+         * cortesia ("la pratica e' chiusa, la ricontatteremo") a **qualunque**
+         * cosa non fosse una richiesta nuova, pertinenza compresa: un "ci
+         * vediamo dopo per il caffe'" su una scheda chiusa riceveva una
+         * risposta dall'assistente. Il filtro c'era e girava — su questo ramo
+         * il suo verdetto non veniva guardato.
+         *
+         * Il trattamento e' quello del ramo aperto: nessuna risposta, il
+         * messaggio resta in cronologia, la serie avanza. La scheda non si
+         * chiude e non si cancella: cambia solo chi parla.
+         */
+        const sospeso = await recordOffTopicMessage(lead, message.text, verdettoChiuso.motivo);
+
+        console.info("[WA-INTENT-SKIP]", {
+          leadId: lead.id,
+          organizationId: config.organizationId,
+          motivo: verdettoChiuso.motivo,
+          stato: lead.qualificationStatus,
+        });
+
+        logDecision({
+          organizationId: config.organizationId,
+          from: clientPhone,
+          text: message.text,
+          intent: verdettoChiuso,
+          leadStatus: lead.qualificationStatus,
+          decision: sospeso
+            ? "NESSUNA RISPOSTA — fuori tema su pratica chiusa, assistente sospeso"
+            : "NESSUNA RISPOSTA — fuori tema su pratica chiusa",
+        });
       } else {
         logDecision({
           organizationId: config.organizationId,
@@ -655,6 +697,22 @@ export async function handleInboundWhatsAppMessage(
         // cronologia e il contatore avanza; alla soglia l'assistente si
         // sospende da solo su questo contatto.
         const sospeso = await recordOffTopicMessage(lead, message.text, verdetto.motivo);
+
+        /*
+         * Un marcatore unico per tutti gli scarti, oltre al registro leggibile.
+         *
+         * `logDecision` scrive per chi legge una conversazione; questa riga
+         * serve a chi cerca nei log di produzione quante volte l'assistente ha
+         * taciuto e perche'. Due punti diversi la emettono — conversazione
+         * aperta e pratica chiusa — e devono essere cercabili insieme.
+         */
+        console.info("[WA-INTENT-SKIP]", {
+          leadId: lead.id,
+          organizationId: config.organizationId,
+          motivo: verdetto.motivo,
+          stato: lead.qualificationStatus,
+        });
+
         logDecision({
           organizationId: config.organizationId,
           from: clientPhone,
