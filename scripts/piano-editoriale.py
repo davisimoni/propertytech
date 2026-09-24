@@ -37,6 +37,7 @@ from __future__ import annotations
 import datetime
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -59,15 +60,74 @@ COLONNE = [
     ("Oggetto/Tema", 22),
     ("Hook / Prima Riga", 46),
     ("Copy Completo", 78),
-    ("Prompt Visuale per Predis.ai", 72),
-    ("Hashtag", 40),
+    ("Prompt Visuale per Predis.ai", 64),
+    ("Prompt Definitivo Predis.ai", 88),
+    ("Hashtag", 36),
 ]
+
+# Quante parole di testo può portare una grafica prima di diventare illeggibile
+# su un telefono. Il numero sta nel prompt perché Predis, lasciato libero,
+# riempie l'immagine di frasi.
+MAX_PAROLE_SU_IMMAGINE = 12
+
+"""
+Obiettivo per tema, non per post.
+
+L'obiettivo di un contenuto dipende dal tema, non dalla singola uscita: tenerlo
+qui evita venti frasi scritte a mano che dicono la stessa cosa in venti modi
+diversi, ed è proprio quella deriva a far sembrare un piano editoriale un
+insieme di post scollegati.
+"""
+OBIETTIVI: dict[str, str] = {
+    "Burocrazia": "far riconoscere all'agente il tempo che perde in lavoro amministrativo, "
+    "e mostrargli che è automatizzabile",
+    "Report Venditori": "convincere il titolare che informare il proprietario dopo ogni visita "
+    "è ciò che fa rinnovare il mandato, e che si può fare in trenta secondi",
+    "Qualifica Lead": "far capire che il problema non è avere pochi contatti, ma sapere quale "
+    "merita un appuntamento",
+    "Due Diligence Aste": "posizionare PropertyTech come lo strumento che prepara la lettura di "
+    "una perizia, senza mai sostituire il professionista che firma",
+    "Acquisizione": "dare al titolare argomenti concreti da mostrare in appuntamento di "
+    "acquisizione, al posto delle promesse che fanno tutti",
+}
+
+# Proporzioni per formato: un Reel verticale, un carosello in verticale corto,
+# l'immagine singola quadrata dove la timeline è larga e 4:5 su Instagram, che
+# premia l'altezza.
+def proporzioni(formato: str, piattaforma: str) -> str:
+    if formato == "Reel":
+        return "9:16 verticale"
+    if formato == "Giostra/Carosello":
+        return "4:5 verticale"
+    return "4:5 verticale" if piattaforma == "Instagram" else "1:1 quadrato"
 
 BLU = "0B3C6E"
 GHIACCIO = "EAF1F8"
 
-# Ogni voce: (ora, piattaforma, formato, tema, hook, copy, prompt, hashtag)
-POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
+class Post(NamedTuple):
+    """
+    Una singola uscita.
+
+    Campi nominati e non una tupla posizionale: con dieci colonne, un valore
+    scambiato di posto non produce un errore ma un post con l'hashtag nella
+    colonna del copy, e lo si scopre aprendo il file.
+    """
+
+    ora: str
+    piattaforma: str
+    formato: str
+    tema: str
+    hook: str
+    copy: str
+    prompt_visuale: str
+    hashtag: str
+    #: Il problema dell'agente, in una riga: è il cuore del prompt definitivo.
+    gancio: str
+    #: Cosa si vede, in italiano e in breve, per il prompt definitivo.
+    soggetto: str
+
+
+_VOCI: list[tuple[str, ...]] = [
     # ───────────────────────── Settimana 1: burocrazia e report vocali
     (
         "08:00",
@@ -92,6 +152,8 @@ POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
         "no text in the image, no computer screens or software interfaces visible, no logos. "
         "Leave clean negative space in the upper third for a headline overlay.",
         "#agenziaimmobiliare #agenteimmobiliare #immobiliare #proptech #intelligenzaartificiale #digitalizzazione",
+        "Togliere dalla settimana dell'agente le ore che non portano firme: ricopiare dati da visure e atti, scrivere riepiloghi per i proprietari, rispondere a contatti che non compreranno",
+        "un agente immobiliare alla scrivania di un'agenzia luminosa, con una cartella di documenti cartacei in mano",
     ),
     (
         "13:00",
@@ -116,6 +178,8 @@ POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
         "realistic colours, no on-screen software interfaces, no screen recordings, no visible logos. "
         "Keep the centre of the frame clear for caption overlays.",
         "#notevocali #reportimmobiliare #agenteimmobiliare #proptech #immobiliare #venditacasa #intelligenzaartificiale",
+        "Trasformare trenta secondi di nota vocale, dettata appena chiusa la porta, nel report che il proprietario aspetta, al posto dei venti minuti di scrittura a fine giornata",
+        "un agente che esce dal portone di un palazzo e detta una nota vocale al telefono, luce calda del pomeriggio",
     ),
     (
         "18:30",
@@ -142,6 +206,8 @@ POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
         "Consistent colour grading across all three, muted navy and warm neutral palette, realistic "
         "corporate photography, no text, no software screenshots, no logos.",
         "#visuracatastale #documenti #agenziaimmobiliare #proptech #immobiliare #catasto #intelligenzaartificiale",
+        "Non ricopiare più a mano foglio, particella, subalterno e rendita da un PDF scansionato male, dove un dato sbagliato lo scopre il notaio",
+        "mani che sfogliano visure e planimetrie cartacee su una scrivania di legno",
     ),
     (
         "09:00",
@@ -166,6 +232,8 @@ POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
         "image, no screens, no software interfaces, no logos. Clean space on the left for a "
         "headline overlay.",
         "#incaricoinesclusiva #mandato #agenteimmobiliare #proptech #immobiliare #clientsatisfaction",
+        "Tenere informato il proprietario dopo ogni visita, che è la cosa su cui decide se rinnovare il mandato, anche quando la visita finisce alle 19:30 di sabato",
+        "un proprietario di casa sui sessant'anni che legge un report stampato al tavolo di cucina, luce di fine pomeriggio",
     ),
     (
         "20:30",
@@ -191,6 +259,8 @@ POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
         "the paper, no screens, no software interfaces, no logos. Generous empty space at the top "
         "for a headline overlay.",
         "#rogito #duediligence #agenziaimmobiliare #documenti #proptech #immobiliare #notaio",
+        "Sapere quali documenti mancano prima di raccogliere la proposta, invece di scoprirlo davanti al notaio con la proposta già firmata",
+        "una checklist cartacea con penna appoggiata, accanto a documenti di proprietà e un mazzo di chiavi, ripresa dall'alto",
     ),
     # ───────────────────────── Settimana 2: qualifica lead su WhatsApp
     (
@@ -214,6 +284,8 @@ POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
         "photography, shallow depth of field. No visible screen content, no software interfaces, "
         "no text, no logos. Leave the upper half relatively empty for a headline overlay.",
         "#speedtolead #whatsappbusiness #agenteimmobiliare #proptech #immobiliare #leadgeneration #automazione",
+        "Rispondere in pochi secondi alle richieste dei portali che arrivano alle 22:40, la domenica e a Ferragosto, quando l'agenzia è chiusa e il primo che risponde prende l'appuntamento",
+        "uno smartphone su una scrivania in un ufficio buio, illuminato solo dalla lampada e dalle luci della città fuori dalla finestra",
     ),
     (
         "13:00",
@@ -237,6 +309,8 @@ POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
         "realistic colour grade. No on-screen software interfaces, no chat mock-ups, no screen "
         "recordings, no logos. Keep the lower third clear for subtitles.",
         "#qualificalead #whatsapp #agenteimmobiliare #proptech #immobiliare #appuntamenti #automazione",
+        "Capire quale dei dieci contatti della settimana merita un sabato di visite, invece di scoprirlo dopo averlo speso",
+        "una giovane coppia che guarda la facciata di un palazzo, poi la stretta di mano con l'agente sulla porta dell'appartamento",
     ),
     (
         "18:30",
@@ -259,6 +333,8 @@ POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
         "text, no screens, no software interfaces, no logos. Composition leaves the right half "
         "relatively plain for a headline overlay.",
         "#appuntamenti #agenziaimmobiliare #visite #proptech #immobiliare #organizzazione",
+        "Fissare in agenda solo visite con acquirenti che hanno capienza economica e tempi definiti, così il sabato torna a essere una trattativa",
+        "un salotto luminoso e vuoto di un appartamento italiano, con un mazzo di chiavi sul davanzale",
     ),
     (
         "09:00",
@@ -285,6 +361,8 @@ POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
         "neutral palette, realistic corporate photography. No text, no screens, no software "
         "interfaces, no logos. Keep the top area of each slide clear for overlay text.",
         "#qualificalead #mutuo #agenteimmobiliare #proptech #immobiliare #trattativa #acquisizione",
+        "Far emergere mutuo, casa da vendere prima di comprare e tempi d'acquisto durante la conversazione, senza che il cliente si senta davanti a un questionario",
+        "un consulente bancario con una coppia alla scrivania, un cartello vendesi, un calendario da parete, una stretta di mano in ufficio",
     ),
     (
         "20:30",
@@ -306,6 +384,8 @@ POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
         "lighting, minimal composition. Realistic corporate photography. No text, no screen "
         "content, no software interfaces, no logos. Generous negative space for a headline.",
         "#gdpr #gestionaleimmobiliare #integrazione #proptech #immobiliare #privacy #agenziaimmobiliare",
+        "Aggiungere l'automazione senza migrare il gestionale e senza cambiare abitudini, con i dati che restano in Unione Europea",
+        "una scrivania ordinata con uno smartphone accanto a un taccuino di carta, luce fredda e composizione minimale",
     ),
     # ───────────────────────── Settimana 3: aste e due diligence
     (
@@ -331,6 +411,8 @@ POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
         "still-life photography, no people. No readable text on the pages, no screens, no software "
         "interfaces, no logos. Leave the top third darker and plain for a headline overlay.",
         "#asteimmobiliari #duediligence #perizia #proptech #immobiliare #investimentiimmobiliari #intelligenzaartificiale",
+        "Arrivare preparato su una perizia d'asta di ottanta pagine senza perdere tre ore di lettura, e senza rischiare di non vedere il vincolo che azzera il margine",
+        "un voluminoso fascicolo tecnico aperto su una scrivania, accanto a una lente d'ingrandimento e a un paio di occhiali da lettura, luce laterale",
     ),
     (
         "13:00",
@@ -356,6 +438,8 @@ POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
         "on-screen software interfaces, no screen recordings, no charts on screens, no logos. Keep "
         "the lower third clear for subtitles.",
         "#asteimmobiliari #investimenti #rendimento #proptech #immobiliare #duediligence #perizia",
+        "Capire prima di offrire se un lotto all'asta è un'occasione o una trappola: stato occupazionale, difformità da sanare, vincoli che bloccano la rivendita",
+        "la facciata di un palazzo italiano più vecchio con le persiane chiuse, poi mani che sfogliano rapidamente una relazione tecnica stampata",
     ),
     (
         "18:30",
@@ -380,6 +464,8 @@ POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
         "palette, realistic documentary photography. No text, no screens, no software interfaces, "
         "no logos. Keep the upper area of each slide clear for overlay text.",
         "#asteimmobiliari #immobiliare #investimentiimmobiliari #proptech #duediligence #sanatoria",
+        "Stimare stato occupazionale, difformità edilizie, vincoli e costi accessori prima di alzare la mano in asta, perché il prezzo base non dice quasi nulla",
+        "una porta chiusa con serratura vecchia, le mani guantate di un muratore su un muro, la facciata di un tribunale, una calcolatrice su documenti stampati",
     ),
     (
         "09:00",
@@ -402,6 +488,8 @@ POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
         "window, dust in the air, realistic documentary style. No text, no screens, no software "
         "interfaces, no logos. Leave clean space on the upper left for a headline overlay.",
         "#duediligence #perizia #responsabilita #proptech #immobiliare #asteimmobiliari #tecnico",
+        "Usare l'AI sulle perizie sapendo che la responsabilità resta di chi firma: lo strumento prepara la lettura, non sostituisce il tecnico né il notaio",
+        "una tecnica professionista sui quarant'anni in un appartamento in ristrutturazione, con una planimetria cartacea in mano",
     ),
     (
         "20:30",
@@ -424,6 +512,8 @@ POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
         "text, no labels readable, no screens, no software interfaces, no logos. Generous plain "
         "space at the top for a headline overlay.",
         "#asteimmobiliari #matchmaking #clienti #proptech #immobiliare #portafoglioimmobili",
+        "Scoprire che il cliente giusto per quel lotto è già nell'archivio dell'agenzia, perché l'acquisizione più economica è quella sui clienti che si hanno già",
+        "una parete di vecchie cassettiere in legno con un cassetto socchiuso, luce laterale calda",
     ),
     # ───────────────────────── Settimana 4: acquisizione e incarichi
     (
@@ -447,6 +537,8 @@ POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
         "photography, warm palette. No text, no screens, no software interfaces, no logos. Leave "
         "the sky area at the top clear for a headline overlay.",
         "#acquisizione #incaricoinesclusiva #agenteimmobiliare #proptech #immobiliare #valutazioneimmobiliare",
+        "Riconoscere, fra chi chiede informazioni per comprare, chi ha una casa da vendere: un acquirente porta una provvigione, un mandato apre il portafoglio",
+        "un'agente immobiliare che suona al cancello di una villetta in un quartiere residenziale italiano, con una cartella in mano, luce del mattino",
     ),
     (
         "13:00",
@@ -471,6 +563,8 @@ POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
         "on-screen software interfaces, no screen recordings, no logos. Keep the lower third clear "
         "for subtitles.",
         "#acquisizione #incaricoinesclusiva #agenteimmobiliare #proptech #immobiliare #valutazione #tecnologia",
+        "Mostrare al proprietario, in appuntamento di acquisizione, come lavora l'agenzia invece di promettergli le stesse cose che gli diranno le altre due",
+        "un agente al tavolo di casa con una coppia anziana, documenti appoggiati, e la stretta di mano finale sulla cartella firmata",
     ),
     (
         "18:30",
@@ -495,6 +589,8 @@ POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
         "neutral palette, nobody in frame. No text, no screens, no software interfaces, no logos. "
         "Composition leaves the upper area relatively plain for a headline overlay.",
         "#annunciimmobiliari #socialmediamarketing #agenziaimmobiliare #proptech #immobiliare #copywriting",
+        "Ottenere annuncio per i portali, post social e script del Reel da quattro righe di appunti, invece di scrivere tre volte lo stesso lavoro",
+        "il salotto di un appartamento italiano ben presentato, fotografato come una foto professionale da annuncio, senza persone",
     ),
     (
         "09:00",
@@ -519,6 +615,8 @@ POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
         "warm neutral palette, realistic corporate photography. No text, no screens, no software "
         "interfaces, no logos. Keep the top of each slide clear for overlay text.",
         "#acquisizione #incaricoinesclusiva #titolareagenzia #proptech #immobiliare #tecnologia #agenteimmobiliare",
+        "Portare in appuntamento di acquisizione quattro cose verificabili da mostrare, al posto delle promesse che fanno tutte le agenzie",
+        "uno smartphone su una scrivania di notte, un agente che detta una nota vocale, una checklist spuntata a penna, una fotocamera su cavalletto in un appartamento",
     ),
     (
         "20:30",
@@ -542,8 +640,63 @@ POSTS: list[tuple[str, str, str, str, str, str, str, str]] = [
         "content, no software interfaces, no logos. Leave the top third plain for a headline "
         "overlay.",
         "#provagratuita #proptech #agenziaimmobiliare #immobiliare #intelligenzaartificiale #gdpr #digitalizzazione",
+        "Provare il software senza carta di credito, senza migrare niente e con i dati in Unione Europea",
+        "mani che tengono uno smartphone in un ufficio luminoso, con una tazza di caffè e un taccuino sulla scrivania, luce del mattino",
     ),
 ]
+
+
+"""
+`Post(*voce)` e non una tupla usata a indici.
+
+Con dieci campi per riga, quello che va storto non e' il tipo: e' l'ordine.
+Costruire l'oggetto fa fallire subito una voce a cui manca un campo, mentre
+`voce[7]` su una tupla corta restituirebbe l'hashtag al posto del soggetto e lo
+si scoprirebbe leggendo il file finito.
+"""
+POSTS: list[Post] = [Post(*voce) for voce in _VOCI]
+
+
+def prompt_definitivo(post: Post) -> str:
+    """
+    Il testo da incollare in "Crea il tuo prossimo post" di Predis.ai.
+
+    # Perche' composto e non scritto venti volte
+
+    Perche' la struttura e' identica per tutti i post — tipo e obiettivo, tema e
+    gancio, istruzioni visive, tono e chiusura — e cambia solo cio' che riguarda
+    quel contenuto. Venti prompt scritti a mano divergono al terzo ritocco: uno
+    perde il divieto sulle schermate, un altro dimentica il formato, e sono
+    proprio le due righe che fanno la differenza fra una grafica utilizzabile e
+    una da rifare.
+
+    # Perche' in italiano
+
+    Perche' il testo che finira' sulla grafica deve essere italiano, e un prompt
+    in inglese porta il modello a scriverci sopra parole inglesi. Le indicazioni
+    di stile restano comunque esplicite: e' il divieto sulle schermate a dover
+    essere impossibile da fraintendere.
+    """
+    rapporto = proporzioni(post.formato, post.piattaforma)
+    tipo = {
+        "Reel": "video verticale breve (Reel) di 8-12 secondi",
+        "Giostra/Carosello": f"carosello di 4 schede",
+        "Immagine Singola": "post a immagine singola",
+    }[post.formato]
+
+    return f"""1) TIPO DI CONTENUTO E OBIETTIVO
+Crea un {tipo} per {post.piattaforma}, ad alta conversione, rivolto ad agenti e titolari di agenzie immobiliari italiane. Obiettivo del contenuto: {OBIETTIVI[post.tema]}.
+
+2) TEMA E GANCIO OPERATIVO
+Tema: {post.tema}. Il problema concreto da mettere in scena: {post.gancio}. Apri con questo concetto nella prima riga o nella prima scheda, perché è il punto in cui il lettore si riconosce. Non usare percentuali, statistiche o dati di risultato: non ne abbiamo di verificati, e un numero inventato su una grafica diventa una promessa che non possiamo mantenere.
+
+3) ISTRUZIONI VISIVE
+Usa esclusivamente immagini o video stock professionali di alta qualità del settore immobiliare: {post.soggetto}. Fotografia realistica e sobria, luce naturale, palette blu notte e neutri caldi, profondità di campo ridotta. Formato {rapporto}.
+VIETATO IN MODO ASSOLUTO: screenshot di interfacce software, mockup di applicazioni, finte schermate di chat, grafici o dashboard mostrati su un monitor, loghi di terzi. Le interfacce invecchiano in un mese e non comunicano nulla a chi scorre il feed.
+Testo sull'immagine in italiano, al massimo {MAX_PAROLE_SU_IMMAGINE} parole, con ampio spazio libero per il titolo.
+
+4) TONO E CALL TO ACTION
+Tono autorevole, professionale e diretto, da collega esperto che parla a un altro professionista: mai pubblicitario, mai entusiasta a vuoto. Dai del tu. Chiudi invitando a seguire la pagina per altre strategie operative e a provare la demo gratuita su propertytechsolutions.net, senza carta di credito."""
 
 
 def giorni_lavorativi(inizio: datetime.date, quanti: int) -> list[datetime.date]:
@@ -555,6 +708,26 @@ def giorni_lavorativi(inizio: datetime.date, quanti: int) -> list[datetime.date]
             date.append(giorno)
         giorno += datetime.timedelta(days=1)
     return date
+
+
+def altezza_riga(celle: list[tuple[str, int]]) -> float:
+    """
+    Quanto alta deve essere la riga perché la cella più lunga si legga.
+
+    Stima grossolana e voluta: si contano i capoversi e si divide la lunghezza
+    di ciascuno per la larghezza della colonna. Excel non espone il calcolo
+    vero, che dipende dal font e dal rendering, quindi qualsiasi numero qui è
+    un'approssimazione — meglio una che segue il contenuto di una costante che
+    va rifatta a mano a ogni colonna aggiunta.
+    """
+    righe_stimate = 1
+    for testo, larghezza in celle:
+        righe = sum(max(1, len(capoverso) // larghezza + 1) for capoverso in testo.split("\n"))
+        righe_stimate = max(righe_stimate, righe)
+
+    # ~13 punti per riga di Arial 10, con un tetto: oltre, la riga diventa più
+    # alta dello schermo e scorrere il foglio diventa impossibile.
+    return min(righe_stimate * 13, 420)
 
 
 def scrivi_piano(destinazione: Path) -> None:
@@ -585,8 +758,19 @@ def scrivi_piano(destinazione: Path) -> None:
     date = giorni_lavorativi(INIZIO, len(POSTS))
 
     for riga, (giorno, post) in enumerate(zip(date, POSTS), start=2):
-        ora, piattaforma, formato, tema, hook, copy, prompt, hashtag = post
-        valori = [giorno, ora, piattaforma, formato, tema, hook, copy, prompt, hashtag]
+        definitivo = prompt_definitivo(post)
+        valori = [
+            giorno,
+            post.ora,
+            post.piattaforma,
+            post.formato,
+            post.tema,
+            post.hook,
+            post.copy,
+            post.prompt_visuale,
+            definitivo,
+            post.hashtag,
+        ]
 
         for colonna, valore in enumerate(valori, start=1):
             cella = foglio.cell(row=riga, column=colonna, value=valore)
@@ -612,9 +796,14 @@ def scrivi_piano(destinazione: Path) -> None:
                     "solid", fgColor=GHIACCIO
                 )
 
-        # Altezza generosa: il testo a capo da solo non alza la riga, e senza
-        # questo il copy resta tagliato all'apertura del file.
-        foglio.row_dimensions[riga].height = 210
+        # Altezza calcolata sul contenuto più lungo.
+        #
+        # Il testo a capo da solo non alza la riga: senza questo il copy resta
+        # tagliato all'apertura. Un'altezza fissa invece non regge l'aggiunta di
+        # una colonna più lunga delle altre — e il prompt definitivo lo è.
+        foglio.row_dimensions[riga].height = altezza_riga(
+            [(post.copy, 78), (post.prompt_visuale, 64), (definitivo, 88)]
+        )
 
     foglio.freeze_panes = "A2"
     foglio.auto_filter.ref = f"A1:{get_column_letter(len(COLONNE))}{len(POSTS) + 1}"
@@ -642,14 +831,23 @@ def scrivi_istruzioni(wb: Workbook, font_titolo: Font, fill_titolo: PatternFill,
                               "Settimana 3 aste e due diligence · Settimana 4 acquisizione e incarichi."),
         ("Colonna Copy Completo", "Testo pronto da incollare. Gli a capo sono già quelli giusti per il post: "
                                   "copia la cella, non riscriverla."),
-        ("Colonna Prompt Visuale", "Da incollare in Predis.ai così com'è, in inglese. Ogni prompt dichiara il formato "
-                                   "(9:16 per i Reel, 1:1 e 4:5 per gli altri) e vieta esplicitamente schermate di "
-                                   "software: un'interfaccia in un post invecchia in un mese e non comunica nulla."),
+        ("Colonna Prompt Definitivo", "È quella da usare: si incolla intera nella schermata «Crea il tuo prossimo "
+                                      "post» di Predis.ai, senza toccarla. Quattro blocchi numerati — tipo e "
+                                      "obiettivo, tema e gancio operativo, istruzioni visive, tono e call to action "
+                                      "— perché Predis, lasciato libero, sceglie da sé stile e testo."),
+        ("Colonna Prompt Visuale", "La sola parte visiva, in inglese, per quando serve rigenerare l'immagine "
+                                   "cambiando soggetto senza rifare tutto il prompt. Se usi il Prompt Definitivo, "
+                                   "questa colonna non serve: è un ripiego, non un secondo passaggio."),
+        ("Divieto sulle schermate", "Entrambe le colonne vietano esplicitamente screenshot di software, mockup di "
+                                    "app e finte chat. Un'interfaccia in un post invecchia in un mese, e a chi "
+                                    "scorre il feed non dice nulla."),
         ("Hashtag", "Da cinque a sette per post, mescolando settore (#immobiliare, #agenteimmobiliare) e "
                     "tecnologia (#proptech). Non riusarli tutti identici su ogni post."),
         ("Cosa NON dire", "Nessuna percentuale di risultato inventata, nessun prezzo, e mai promettere che l'AI "
                           "risponda da sola ai commenti o ai messaggi diretti, o che certifichi la conformità: "
-                          "non lo fa, e il primo giorno di prova si vede."),
+                          "non lo fa, e il primo giorno di prova si vede. Il divieto è scritto anche dentro ogni "
+                          "Prompt Definitivo, perché è Predis a scrivere il testo sulla grafica: un «-90% di "
+                          "tempo» stampato su un'immagine è una promessa pubblica che nessun dato sostiene."),
         ("Funzioni riservate", "Report vocali e Social & Annunci sono del piano Enterprise, e i post che li "
                                "mostrano lo dichiarano: chi arriva in prova cercandoli non li troverebbe."),
         ("Come rigenerare", "python scripts/piano-editoriale.py [percorso.xlsx] — cambiando INIZIO nello script "
