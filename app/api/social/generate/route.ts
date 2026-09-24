@@ -6,12 +6,18 @@ import { previewFromContent } from "@/lib/history/entries";
 import { checkFeatureAccess } from "@/lib/feature-access";
 import { socialGenerationRequestSchema } from "@/lib/ai/social-schema";
 import { generateSocialContent, SocialGenerationError } from "@/lib/ai/social-generator";
+import { generaImmagineSocial } from "@/lib/ai/social-image";
 
 /**
  * Tre formati generati in un'unica chiamata, con 8192 token di uscita: sugli
  * immobili descritti in dettaglio supera comodamente il limite predefinito.
+ *
+ * Cinque minuti e non uno: dall'istruzione libera si genera anche l'immagine,
+ * e il modello che la produce impiega da solo mezzo minuto. Col minuto di
+ * prima la funzione moriva dopo aver pagato il testo e l'immagine, senza
+ * consegnare nulla.
  */
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -37,7 +43,26 @@ export async function POST(request: Request) {
   }
 
   try {
-    const content = await generateSocialContent(parsed.data);
+    /*
+     * Testo e immagine insieme, non in fila.
+     *
+     * Non dipendono l'uno dall'altra: l'immagine nasce dall'istruzione
+     * dell'agente, non dall'annuncio generato. In sequenza l'attesa era la
+     * somma delle due (misurata: ~50 secondi la sola immagine), in parallelo
+     * e' la piu' lunga delle due. E' la differenza fra un'attesa e un sospetto
+     * di blocco.
+     *
+     * L'immagine solo per l'istruzione libera: le altre tre strade partono da
+     * un immobile che esiste, e li' la foto giusta e' quella vera, che sta in
+     * Portafoglio Immobili. Generarne una somiglierebbe a una casa diversa da
+     * quella in vendita.
+     */
+    const [content, generatedMedia] = await Promise.all([
+      generateSocialContent(parsed.data),
+      parsed.data.freePrompt
+        ? generaImmagineSocial(session.user.organizationId, parsed.data.freePrompt)
+        : Promise.resolve(null),
+    ]);
 
     // Conservata in cronologia, senza bloccare: l'agente ha atteso la
     // generazione e deve riceverla anche se la scrittura fallisce.
@@ -67,7 +92,17 @@ export async function POST(request: Request) {
         return null;
       });
 
-    return NextResponse.json({ content, generationId: saved?.id ?? null });
+    /*
+     * `content` porta già testo e hashtag (`socialPost.caption`,
+     * `socialPost.hashtags`), quindi non vengono ripetuti in cima alla
+     * risposta: due copie dello stesso valore divergono al primo ritocco, e
+     * l'interfaccia non saprebbe quale delle due è quella buona.
+     */
+    return NextResponse.json({
+      content,
+      generationId: saved?.id ?? null,
+      generatedMedia,
+    });
   } catch (error) {
     if (error instanceof SocialGenerationError) {
       const status = error.code === "upstream_error" ? 502 : 422;

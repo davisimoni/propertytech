@@ -70,6 +70,15 @@ export function SocialGenerator() {
    * vorrebbe dire farle risalire comunque.
    */
   const [media, setMedia] = useState<string[]>([]);
+  /*
+   * Quali allegati vengono dall'AI.
+   *
+   * Non si ricava dall'indirizzo: serve all'interfaccia per dichiararlo, e una
+   * dichiarazione dedotta da un pezzo di URL smette di funzionare il giorno in
+   * cui cambia il nome del file. Resta un elenco a parte perche' `media` e' la
+   * lista che l'agente riordina e svuota, e non deve portarsi dietro altro.
+   */
+  const [mediaDaAi, setMediaDaAi] = useState<string[]>([]);
   const [keyPoints, setKeyPoints] = useState("");
   const [rawText, setRawText] = useState("");
   const [tone, setTone] = useState<ToneOfVoice>("professionale");
@@ -113,6 +122,23 @@ export function SocialGenerator() {
   async function handleGenerate() {
     setActiveTab("portal");
 
+    /*
+     * L'immagine viaggia fuori dal risultato del job, di proposito.
+     *
+     * Il risultato del job e' `SocialContent` e lo leggono la scheda, la
+     * cronologia e il salvataggio in portafoglio: cambiarne la forma per
+     * infilarci un allegato costringerebbe tutti e tre a distinguere due
+     * versioni dello stesso oggetto. Qui serve solo subito dopo la
+     * generazione, quindi resta in una variabile della chiusura.
+     *
+     * Un oggetto e non un `let`: TypeScript non segue le assegnazioni fatte
+     * dentro una richiamata, quindi una variabile inizializzata a `null`
+     * resterebbe di tipo `null` anche dopo essere stata riempita, e il
+     * controllo dei tipi rifiuterebbe di leggerne i campi. Il contenitore
+     * aggira il restringimento senza spegnerlo con un cast.
+     */
+    const catturato: { immagine: { url: string; type: string } | null } = { immagine: null };
+
     const generato = await startJob({
       kind: "social",
       // Cosa si sta generando, per l'indicatore: il titolo se c'e', altrimenti
@@ -142,11 +168,28 @@ export function SocialGenerator() {
         const body = await response.json();
         if (!response.ok) throw new Error(body.message ?? "Generazione non riuscita. Riprova.");
 
+        catturato.immagine =
+          (body.generatedMedia as { url: string; type: string } | null) ?? null;
+
         return body.content as SocialContent;
       },
     });
 
     if (generato) {
+      /*
+       * L'immagine generata entra **in testa** agli allegati.
+       *
+       * La prima posizione e' la copertina del post, ed e' quella che l'agente
+       * si aspetta di vedere occupata da cio' che ha appena chiesto. Le foto
+       * gia' allegate restano dopo, non vengono sostituite: buttare via il
+       * lavoro di qualcun altro per fare spazio al proprio e' il difetto
+       * peggiore che un automatismo possa avere.
+       */
+      if (catturato.immagine) {
+        const url = catturato.immagine.url;
+        setMedia((corrente) => (corrente.includes(url) ? corrente : [url, ...corrente]));
+        setMediaDaAi((corrente) => [...corrente, url]);
+      }
 
       /*
        * Il titolo per il portafoglio, se non ce l'abbiamo gia'.
@@ -386,7 +429,7 @@ export function SocialGenerator() {
                 {/* Gli allegati sopra i comandi: si scelgono prima di
                     pubblicare, e vederli dopo il pulsante farebbe premere
                     "Pubblica" a chi non si e' accorto di poterle aggiungere. */}
-                <MediaAttachments media={media} onChange={setMedia} />
+                <MediaAttachments media={media} onChange={setMedia} generatiDaAi={mediaDaAi} />
 
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   {/* Pubblicare e copiare stanno insieme: sono le due cose che si

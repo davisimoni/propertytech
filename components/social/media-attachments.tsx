@@ -109,9 +109,19 @@ interface ImmobileConFoto {
 export function MediaAttachments({
   media,
   onChange,
+  generatiDaAi = [],
 }: {
   media: string[];
   onChange: (next: string[]) => void;
+  /**
+   * Gli allegati prodotti dall'AI, da dichiarare come tali.
+   *
+   * Non è una gentilezza: un'immagine generata che finisce sotto un annuncio
+   * senza essere riconoscibile è il primo passo verso un post che mostra una
+   * casa diversa da quella in vendita. L'etichetta serve a chi pubblica, che
+   * spesso non è chi ha premuto "Genera".
+   */
+  generatiDaAi?: string[];
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isBusy, setIsBusy] = useState(false);
@@ -396,6 +406,12 @@ export function MediaAttachments({
                   </span>
                 )}
 
+                {generatiDaAi.includes(url) && (
+                  <span className="absolute bottom-8 left-1 rounded bg-primary/90 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                    Generata con AI
+                  </span>
+                )}
+
                 {indice === 0 && (
                   <span className="absolute left-1 top-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-medium text-white">
                     Copertina
@@ -436,6 +452,19 @@ export function MediaAttachments({
           <p className="mt-2 text-xs text-muted-foreground">
             Il primo allegato è la copertina del post. Usa le frecce per riordinarli.
           </p>
+
+          {/* L'avvertenza compare solo quando c'è un'immagine generata, e dice
+              la cosa che conta: non raffigura l'immobile. Un post che la
+              presenta come la casa in vendita è pubblicità ingannevole, e a
+              rispondere è l'agenzia, non noi. */}
+          {media.some((url) => generatiDaAi.includes(url)) && (
+            <p className="mt-2 rounded-lg border border-status-pending/35 bg-status-pending/5 px-3 py-2 text-xs leading-relaxed text-foreground">
+              L&apos;immagine generata dall&apos;AI è di corredo e <strong>non raffigura
+              l&apos;immobile</strong>. Per un annuncio usa le foto vere della scheda
+              (&laquo;Seleziona da Portafoglio Immobili&raquo;): un post che mostra una casa
+              diversa da quella in vendita è pubblicità ingannevole.
+            </p>
+          )}
         </>
       )}
 
