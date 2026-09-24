@@ -65,6 +65,16 @@ export const socialGenerationRequestSchema = z
      * non aggiunge un giardino che le note non hanno.
      */
     freePrompt: z.string().trim().max(1000).optional(),
+    /**
+     * Se generare anche l'immagine di corredo.
+     *
+     * Vale solo con `freePrompt`: le altre strade partono da un immobile che
+     * esiste e non generano immagini per principio. Il valore predefinito è
+     * `true` perché è il comportamento che l'agente si aspetta dopo aver
+     * scritto un'istruzione, ma ogni generazione costa una chiamata al
+     * modello di immagini: chi vuole solo il testo lo dichiara e non la paga.
+     */
+    generateImage: z.boolean().optional().default(true),
   })
   .superRefine((data, ctx) => {
     const hasFields =

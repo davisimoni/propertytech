@@ -59,7 +59,7 @@ export async function POST(request: Request) {
      */
     const [content, generatedMedia] = await Promise.all([
       generateSocialContent(parsed.data),
-      parsed.data.freePrompt
+      parsed.data.freePrompt && parsed.data.generateImage
         ? generaImmagineSocial(session.user.organizationId, parsed.data.freePrompt)
         : Promise.resolve(null),
     ]);

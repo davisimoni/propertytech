@@ -71,6 +71,13 @@ export function SocialGenerator() {
    */
   const [media, setMedia] = useState<string[]>([]);
   /*
+   * Acceso di default: dopo aver scritto un'istruzione, l'agente si aspetta di
+   * vedere anche la grafica. Spegnerlo e' la scelta di chi vuole solo il testo,
+   * e risparmia una chiamata al modello di immagini — che costa e aggiunge
+   * quasi un minuto di attesa.
+   */
+  const [generaImmagine, setGeneraImmagine] = useState(true);
+  /*
    * Quali allegati vengono dall'AI.
    *
    * Non si ricava dall'indirizzo: serve all'interfaccia per dichiararlo, e una
@@ -157,7 +164,9 @@ export function SocialGenerator() {
             ...(propertyTitle.trim() ? { propertyTitle: propertyTitle.trim() } : {}),
             ...(keyPoints.trim() ? { keyPoints: keyPoints.trim() } : {}),
             ...(rawText.trim() ? { rawText: rawText.trim() } : {}),
-            ...(freePrompt.trim() ? { freePrompt: freePrompt.trim() } : {}),
+            ...(freePrompt.trim()
+              ? { freePrompt: freePrompt.trim(), generateImage: generaImmagine }
+              : {}),
             tone,
             intent,
           }),
@@ -318,6 +327,8 @@ export function SocialGenerator() {
           onIntentChange={setIntent}
           freePrompt={freePrompt}
           onFreePromptChange={setFreePrompt}
+          generaImmagine={generaImmagine}
+          onGeneraImmagineChange={setGeneraImmagine}
           footer={
           <div className="space-y-4">
             <div>
