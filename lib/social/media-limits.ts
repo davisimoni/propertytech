@@ -80,3 +80,48 @@ export function kindFromExtension(url: string): MediaKind {
 export function contieneVideo(media: MediaAllegato[]): boolean {
   return media.some((allegato) => allegato.kind === "video");
 }
+
+/**
+ * Come pubblicare, quando fra gli allegati ci sono sia foto sia video.
+ *
+ * # Perché è una scelta e non un'automatismo
+ *
+ * Perché Meta non pubblica post misti: su una Pagina un post è un album di
+ * foto **oppure** un video, e su Instagram un video singolo è un Reel. Mandare
+ * le due cose insieme fa rispondere "Media ID is not available", cioè un errore
+ * che non nomina la causa.
+ *
+ * Automatizzare la scelta sarebbe peggio che chiederla: dalla generazione con
+ * i media attivi escono **sempre** una grafica e un video, quindi "ce ne sono
+ * due" è il caso normale e non un'eccezione. Scartarne uno in silenzio farebbe
+ * pubblicare una cosa diversa da quella che l'agente ha guardato.
+ */
+export type PubblicazioneCome = "reel" | "foto";
+
+/** Gli allegati divisi per tipo, nell'ordine in cui l'agente li ha messi. */
+export function dividiPerTipo(media: MediaAllegato[]): {
+  foto: MediaAllegato[];
+  video: MediaAllegato[];
+} {
+  return {
+    foto: media.filter((allegato) => allegato.kind === "image"),
+    video: media.filter((allegato) => allegato.kind === "video"),
+  };
+}
+
+/**
+ * Cosa spedire davvero a Meta, dato ciò che è allegato e la scelta dell'agente.
+ *
+ * Restituisce **un solo tipo**: mai un elenco misto. Il video è uno solo,
+ * perché sia un Reel sia un post video di Pagina ne accettano uno: degli altri
+ * l'agente va avvisato, non silenziosamente ignorato — e a farlo è
+ * l'interfaccia, che sa cosa ha in mano.
+ */
+export function selezionaPerPubblicazione(
+  media: MediaAllegato[],
+  come: PubblicazioneCome
+): MediaAllegato[] {
+  const { foto, video } = dividiPerTipo(media);
+  if (come === "reel") return video.slice(0, 1);
+  return foto;
+}

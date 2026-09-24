@@ -912,30 +912,40 @@ async function pubblicaSuInstagram(
      * contenitore padre: metterla anche sui figli la farebbe comparire
      * ripetuta o rifiutare la chiamata.
      */
+    /*
+     * Qui i media sono **solo foto**, e non per caso.
+     *
+     * La scelta a monte (`publishAs`, nella rotta di pubblicazione) manda a
+     * Meta un tipo solo: un video da solo diventa un Reel e non passa da
+     * questo ramo. Un carosello misto era il caso che Meta rifiutava con
+     * "Media ID is not available", perche' il contenitore padre di un carosello
+     * con video non e' pronto appena creato e questo codice non lo attendeva.
+     *
+     * La guardia resta perche' e' l'unico punto che tutti i chiamanti
+     * attraversano: se un giorno arrivasse comunque un video, e' meglio un
+     * messaggio chiaro che una pubblicazione a meta'.
+     */
+    if (media.some((allegato) => allegato.kind === "video")) {
+      return {
+        target: "instagram",
+        ok: false,
+        error:
+          "Un carosello Instagram non accetta video insieme alle foto. Pubblica il video come Reel, da solo.",
+      };
+    }
+
     const figli: string[] = [];
     for (const allegato of media) {
-      // Dentro un carosello il video e' `VIDEO`, non `REELS`: quel tipo
-      // esiste solo per il contenuto singolo.
-      const figlio = await creaContenitore(
-        igUserId,
-        token,
-        allegato.kind === "video"
-          ? { media_type: "VIDEO", video_url: allegato.url, is_carousel_item: "true" }
-          : { image_url: allegato.url, is_carousel_item: "true" }
-      );
+      const figlio = await creaContenitore(igUserId, token, {
+        image_url: allegato.url,
+        is_carousel_item: "true",
+      });
       if (!figlio) {
         return {
           target: "instagram",
           ok: false,
-          error: "Instagram non ha accettato uno degli allegati del carosello.",
+          error: "Instagram non ha accettato una delle foto del carosello.",
         };
-      }
-
-      // Ogni figlio video va atteso prima di comporre il padre: un carosello
-      // che raccoglie un contenitore non pronto viene rifiutato per intero.
-      if (allegato.kind === "video") {
-        const pronto = await attendiContenitore(figlio, token);
-        if (!pronto.ok) return { target: "instagram", ok: false, error: pronto.errore };
       }
 
       figli.push(figlio);

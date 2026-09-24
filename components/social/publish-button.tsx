@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Instagram, Loader2, Send, Share2, X } from "lucide-react";
 import type { SocialConnectionStatus } from "@/components/settings/social-connect-panel";
+import { kindFromExtension, type PubblicazioneCome } from "@/lib/social/media-limits";
 import { cn } from "@/lib/utils";
 
 /**
@@ -29,6 +30,16 @@ export function PublishButton({ testo, media = [] }: { testo: string; media?: st
   const [mostraGuida, setMostraGuida] = useState(false);
   const [inCorso, setInCorso] = useState(false);
   const [esiti, setEsiti] = useState<EsitoPubblicazione[] | null>(null);
+  /*
+   * Come pubblicare, quando ci sono foto **e** video.
+   *
+   * Predefinito il Reel: fra i due e' il formato che Meta spinge di piu', ed e'
+   * anche quello che l'agente ha chiesto di piu' raramente per sbaglio — una
+   * foto la si allega, un video lo si sceglie. La scelta resta visibile e
+   * cambiabile prima di pubblicare, perche' scartare un allegato in silenzio
+   * farebbe pubblicare una cosa diversa da quella che si stava guardando.
+   */
+  const [come, setCome] = useState<PubblicazioneCome>("reel");
 
   useEffect(() => {
     fetch("/api/social/connection")
@@ -39,6 +50,16 @@ export function PublishButton({ testo, media = [] }: { testo: string; media?: st
       // collegato, invece di far fallire una pubblicazione.
       .catch(() => setStato(null));
   }, []);
+
+  const video = media.filter((url) => kindFromExtension(url) === "video");
+  const foto = media.filter((url) => kindFromExtension(url) !== "video");
+  /*
+   * Meta non pubblica post misti: un post e' un album di foto **oppure** un
+   * video. Mandarli insieme fa rispondere "Media ID is not available", un
+   * errore che non nomina la causa — ed e' il caso normale dopo una generazione
+   * con i media attivi, che produce sempre una grafica e un video.
+   */
+  const daScegliere = video.length > 0 && foto.length > 0;
 
   async function pubblica() {
     if (!stato?.connected) {
@@ -62,7 +83,15 @@ export function PublishButton({ testo, media = [] }: { testo: string; media?: st
       const response = await fetch("/api/social/publish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: testo, mediaUrls: media, targets }),
+        body: JSON.stringify({
+          message: testo,
+          mediaUrls: media,
+          targets,
+          // Solo quando serve: con un tipo solo non c'e' niente da scegliere, e
+          // mandare una scelta a vuoto rischierebbe di scartare l'unico
+          // allegato presente.
+          ...(daScegliere ? { publishAs: come } : {}),
+        }),
       });
 
       const body = await response.json();
@@ -84,6 +113,46 @@ export function PublishButton({ testo, media = [] }: { testo: string; media?: st
 
   return (
     <>
+      {/*
+        La scelta compare solo quando c'e' davvero, e prima del pulsante.
+        Dopo sarebbe una spiegazione di cio' che e' gia' successo.
+      */}
+      {daScegliere && (
+        <div className="mb-2 w-full rounded-lg border border-border bg-card p-2.5">
+          <p className="text-xs font-medium text-foreground">
+            Hai allegato foto e video: Meta pubblica l&apos;uno o l&apos;altro, non entrambi.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {(
+              [
+                ["reel", `Reel dal video${video.length > 1 ? " (il primo)" : ""}`],
+                ["foto", `Post con ${foto.length === 1 ? "la foto" : `le ${foto.length} foto`}`],
+              ] as [PubblicazioneCome, string][]
+            ).map(([valore, etichetta]) => (
+              <button
+                key={valore}
+                type="button"
+                onClick={() => setCome(valore)}
+                aria-pressed={come === valore}
+                className={cn(
+                  "inline-flex h-11 items-center rounded-full px-3 text-xs font-medium transition-all duration-200 sm:h-8",
+                  come === valore
+                    ? "bg-brand-gradient text-white shadow-sm"
+                    : "border border-border text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {etichetta}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            {come === "reel"
+              ? "Le foto allegate restano qui, pronte per un secondo post."
+              : "Il video allegato resta qui, pronto per un secondo post."}
+          </p>
+        </div>
+      )}
+
       <button
         type="button"
         onClick={pubblica}
@@ -91,7 +160,13 @@ export function PublishButton({ testo, media = [] }: { testo: string; media?: st
         className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50 sm:h-8"
       >
         {inCorso ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-        {media.length > 0 ? "Pubblica su Facebook/Instagram" : "Pubblica su Facebook"}
+        {media.length === 0
+          ? "Pubblica su Facebook"
+          : daScegliere
+            ? come === "reel"
+              ? "Pubblica il Reel su Facebook/Instagram"
+              : "Pubblica le foto su Facebook/Instagram"
+            : "Pubblica su Facebook/Instagram"}
       </button>
 
       {/* L'avviso invece del silenzio.

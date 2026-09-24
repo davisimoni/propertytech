@@ -4,7 +4,11 @@ import { auth } from "@/auth";
 import { checkFeatureAccess } from "@/lib/feature-access";
 import { publishToMeta } from "@/lib/social/meta";
 import { parsePublicHttpUrl } from "@/lib/net/safe-url";
-import { MAX_SOCIAL_MEDIA } from "@/lib/social/media-limits";
+import {
+  MAX_SOCIAL_MEDIA,
+  dividiPerTipo,
+  selezionaPerPubblicazione,
+} from "@/lib/social/media-limits";
 import { risolviAllegati } from "@/lib/social/media-resolve";
 import { notificaPubblicazioneFallita } from "@/lib/notifications/social-publish";
 
@@ -38,6 +42,14 @@ const publishSchema = z.object({
    */
   mediaUrls: z.array(z.string().trim().min(1)).max(MAX_SOCIAL_MEDIA).optional(),
   targets: z.array(z.enum(["facebook", "instagram"])).min(1, "Scegli almeno un canale"),
+  /**
+   * Come pubblicare, quando fra gli allegati ci sono foto **e** video.
+   *
+   * Facoltativo perché con un tipo solo non c'è niente da scegliere. Con
+   * entrambi è obbligatorio, e l'assenza produce un 400 parlante invece di un
+   * "Media ID is not available" da Meta a metà pubblicazione.
+   */
+  publishAs: z.enum(["reel", "foto"]).optional(),
 });
 
 export async function POST(request: Request) {
@@ -109,7 +121,48 @@ export async function POST(request: Request) {
    * un'informazione che abbia motivo di arrivare dal client: la si rilegge da
    * dove e' stata scritta al caricamento (vedi `lib/social/media-resolve.ts`).
    */
-  const media = await risolviAllegati(session.user.organizationId, mediaUrls);
+  const risolti = await risolviAllegati(session.user.organizationId, mediaUrls);
+
+  /*
+   * L'invariante che tiene: a `publishToMeta` arriva un solo tipo di media.
+   *
+   * Il controllo sta qui e non nell'interfaccia perche' qui passano tutti i
+   * chiamanti. Un elenco misto senza scelta si ferma con un messaggio che dice
+   * cosa fare: e' l'unico modo di non far arrivare a Meta un payload che
+   * rifiuta con un errore che non nomina la causa.
+   */
+  const { foto, video } = dividiPerTipo(risolti);
+
+  if (foto.length > 0 && video.length > 0 && !parsed.data.publishAs) {
+    return NextResponse.json(
+      {
+        error: "mixed_media",
+        message:
+          "Fra gli allegati ci sono foto e video: Meta non pubblica post misti. Scegli se pubblicare il video come Reel oppure le foto.",
+      },
+      { status: 400 }
+    );
+  }
+
+  const media = parsed.data.publishAs
+    ? selezionaPerPubblicazione(risolti, parsed.data.publishAs)
+    : risolti;
+
+  if (mediaUrls.length > 0 && media.length === 0) {
+    // Scelta che non trova corrispondenza: "reel" senza video allegati, o
+    // "foto" con soli video. Meglio dirlo che pubblicare un post di solo testo
+    // senza che nessuno l'abbia chiesto.
+    return NextResponse.json(
+      {
+        error: "media_non_disponibile",
+        message:
+          parsed.data.publishAs === "reel"
+            ? "Nessun video fra gli allegati: allegane uno, oppure pubblica le foto."
+            : "Nessuna foto fra gli allegati: allegane una, oppure pubblica il video come Reel.",
+      },
+      { status: 400 }
+    );
+  }
 
   const esiti = await publishToMeta({
     organizationId: session.user.organizationId,
