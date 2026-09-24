@@ -37,24 +37,20 @@ export interface MediaAllegato {
 export const ALLOWED_VIDEO_MIME_TYPES = ["video/mp4", "video/quicktime"] as const;
 
 /**
- * Tetto per singolo video, oggi.
+ * Tetto per singolo video.
  *
- * Non è un limite di Meta, che arriva a 1 GB per un Reel: è il limite della
- * strada che il file percorre. Il video viaggia in un data URI dentro il corpo
- * JSON di `/api/social/media`, e le funzioni serverless accettano **4,5 MB di
- * richiesta**; il base64 gonfia i byte di un terzo, quindi tre megabyte è
- * quanto ci sta davvero con un margine.
+ * Il file non passa più dalle nostre funzioni: va **diretto al bucket** con un
+ * indirizzo prefirmato, quindi i 4,5 MB di corpo che le serverless accettano
+ * non c'entrano più. Il numero è una scelta nostra fra due limiti reali: Meta
+ * arriva a 1 GB per un Reel, e una connessione mobile a 100 MB ci mette già
+ * qualche minuto.
  *
- * Tre megabyte sono pochi: bastano per una clip di dieci secondi molto
- * compressa, non per un Reel. Il numero sale quando il caricamento andrà
- * diretto al bucket con un indirizzo prefirmato, saltando la funzione — ed è
- * per questo che il tetto vive qui, in un posto solo, invece di essere scritto
- * dentro la rotta.
+ * Non è un valore dichiarativo: finisce **dentro la firma** dell'indirizzo
+ * (`presignPutUrl` firma `content-length`), quindi un file più grande di
+ * quanto dichiarato viene rifiutato dal fornitore con un 403. Verificato
+ * contro il bucket reale.
  */
-export const MAX_VIDEO_BYTES = 3 * 1024 * 1024;
-
-/** Il data URI in base64 pesa circa 4/3 dei byte, più l'intestazione. */
-export const MAX_VIDEO_DATA_URL_CHARS = Math.ceil(MAX_VIDEO_BYTES * 1.4);
+export const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 
 export function isAllowedVideoMimeType(mime: string): boolean {
   return (ALLOWED_VIDEO_MIME_TYPES as readonly string[]).includes(mime.toLowerCase());

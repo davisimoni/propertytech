@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { checkFeatureAccess } from "@/lib/feature-access";
 import {
   MAX_IMAGE_BYTES,
+  MAX_IMAGE_DATA_URL_CHARS,
   decodeImageDataUrl,
   extensionForMimeType,
 } from "@/lib/listings/property-images";
@@ -13,9 +14,7 @@ import { putObject, readStorageConfig } from "@/lib/storage/object-storage";
 import {
   ALLOWED_VIDEO_MIME_TYPES,
   MAX_VIDEO_BYTES,
-  MAX_VIDEO_DATA_URL_CHARS,
   isAllowedVideoMimeType,
-  videoExtensionForMimeType,
 } from "@/lib/social/media-limits";
 
 /**
@@ -38,27 +37,23 @@ import {
  */
 
 /*
- * Il tetto dello schema e' quello del video, il piu' alto dei due.
+ * Questa rotta porta **solo foto**, e il tetto e' quello delle foto.
  *
- * Il controllo vero sul peso arriva subito dopo, quando si sa che tipo di file
- * e': validare qui col limite delle foto rifiuterebbe un video valido con il
- * messaggio sbagliato ("immagine troppo pesante" su un MP4 manda a
- * ricomprimere la cosa giusta per la ragione sbagliata).
+ * I video non passano di qui: viaggiano diretti al bucket con un indirizzo
+ * prefirmato (`/api/social/media/presign`), perche' il corpo di una funzione
+ * serverless si ferma a 4,5 MB e un data URI gonfia i byte di un terzo. Due
+ * strade separate e non una piu' grande: cosi' il limite di ciascuna e' quello
+ * vero, e non il minimo fra i due.
  */
 const uploadSchema = z.object({
-  dataUrl: z.string().min(32).max(MAX_VIDEO_DATA_URL_CHARS, "File troppo pesante"),
+  dataUrl: z.string().min(32).max(MAX_IMAGE_DATA_URL_CHARS, "Immagine troppo pesante"),
 });
 
-/** Decodifica un data URI video, o `null` se non e' un video ammesso. */
-function decodeVideoDataUrl(dataUrl: string): { mimeType: string; bytes: Buffer } | null {
+/** Vero se il data URI dichiara un video: qui non e' il posto giusto. */
+function dichiaraVideo(dataUrl: string): boolean {
   const separatore = dataUrl.indexOf(";base64,");
-  if (!dataUrl.startsWith("data:") || separatore === -1) return null;
-
-  const mimeType = dataUrl.slice(5, separatore).toLowerCase();
-  if (!isAllowedVideoMimeType(mimeType)) return null;
-
-  const bytes = Buffer.from(dataUrl.slice(separatore + ";base64,".length), "base64");
-  return bytes.length > 0 ? { mimeType, bytes } : null;
+  if (separatore === -1) return false;
+  return isAllowedVideoMimeType(dataUrl.slice(5, separatore));
 }
 
 /**
@@ -103,50 +98,18 @@ export async function POST(request: Request) {
   }
 
   const storage = readStorageConfig();
-  const video = decodeVideoDataUrl(parsed.data.dataUrl);
 
-  if (video) {
-    /*
-     * Il video passa solo con lo storage configurato.
-     *
-     * Non e' una precauzione: senza bucket i byte andrebbero in
-     * `SocialMediaAsset.dataUrl`, e l'indirizzo che daremmo a Meta sarebbe una
-     * nostra funzione che restituisce base64 decodificato. Per un video Meta
-     * pretende un indirizzo che regga richieste parziali e trasferimenti
-     * lunghi: quello che otterremmo e' un rifiuto a pubblicazione avviata,
-     * cioe' nel momento peggiore.
-     */
-    if (!storage) {
-      return NextResponse.json(
-        {
-          error: "video_storage_required",
-          message:
-            "Per allegare video serve l'archivio esterno, non ancora attivo su questo ambiente. Le foto funzionano normalmente.",
-        },
-        { status: 415 }
-      );
-    }
-
-    if (video.bytes.length > MAX_VIDEO_BYTES) {
-      return NextResponse.json(
-        {
-          error: "video_too_large",
-          message: `Il video supera ${Math.round(MAX_VIDEO_BYTES / (1024 * 1024))} MB, il massimo che questa strada regge oggi.`,
-        },
-        { status: 413 }
-      );
-    }
-
-    const chiave = `${session.user.organizationId}/social/${randomUUID()}.${videoExtensionForMimeType(video.mimeType)}`;
-    try {
-      const publicUrl = await putObject(storage, chiave, video.bytes, video.mimeType);
-      return NextResponse.json({ url: publicUrl, kind: "video" });
-    } catch {
-      return NextResponse.json(
-        { error: "storage_unavailable", message: "Caricamento non riuscito. Riprova." },
-        { status: 502 }
-      );
-    }
+  if (dichiaraVideo(parsed.data.dataUrl)) {
+    // Non dovrebbe succedere dal nostro pannello, che per i video chiede
+    // l'indirizzo prefirmato. Se succede, e' un client vecchio o costruito a
+    // mano: meglio dirgli dove andare che accettare 4 MB di base64.
+    return NextResponse.json(
+      {
+        error: "use_presigned_upload",
+        message: "I video si caricano dall'indirizzo dedicato. Ricarica la pagina e riprova.",
+      },
+      { status: 415 }
+    );
   }
 
   const decoded = decodeImageDataUrl(parsed.data.dataUrl);

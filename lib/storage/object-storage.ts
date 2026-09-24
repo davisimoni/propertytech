@@ -143,6 +143,110 @@ export function buildAuthorizationHeader(params: {
   return `AWS4-HMAC-SHA256 Credential=${params.accessKey}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
 }
 
+/**
+ * Codifica un valore secondo le regole di AWS per la query string.
+ *
+ * `encodeURIComponent` lascia passare `!'()*`, che AWS invece vuole codificati:
+ * un solo carattere diverso cambia la stringa canonica e quindi la firma, e il
+ * fornitore risponde 403 senza dire quale byte non tornava.
+ */
+function encodeRfc3986(valore: string): string {
+  return encodeURIComponent(valore).replace(
+    /[!'()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`
+  );
+}
+
+/** Quanto resta valido un indirizzo prefirmato: il tempo di un caricamento. */
+const PRESIGN_SCADENZA_S = 15 * 60;
+
+/**
+ * Indirizzo prefirmato per una PUT: il browser carica **direttamente** nel
+ * bucket, senza passare da noi.
+ *
+ * # Perché esiste
+ *
+ * Perché un video non ci sta nel corpo di una richiesta alla nostra funzione:
+ * le serverless accettano 4,5 MB e un data URI gonfia i byte di un terzo. Con
+ * l'indirizzo prefirmato il file non attraversa mai il nostro server, quindi il
+ * tetto torna a essere quello del fornitore e del buon senso, non quello della
+ * piattaforma.
+ *
+ * # Cosa viene firmato, e perché conta
+ *
+ * `host` e **`content-length`**. Il secondo non è decorativo: e' l'unico modo
+ * di far rispettare il limite di dimensione senza fidarsi del browser. La
+ * lunghezza dichiarata quando si chiede la firma finisce dentro la firma
+ * stessa, e il browser la calcola da solo dal file: se chi chiama dichiara
+ * 3 MB e poi ne carica 300, i due valori non coincidono e il fornitore
+ * rifiuta. Senza questo, un indirizzo prefirmato sarebbe un permesso di
+ * scrittura di dimensione illimitata.
+ *
+ * Il corpo invece non si firma (`UNSIGNED-PAYLOAD`): per firmarlo servirebbe
+ * l'hash del file, che vorrebbe dire leggerlo tutto sul server — cioè
+ * esattamente il passaggio che stiamo togliendo.
+ *
+ * `objectKey` non deve mai arrivare da un utente, come per `putObject`: qui
+ * riceve un identificativo generato da noi.
+ */
+export function presignPutUrl(params: {
+  config: StorageConfig;
+  objectKey: string;
+  byteSize: number;
+  scadenzaSecondi?: number;
+}): { uploadUrl: string; publicUrl: string } {
+  const { config, objectKey, byteSize } = params;
+  const url = new URL(`${config.bucketUrl}/${objectKey}`);
+
+  const amzDate = new Date().toISOString().replace(/[-:]|\.\d{3}/g, "");
+  const shortDate = amzDate.slice(0, 8);
+  const scope = `${shortDate}/${config.region}/s3/aws4_request`;
+
+  // Gli header firmati vanno in ordine alfabetico, e il browser deve mandarli
+  // identici: `content-length` lo imposta da sé dal file, `host` dall'URL.
+  const signedHeaders = "content-length;host";
+  const canonicalHeaders = `content-length:${byteSize}\nhost:${url.host}\n`;
+
+  const parametri: Record<string, string> = {
+    "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
+    "X-Amz-Credential": `${config.accessKey}/${scope}`,
+    "X-Amz-Date": amzDate,
+    "X-Amz-Expires": String(params.scadenzaSecondi ?? PRESIGN_SCADENZA_S),
+    "X-Amz-SignedHeaders": signedHeaders,
+  };
+
+  // Ordine alfabetico obbligatorio nella stringa canonica.
+  const canonicalQuery = Object.keys(parametri)
+    .sort()
+    .map((chiave) => `${encodeRfc3986(chiave)}=${encodeRfc3986(parametri[chiave]!)}`)
+    .join("&");
+
+  const canonicalRequest = [
+    "PUT",
+    url.pathname,
+    canonicalQuery,
+    canonicalHeaders,
+    signedHeaders,
+    "UNSIGNED-PAYLOAD",
+  ].join("\n");
+
+  const stringToSign = [
+    "AWS4-HMAC-SHA256",
+    amzDate,
+    scope,
+    sha256Hex(canonicalRequest),
+  ].join("\n");
+
+  const signature = createHmac("sha256", signingKey(config.secretKey, shortDate, config.region, "s3"))
+    .update(stringToSign, "utf8")
+    .digest("hex");
+
+  return {
+    uploadUrl: `${url.origin}${url.pathname}?${canonicalQuery}&X-Amz-Signature=${signature}`,
+    publicUrl: `${config.publicUrl}/${objectKey}`,
+  };
+}
+
 export class StorageError extends Error {
   constructor(message: string) {
     super(message);

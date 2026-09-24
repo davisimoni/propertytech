@@ -54,17 +54,48 @@ import { cn } from "@/lib/utils";
  */
 
 /**
- * Legge un file come data URI, senza toccarne i byte.
+ * Carica un video **direttamente nel bucket**, senza passare dal nostro server.
  *
- * Serve ai video: le foto passano dal canvas per essere ridimensionate, un
- * video no — da un canvas uscirebbe un fotogramma solo.
+ * # Perché non una `fetch`
+ *
+ * Perché `fetch` non riporta l'avanzamento di un caricamento, e qui i file
+ * arrivano a decine di megabyte da una connessione mobile: senza una
+ * percentuale, mezzo minuto di silenzio sembra un blocco e l'agente ricarica
+ * la pagina a metà trasferimento. `XMLHttpRequest` è più vecchio ma è l'unico
+ * che espone `upload.onprogress`.
+ *
+ * # Perché nessuna credenziale qui dentro
+ *
+ * L'indirizzo è già firmato dal server e vale quindici minuti per quel singolo
+ * file, di quella dimensione esatta: il browser non ha niente da autenticare e
+ * non riceve nessuna chiave.
  */
-function leggiComeDataUrl(file: File): Promise<string> {
+function caricaSulBucket(
+  file: File,
+  uploadUrl: string,
+  onAvanzamento: (percentuale: number) => void
+): Promise<void> {
   return new Promise((risolvi, rifiuta) => {
-    const lettore = new FileReader();
-    lettore.onload = () => risolvi(String(lettore.result));
-    lettore.onerror = () => rifiuta(new Error("lettura non riuscita"));
-    lettore.readAsDataURL(file);
+    const richiesta = new XMLHttpRequest();
+    richiesta.open("PUT", uploadUrl, true);
+
+    richiesta.upload.onprogress = (evento) => {
+      if (evento.lengthComputable) {
+        onAvanzamento(Math.round((evento.loaded / evento.total) * 100));
+      }
+    };
+
+    richiesta.onload = () =>
+      richiesta.status >= 200 && richiesta.status < 300
+        ? risolvi()
+        : rifiuta(new Error(`HTTP ${richiesta.status}`));
+    richiesta.onerror = () => rifiuta(new Error("rete non disponibile"));
+    richiesta.ontimeout = () => rifiuta(new Error("tempo scaduto"));
+
+    // Dieci minuti: un file da cento megabyte su una connessione mobile lenta
+    // ci mette piu' del minuto che il browser userebbe di suo.
+    richiesta.timeout = 10 * 60 * 1000;
+    richiesta.send(file);
   });
 }
 
@@ -89,6 +120,8 @@ export function MediaAttachments({
   /* `null` finché non si sa: l'interfaccia non deve promettere i video prima
      di aver chiesto, né escluderli mentre la risposta è in arrivo. */
   const [videoAmmessi, setVideoAmmessi] = useState<boolean | null>(null);
+  /** Percentuale del video in corso: `null` quando non si sta caricando. */
+  const [avanzamento, setAvanzamento] = useState<number | null>(null);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -147,13 +180,43 @@ export function MediaAttachments({
         }
 
         /*
-         * Il ridimensionamento vale solo per le foto.
+         * Due strade, per due pesi diversi.
          *
-         * `downscaleToDataUrl` passa per un canvas: su un video restituirebbe
-         * un fotogramma, cioè trasformerebbe silenziosamente un Reel in
-         * un'immagine. Il video si legge come byte e basta.
+         * La foto passa dal canvas (che la ridimensiona) e dal nostro server:
+         * mezzo megabyte ci sta comodo nel corpo di una richiesta. Il video no,
+         * e non per scelta: il corpo di una funzione serverless si ferma a
+         * 4,5 MB. Quindi il video va diretto al bucket con un indirizzo che il
+         * server firma senza mai vedere i byte.
+         *
+         * Un canvas su un video, poi, restituirebbe un fotogramma: lo
+         * trasformerebbe in un'immagine senza dirlo a nessuno.
          */
-        const dataUrl = isVideo ? await leggiComeDataUrl(file) : await downscaleToDataUrl(file);
+        if (isVideo) {
+          const permesso = await fetch("/api/social/media/presign", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contentType: file.type, byteSize: file.size }),
+          });
+          const datiPermesso = await permesso.json().catch(() => ({}));
+
+          if (!permesso.ok) {
+            showToast(datiPermesso.message ?? "Caricamento non riuscito.", "error");
+            continue;
+          }
+
+          try {
+            setAvanzamento(0);
+            await caricaSulBucket(file, datiPermesso.uploadUrl as string, setAvanzamento);
+            aggiunti.push(datiPermesso.publicUrl as string);
+          } catch {
+            showToast(`${file.name}: caricamento del video non riuscito.`, "error");
+          } finally {
+            setAvanzamento(null);
+          }
+          continue;
+        }
+
+        const dataUrl = await downscaleToDataUrl(file);
         const response = await fetch("/api/social/media", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -237,7 +300,7 @@ export function MediaAttachments({
           ) : (
             <ImagePlus className="h-3.5 w-3.5" />
           )}
-          Carica dal computer
+          {avanzamento === null ? "Carica dal computer" : `Carico il video… ${avanzamento}%`}
         </button>
         <input
           ref={inputRef}
@@ -272,6 +335,22 @@ export function MediaAttachments({
           ? `Trascina qui foto o video, oppure usa i pulsanti sopra. JPG, PNG, WebP, MP4 o MOV (max ${Math.round(MAX_VIDEO_BYTES / (1024 * 1024))} MB per video).`
           : "Trascina qui le foto, oppure usa i pulsanti sopra. JPG, PNG o WebP."}
       </div>
+
+      {/* La barra solo mentre un video sale: su una connessione mobile sono
+          decine di secondi, e senza un segnale che avanza sembra bloccato. */}
+      {avanzamento !== null && (
+        <div className="mt-3">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-brand-gradient transition-all duration-300"
+              style={{ width: `${avanzamento}%` }}
+            />
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Caricamento del video: {avanzamento}%
+          </p>
+        </div>
+      )}
 
       {videoAmmessi === false && (
         <p className="mt-2 text-xs text-muted-foreground">

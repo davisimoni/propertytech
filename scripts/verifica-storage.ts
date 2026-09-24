@@ -31,6 +31,7 @@
 import { randomUUID } from "node:crypto";
 import {
   deleteObject,
+  presignPutUrl,
   putObject,
   readStorageConfig,
 } from "../lib/storage/object-storage";
@@ -90,7 +91,57 @@ async function main(): Promise<void> {
     console.log(`  ✔ HTTP 200, contenuto identico`);
   }
 
-  console.log("\n3. Pulizia:");
+  /*
+   * Il percorso del browser, provato come lo farebbe il browser.
+   *
+   * E' quello che usano i video: il server firma un indirizzo e non vede mai i
+   * byte. Va verificato a parte perche' fallisce per ragioni tutte sue — la
+   * firma in query string ha regole di codifica diverse da quella negli
+   * header, e un solo carattere fuori posto produce un 403 identico a quello
+   * di una chiave sbagliata.
+   */
+  console.log("\n3. Indirizzo prefirmato (il percorso dei video):");
+  const chiaveVideo = `verifica/${randomUUID()}.txt`;
+  const permesso = presignPutUrl({
+    config,
+    objectKey: chiaveVideo,
+    byteSize: CONTENUTO.length,
+  });
+
+  const caricamento = await fetch(permesso.uploadUrl, {
+    method: "PUT",
+    body: new Uint8Array(CONTENUTO),
+    signal: AbortSignal.timeout(30_000),
+  });
+  console.log(
+    caricamento.ok
+      ? "  ✔ PUT senza credenziali accettata"
+      : `  ✘ PUT rifiutata (HTTP ${caricamento.status})`
+  );
+
+  /*
+   * La prova che conta davvero: il permesso non deve valere per un file piu'
+   * grande di quello dichiarato. `content-length` e' dentro la firma, quindi
+   * il fornitore rifiuta — senza questo, un indirizzo prefirmato sarebbe una
+   * scrittura di dimensione illimitata nel nostro bucket.
+   */
+  const abuso = await fetch(
+    presignPutUrl({ config, objectKey: `${chiaveVideo}.2`, byteSize: CONTENUTO.length }).uploadUrl,
+    {
+      method: "PUT",
+      body: new Uint8Array(Buffer.concat([CONTENUTO, Buffer.alloc(1024, 97)])),
+      signal: AbortSignal.timeout(30_000),
+    }
+  );
+  console.log(
+    abuso.ok
+      ? "  ✘ ATTENZIONE: accettato un file piu' grande di quanto firmato"
+      : `  ✔ file oltre la dimensione firmata rifiutato (HTTP ${abuso.status})`
+  );
+
+  await deleteObject(config, chiaveVideo);
+
+  console.log("\n4. Pulizia:");
   await deleteObject(config, chiave);
 
   /*
@@ -120,8 +171,8 @@ async function main(): Promise<void> {
     const tetto = Math.round(MAX_VIDEO_BYTES / (1024 * 1024));
     console.log("\n✔ Storage utilizzabile: caricamento e lettura pubblica funzionano.");
     console.log(
-      `  Il pannello allegati di /social ora accetta anche MP4 e MOV (max ${tetto} MB per video,\n` +
-        "  limite del corpo delle funzioni serverless, non dello storage).\n"
+      `  Il pannello allegati di /social accetta MP4 e MOV fino a ${tetto} MB: il file va\n` +
+        "  diretto al bucket con un indirizzo prefirmato, senza passare dalle nostre funzioni.\n"
     );
   } else {
     console.log("\n✘ Storage configurato ma non utilizzabile per Meta: manca la lettura pubblica.\n");
