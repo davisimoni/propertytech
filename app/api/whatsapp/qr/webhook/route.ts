@@ -255,6 +255,10 @@ export async function POST(request: Request) {
       profileName: message.profileName,
       chatJid: message.jid,
       fromAgent: message.fromAgent,
+      // Il filtro del primo contatto deve sapere che sta leggendo un parlato:
+      // il registro di un vocale somiglia a quello di chi ti conosce, e senza
+      // questa riga un primo contatto a voce veniva scartato in silenzio.
+      daVocale: Boolean(message.audio),
     });
   } catch (error) {
     // 200 comunque: un errore nostro non deve innescare rinvii a ripetizione

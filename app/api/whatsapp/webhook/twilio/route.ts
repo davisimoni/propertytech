@@ -94,6 +94,9 @@ export async function POST(request: Request) {
    */
   const mediaUrl = params.get("MediaUrl0");
   const mediaType = params.get("MediaContentType0") ?? "";
+  // Il filtro del primo contatto legge la forma del messaggio: un parlato
+  // trascritto va dichiarato, o viene giudicato coi criteri dello scritto.
+  let daVocale = false;
 
   if (!corpo && mediaUrl && mediaType.toLowerCase().startsWith("audio/")) {
     const esito = await transcribeTwilioVoiceNote({
@@ -105,6 +108,7 @@ export async function POST(request: Request) {
 
     if (esito.ok) {
       corpo = esito.text;
+      daVocale = true;
     } else {
       // Si risponde comunque: chi ha appena parlato al telefono aspetta una
       // reazione, e il silenzio lo convince che il numero non sia attivo.
@@ -141,6 +145,7 @@ export async function POST(request: Request) {
     fromPhone,
     profileName,
     text: corpo,
+    daVocale,
   }).catch((error) => {
     console.error("[api/whatsapp/webhook/twilio] Message handling failed", error);
   });

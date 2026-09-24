@@ -214,6 +214,14 @@ export async function POST(request: Request) {
         // a voce è la norma, e finché l'agente leggeva solo il testo quei
         // messaggi si perdevano in silenzio.
         let body: string | null = null;
+        /*
+         * Da dove viene il testo, non solo quale sia.
+         *
+         * Il filtro di pertinenza del primo contatto giudica la forma del
+         * messaggio, e un parlato trascritto ha la forma del parlato: senza
+         * dirglielo, scartava richieste vere arrivate a voce.
+         */
+        let daVocale = false;
 
         if (message.type === "text" && message.text?.body) {
           body = message.text.body;
@@ -222,6 +230,7 @@ export async function POST(request: Request) {
 
           if (outcome.ok) {
             body = outcome.text;
+            daVocale = true;
           } else {
             // Si risponde comunque: chi ha appena parlato al telefono aspetta
             // una reazione, e il silenzio lo convince che il numero è morto.
@@ -276,6 +285,7 @@ export async function POST(request: Request) {
           fromPhone: message.from,
           profileName,
           text: body,
+          daVocale,
         });
       }
     }

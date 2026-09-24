@@ -16,6 +16,7 @@ import type { InboundWhatsAppMessage } from "./provider";
 import { countInvisibleChars, sanitizeInboundText } from "./sanitize";
 import { isMutedContact, muteContact, unmuteContact } from "./muted-contacts";
 import { resetConversation } from "./reset-conversation";
+import { reportWebhookError } from "@/lib/observability/report-error";
 
 export type WhatsAppConfigWithOrganization = WhatsAppConfig & { organization: Organization };
 
@@ -370,7 +371,14 @@ export async function handleInboundWhatsAppMessage(
      * qualunque apertura generica ("Buongiorno", "Ho visto l'annuncio"): e'
      * proprio qui che un falso negativo costerebbe un cliente vero.
      */
-    const verdetto = await classifyIntent({ message: message.text });
+    const verdetto = await classifyIntent({
+      message: message.text,
+      // Senza questo, un primo contatto arrivato a voce veniva letto coi
+      // criteri del testo scritto e finiva scartato: il cliente parlava e non
+      // riceveva niente, mentre lo stesso vocale in una chat gia' aperta
+      // funzionava perche' questo filtro non c'entra.
+      daVocale: message.daVocale,
+    });
 
     if (!verdetto.pertinente) {
       logDecision({
@@ -404,6 +412,15 @@ export async function handleInboundWhatsAppMessage(
         intent: verdetto.intenzione,
       });
     } catch (error) {
+      /*
+       * Anche a Sentry, non solo in console.
+       *
+       * Qui il filtro ha gia' detto che la richiesta e' pertinente: se la
+       * creazione fallisce, una persona che voleva comprare casa resta senza
+       * risposta e non lo sa nessuno — dall'altro capo non c'e' un utente che
+       * segnala, c'e' un cliente che pensa che il numero non sia attivo.
+       */
+      reportWebhookError(error, "whatsapp", "primo-contatto");
       console.error("[whatsapp/inbound] Creazione lead da primo contatto fallita", error);
     }
     return;

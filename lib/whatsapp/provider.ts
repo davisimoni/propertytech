@@ -105,4 +105,16 @@ export interface InboundWhatsAppMessage {
    * davvero al cliente non ci vengono inoltrati.
    */
   fromAgent?: boolean;
+  /**
+   * Vero quando `text` è la **trascrizione di una nota vocale**, non un testo
+   * scritto.
+   *
+   * Non è un dettaglio di registrazione: il filtro di pertinenza che decide se
+   * aprire una scheda al primo contatto giudica il testo per come è scritto, e
+   * un parlato trascritto ha una forma tutta sua — registro informale, "tu",
+   * intercalari, nessuna punteggiatura. Senza saperlo, il filtro legge quei
+   * tratti come i segni di un rapporto personale già esistente e scarta la
+   * richiesta. Il risultato era un cliente che parlava e non riceveva nulla.
+   */
+  daVocale?: boolean;
 }

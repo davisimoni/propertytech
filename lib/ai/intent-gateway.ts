@@ -117,6 +117,13 @@ Un'agenzia immobiliare vive di due mestieri, e le domande da fare sono diverse.
 - null quando il messaggio non basta: un "buongiorno" secco, una domanda di servizio, una frase ambigua. Non tirare a indovinare: dall'intenzione dipende quali domande verranno fatte a questa persona, e sbagliare ramo significa farne quattro che non la riguardano.
 Se pertinente e' false, intenzione e' null.
 
+# Se il messaggio e' una NOTA VOCALE TRASCRITTA
+Te lo dice la riga che precede il messaggio. Quando c'e', cambia il modo di leggerlo, non il criterio:
+- Il parlato e' informale per natura. "Ciao, senti, volevo sapere...", "ti volevo chiedere", "ti ho chiamato prima" NON dicono che chi scrive ti conosce: al telefono si parla cosi' anche con uno sconosciuto. Il "tu" in un vocale non e' un indizio di rapporto personale, mentre in un testo scritto lo puo' essere.
+- Aspettati intercalari, false partenze e nessuna punteggiatura: "allora, ehm, buonasera, sarebbe per quella casa". Non sono confusione: sono come parla una persona.
+- Aspettati aperture da telefonata: "pronto?", "mi sente?", "buonasera, sono Marco". Sono aperture di richiesta, quindi pertinenti.
+- La trascrizione puo' essere incompleta o storpiata: una parola sbagliata non rende il messaggio estraneo. Vale piu' che mai la regola qui sotto.
+
 # La regola che vince su tutte
 Nel dubbio, pertinente: true.
 Sbagliare qui significa lasciare senza risposta una persona che voleva comprare casa, e nessuno se ne accorgerà. Scarta solo ciò di cui sei certo.`;
@@ -131,9 +138,23 @@ export async function classifyIntent(params: {
   message: string;
   /** Ultimi scambi, per capire se è la risposta a una domanda dell'assistente. */
   recentContext?: string[];
+  /**
+   * Il messaggio è la trascrizione di una nota vocale.
+   *
+   * Dichiararlo non è cortesia verso il modello: senza, un vocale trascritto
+   * viene giudicato con i criteri del testo scritto, e il suo registro parlato
+   * ("ciao, senti, ti volevo chiedere") somiglia esattamente a ciò che il
+   * prompt elenca come segno di un rapporto personale già esistente. Al primo
+   * contatto quel verdetto non crea la scheda e non risponde a nessuno.
+   */
+  daVocale?: boolean;
 }): Promise<IntentVerdict> {
   const contesto = params.recentContext?.length
     ? `Ultimi messaggi della conversazione (dal meno al più recente):\n${params.recentContext.join("\n")}\n\n`
+    : "";
+
+  const origine = params.daVocale
+    ? "ATTENZIONE: il messaggio qui sotto e' la TRASCRIZIONE DI UNA NOTA VOCALE, non un testo scritto dal cliente.\n\n"
     : "";
 
   try {
@@ -145,7 +166,7 @@ export async function classifyIntent(params: {
       messages: [
         {
           role: "user",
-          content: `${contesto}Messaggio da valutare:\n"""${params.message}"""`,
+          content: `${contesto}${origine}Messaggio da valutare:\n"""${params.message}"""`,
         },
       ],
     });
