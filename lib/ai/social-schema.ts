@@ -66,15 +66,18 @@ export const socialGenerationRequestSchema = z
      */
     freePrompt: z.string().trim().max(1000).optional(),
     /**
-     * Se generare anche l'immagine di corredo.
+     * Se produrre anche i contenuti multimediali di corredo.
      *
-     * Vale solo con `freePrompt`: le altre strade partono da un immobile che
-     * esiste e non generano immagini per principio. Il valore predefinito è
-     * `true` perché è il comportamento che l'agente si aspetta dopo aver
-     * scritto un'istruzione, ma ogni generazione costa una chiamata al
-     * modello di immagini: chi vuole solo il testo lo dichiara e non la paga.
+     * Vale per tutte le sorgenti, non solo per l'istruzione libera: anche
+     * partendo da un immobile del portafoglio un post ha bisogno di una
+     * grafica, e le foto della scheda restano lì a un pulsante di distanza per
+     * affiancarla o sostituirla.
+     *
+     * Predefinito `true` perché è il comportamento che l'agente si aspetta, ma
+     * ogni generazione costa una chiamata al modello di immagini e quasi un
+     * minuto di attesa: chi vuole solo il testo lo dichiara e non la paga.
      */
-    generateImage: z.boolean().optional().default(true),
+    generateMedia: z.boolean().optional().default(true),
   })
   .superRefine((data, ctx) => {
     const hasFields =

@@ -7,6 +7,7 @@ import { checkFeatureAccess } from "@/lib/feature-access";
 import { socialGenerationRequestSchema } from "@/lib/ai/social-schema";
 import { generateSocialContent, SocialGenerationError } from "@/lib/ai/social-generator";
 import { generaImmagineSocial } from "@/lib/ai/social-image";
+import { recuperaVideoStock } from "@/lib/social/stock-video";
 
 /**
  * Tre formati generati in un'unica chiamata, con 8192 token di uscita: sugli
@@ -42,26 +43,46 @@ export async function POST(request: Request) {
     );
   }
 
+  /*
+   * Il tema dei media, da qualunque scheda arrivi la richiesta.
+   *
+   * L'istruzione libera e' la piu' precisa quando c'e'; altrimenti valgono il
+   * titolo e i punti chiave dell'immobile, e come ultima risorsa il testo
+   * incollato. Un tema c'e' sempre: senza, non ci sarebbe niente da generare.
+   */
+  const tema = [
+    parsed.data.freePrompt,
+    parsed.data.propertyTitle,
+    parsed.data.keyPoints,
+    parsed.data.rawText?.slice(0, 400),
+  ]
+    .filter(Boolean)
+    .join(". ")
+    .slice(0, 900);
+
+  const conMedia = parsed.data.generateMedia && tema.length > 0;
+
   try {
     /*
-     * Testo e immagine insieme, non in fila.
+     * Testo, immagine e video tutti insieme, non in fila.
      *
-     * Non dipendono l'uno dall'altra: l'immagine nasce dall'istruzione
-     * dell'agente, non dall'annuncio generato. In sequenza l'attesa era la
-     * somma delle due (misurata: ~50 secondi la sola immagine), in parallelo
-     * e' la piu' lunga delle due. E' la differenza fra un'attesa e un sospetto
-     * di blocco.
+     * Non dipendono l'uno dall'altro: i media nascono dal tema del post, non
+     * dall'annuncio generato. In sequenza l'attesa era la somma (misurata: ~50
+     * secondi la sola immagine), in parallelo e' la piu' lunga delle tre. E' la
+     * differenza fra un'attesa e un sospetto di blocco.
      *
-     * L'immagine solo per l'istruzione libera: le altre tre strade partono da
-     * un immobile che esiste, e li' la foto giusta e' quella vera, che sta in
-     * Portafoglio Immobili. Generarne una somiglierebbe a una casa diversa da
-     * quella in vendita.
+     * I media valgono per tutte le schede, anche per quelle legate a un
+     * immobile reale: sono contenuto **di corredo**, e le foto vere della
+     * scheda restano a un pulsante di distanza nel pannello allegati. Quello
+     * che non fanno mai e' raffigurare l'immobile, e la ragione sta scritta in
+     * `lib/ai/social-image.ts` e in `lib/social/stock-video.ts`.
      */
-    const [content, generatedMedia] = await Promise.all([
+    const [content, image, video] = await Promise.all([
       generateSocialContent(parsed.data),
-      parsed.data.freePrompt && parsed.data.generateImage
-        ? generaImmagineSocial(session.user.organizationId, parsed.data.freePrompt)
+      conMedia
+        ? generaImmagineSocial(session.user.organizationId, tema)
         : Promise.resolve(null),
+      conMedia ? recuperaVideoStock(session.user.organizationId, tema) : Promise.resolve(null),
     ]);
 
     // Conservata in cronologia, senza bloccare: l'agente ha atteso la
@@ -97,11 +118,15 @@ export async function POST(request: Request) {
      * `socialPost.hashtags`), quindi non vengono ripetuti in cima alla
      * risposta: due copie dello stesso valore divergono al primo ritocco, e
      * l'interfaccia non saprebbe quale delle due è quella buona.
+     *
+     * `image` e `video` sono entrambi annullabili e indipendenti: la chiave
+     * delle immagini può esserci e quella dell'archivio video no, e l'agente
+     * deve ricevere comunque quello che si è potuto produrre.
      */
     return NextResponse.json({
       content,
       generationId: saved?.id ?? null,
-      generatedMedia,
+      generatedMedia: { image, video },
     });
   } catch (error) {
     if (error instanceof SocialGenerationError) {

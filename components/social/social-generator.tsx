@@ -76,7 +76,7 @@ export function SocialGenerator() {
    * e risparmia una chiamata al modello di immagini — che costa e aggiunge
    * quasi un minuto di attesa.
    */
-  const [generaImmagine, setGeneraImmagine] = useState(true);
+  const [generaMedia, setGeneraMedia] = useState(true);
   /*
    * Quali allegati vengono dall'AI.
    *
@@ -144,7 +144,10 @@ export function SocialGenerator() {
      * controllo dei tipi rifiuterebbe di leggerne i campi. Il contenitore
      * aggira il restringimento senza spegnerlo con un cast.
      */
-    const catturato: { immagine: { url: string; type: string } | null } = { immagine: null };
+    const catturato: {
+      immagine: { url: string; type: string } | null;
+      video: { url: string; type: string } | null;
+    } = { immagine: null, video: null };
 
     const generato = await startJob({
       kind: "social",
@@ -164,9 +167,8 @@ export function SocialGenerator() {
             ...(propertyTitle.trim() ? { propertyTitle: propertyTitle.trim() } : {}),
             ...(keyPoints.trim() ? { keyPoints: keyPoints.trim() } : {}),
             ...(rawText.trim() ? { rawText: rawText.trim() } : {}),
-            ...(freePrompt.trim()
-              ? { freePrompt: freePrompt.trim(), generateImage: generaImmagine }
-              : {}),
+            ...(freePrompt.trim() ? { freePrompt: freePrompt.trim() } : {}),
+            generateMedia: generaMedia,
             tone,
             intent,
           }),
@@ -177,8 +179,12 @@ export function SocialGenerator() {
         const body = await response.json();
         if (!response.ok) throw new Error(body.message ?? "Generazione non riuscita. Riprova.");
 
-        catturato.immagine =
-          (body.generatedMedia as { url: string; type: string } | null) ?? null;
+        const media = body.generatedMedia as {
+          image: { url: string; type: string } | null;
+          video: { url: string; type: string } | null;
+        } | null;
+        catturato.immagine = media?.image ?? null;
+        catturato.video = media?.video ?? null;
 
         return body.content as SocialContent;
       },
@@ -186,18 +192,22 @@ export function SocialGenerator() {
 
     if (generato) {
       /*
-       * L'immagine generata entra **in testa** agli allegati.
+       * I media entrano **in testa** agli allegati: prima l'immagine, poi il
+       * video.
        *
-       * La prima posizione e' la copertina del post, ed e' quella che l'agente
-       * si aspetta di vedere occupata da cio' che ha appena chiesto. Le foto
-       * gia' allegate restano dopo, non vengono sostituite: buttare via il
-       * lavoro di qualcun altro per fare spazio al proprio e' il difetto
-       * peggiore che un automatismo possa avere.
+       * La prima posizione e' la copertina del post, e su Instagram e' quella
+       * che compare nel profilo: un video in copertina mostrerebbe il suo primo
+       * fotogramma, che nessuno ha scelto. Le foto gia' allegate restano dopo,
+       * non vengono sostituite: buttare via il lavoro di qualcun altro per fare
+       * spazio al proprio e' il difetto peggiore che un automatismo possa avere.
        */
-      if (catturato.immagine) {
-        const url = catturato.immagine.url;
-        setMedia((corrente) => (corrente.includes(url) ? corrente : [url, ...corrente]));
-        setMediaDaAi((corrente) => [...corrente, url]);
+      const nuovi = [catturato.immagine?.url, catturato.video?.url].filter(
+        (url): url is string => Boolean(url)
+      );
+
+      if (nuovi.length > 0) {
+        setMedia((corrente) => [...nuovi.filter((url) => !corrente.includes(url)), ...corrente]);
+        setMediaDaAi((corrente) => [...corrente, ...nuovi]);
       }
 
       /*
@@ -327,10 +337,37 @@ export function SocialGenerator() {
           onIntentChange={setIntent}
           freePrompt={freePrompt}
           onFreePromptChange={setFreePrompt}
-          generaImmagine={generaImmagine}
-          onGeneraImmagineChange={setGeneraImmagine}
           footer={
           <div className="space-y-4">
+            {/*
+              L'interruttore dei media sta nell'area comune alle quattro schede,
+              non dentro una di esse.
+
+              Serve a tutte: anche partendo da un immobile del portafoglio un
+              post ha bisogno di una grafica, e le foto vere della scheda
+              restano a un pulsante di distanza nel pannello allegati. Tenerlo
+              dentro l'istruzione libera lo rendeva invisibile a chi non apriva
+              quella scheda, cioe' alla maggioranza.
+            */}
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-border bg-card p-3">
+              <input
+                type="checkbox"
+                checked={generaMedia}
+                onChange={(e) => setGeneraMedia(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+              />
+              <span className="min-w-0">
+                <span className="block text-xs font-medium text-foreground">
+                  Genera anche contenuti multimediali con AI (Foto/Video)
+                </span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  {generaMedia
+                    ? "Una grafica e un video verticale finiscono fra gli allegati, pronti da sostituire o togliere. Sono di corredo e non raffigurano l'immobile: per un annuncio usa le foto della scheda."
+                    : "Escono solo testo, hashtag e script del Reel. Nessuna chiamata ai modelli multimediali, e circa un minuto di attesa in meno."}
+                </span>
+              </span>
+            </label>
+
             <div>
               <span className="text-xs font-medium text-muted-foreground">Tono di voce</span>
               <div className="mt-2 flex flex-wrap gap-2">

@@ -406,9 +406,13 @@ export function MediaAttachments({
                   </span>
                 )}
 
+                {/* Etichetta precisa, non generica: l'immagine e' generata,
+                    il video viene da un archivio stock. Chiamarli entrambi
+                    "AI" sarebbe comodo e falso, e chi pubblica ha il diritto
+                    di sapere quale delle due cose ha in mano. */}
                 {generatiDaAi.includes(url) && (
                   <span className="absolute bottom-8 left-1 rounded bg-primary/90 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                    Generata con AI
+                    {kindFromExtension(url) === "video" ? "Video stock" : "Immagine AI"}
                   </span>
                 )}
 
@@ -459,8 +463,9 @@ export function MediaAttachments({
               rispondere è l'agenzia, non noi. */}
           {media.some((url) => generatiDaAi.includes(url)) && (
             <p className="mt-2 rounded-lg border border-status-pending/35 bg-status-pending/5 px-3 py-2 text-xs leading-relaxed text-foreground">
-              L&apos;immagine generata dall&apos;AI è di corredo e <strong>non raffigura
-              l&apos;immobile</strong>. Per un annuncio usa le foto vere della scheda
+              I media prodotti automaticamente sono di corredo e <strong>non raffigurano
+              l&apos;immobile</strong>: la grafica è generata dall&apos;AI, il video viene da un
+              archivio di riprese libere. Per un annuncio usa le foto vere della scheda
               (&laquo;Seleziona da Portafoglio Immobili&raquo;): un post che mostra una casa
               diversa da quella in vendita è pubblicità ingannevole.
             </p>

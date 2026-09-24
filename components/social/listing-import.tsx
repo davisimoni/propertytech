@@ -95,9 +95,6 @@ interface ListingImportProps {
   onIntentChange: (value: GenerationIntent) => void;
   /** Istruzione libera dell'agente, per la scheda "Prompt Libero". */
   freePrompt: string;
-  /** Se generare anche l'immagine: vale solo per l'istruzione libera. */
-  generaImmagine: boolean;
-  onGeneraImmagineChange: (valore: boolean) => void;
   onFreePromptChange: (value: string) => void;
   /** Riempie la scheda di portafoglio coi dati estratti dal link. */
   onImported: (listing: ImportedListingView) => void;
@@ -156,8 +153,6 @@ export function ListingImport({
   intent,
   onIntentChange,
   freePrompt,
-  generaImmagine,
-  onGeneraImmagineChange,
   onFreePromptChange,
   onImported,
   onLocked,
@@ -381,35 +376,6 @@ export function ListingImport({
           placeholder="Es. Scrivi un post ironico per le storie IG su un attico con terrazzo a Vignola"
           className="input-field bg-card"
         />
-
-        {/*
-          L'interruttore dell'immagine sta qui, sotto l'istruzione, e non fra le
-          impostazioni generali: riguarda solo questa scheda, perche' le altre
-          tre partono da un immobile che esiste e usano le sue foto vere.
-
-          Acceso di default, perche' e' cio' che l'agente si aspetta. Spento
-          risparmia una chiamata al modello di immagini, che costa e aggiunge
-          quasi un minuto: e' la scelta giusta quando serve solo il testo, per
-          esempio per riscrivere un post che ha gia' la sua grafica.
-        */}
-        <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-border bg-card p-3">
-          <input
-            type="checkbox"
-            checked={generaImmagine}
-            onChange={(e) => onGeneraImmagineChange(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
-          />
-          <span className="min-w-0">
-            <span className="block text-xs font-medium text-foreground">
-              Genera anche immagine/grafica con AI
-            </span>
-            <span className="mt-0.5 block text-xs text-muted-foreground">
-              {generaImmagine
-                ? "L'immagine finisce fra gli allegati come copertina, e puoi sostituirla o toglierla. Non raffigura l'immobile: per un annuncio usa le foto della scheda."
-                : "Escono solo testo, hashtag e script del Reel. Nessuna chiamata al modello di immagini, e un minuto di attesa in meno."}
-            </span>
-          </span>
-        </label>
 
         {/* I suggerimenti si SOMMANO al testo invece di sostituirlo: se ne
             usano due insieme, ed e' il caso normale ("tono emozionale" +
