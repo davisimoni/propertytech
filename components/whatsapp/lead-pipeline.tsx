@@ -361,7 +361,7 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
                 aria-selected={view === id}
                 onClick={() => setView(id)}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all duration-200",
+                  "inline-flex min-h-11 md:mouse:min-h-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all duration-200",
                   view === id
                     ? "bg-brand-gradient text-white shadow-sm"
                     : "text-muted-foreground hover:bg-muted"
@@ -379,7 +379,7 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
             onClick={() => setOnlyMine((value) => !value)}
             aria-pressed={onlyMine}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all duration-200",
+              "inline-flex min-h-11 md:mouse:min-h-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all duration-200",
               onlyMine
                 ? "bg-primary/10 text-primary"
                 : "border border-border text-muted-foreground hover:border-primary/40 hover:bg-muted"
@@ -393,7 +393,7 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
             onClick={() => setSortByPortfolio((value) => !value)}
             aria-pressed={sortByPortfolio}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all duration-200",
+              "inline-flex min-h-11 md:mouse:min-h-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all duration-200",
               sortByPortfolio
                 ? "bg-status-pending/15 text-status-pending"
                 : "border border-border text-muted-foreground hover:border-primary/40 hover:bg-muted"
