@@ -56,7 +56,7 @@ export function GoogleButton({ label = "Accedi con Google", callbackUrl }: Googl
         signIn("google", { callbackUrl: safeCallbackUrl(callbackUrl) });
       }}
       disabled={isRedirecting}
-      className="inline-flex w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground shadow-sm transition-all duration-200 hover:border-primary/40 hover:bg-muted hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
+      className="inline-flex min-h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-border bg-card px-4 py-2.5 md:mouse:min-h-0 text-sm font-medium text-foreground shadow-sm transition-all duration-200 hover:border-primary/40 hover:bg-muted hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
     >
       {isRedirecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleGlyph />}
       {label}

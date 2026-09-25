@@ -89,7 +89,7 @@ export function ResetPasswordForm() {
         </p>
         <Link
           href="/forgot-password"
-          className="mt-5 block w-full rounded-xl bg-brand-gradient px-4 py-2 text-center text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110"
+          className="btn-brand mt-5 w-full"
         >
           Richiedi un nuovo link
         </Link>
@@ -109,7 +109,7 @@ export function ResetPasswordForm() {
         </p>
         <Link
           href="/login"
-          className="mt-5 block w-full rounded-xl bg-brand-gradient px-4 py-2 text-center text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110"
+          className="btn-brand mt-5 w-full"
         >
           Vai all&apos;accesso
         </Link>
@@ -153,7 +153,7 @@ export function ResetPasswordForm() {
         <button
           type="submit"
           disabled={!canSubmit}
-          className="w-full rounded-xl bg-brand-gradient px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 disabled:opacity-50"
+          className="btn-brand w-full"
         >
           {isSubmitting ? "Salvataggio…" : "Salva la nuova password"}
         </button>

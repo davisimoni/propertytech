@@ -226,7 +226,7 @@ export function RegisterForm({ googleEnabled }: { googleEnabled: boolean }) {
         <button
           type="submit"
           disabled={isSubmitting || !acceptedTerms}
-          className="w-full rounded-xl bg-brand-gradient px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 disabled:opacity-50"
+          className="btn-brand w-full"
         >
           {isSubmitting ? "Creazione account…" : "Crea account gratuito"}
         </button>

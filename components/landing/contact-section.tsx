@@ -94,7 +94,7 @@ export function ContactSection() {
   }
 
   const inputClass =
-    "w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition-all duration-200 placeholder:text-muted-foreground/60 focus:border-primary/50 focus:ring-2 focus:ring-primary/30";
+    "w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-base text-foreground outline-none transition-all duration-200 placeholder:text-muted-foreground/60 focus:border-primary/50 focus:ring-2 focus:ring-primary/30 sm:text-sm";
 
   return (
     <section

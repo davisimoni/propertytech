@@ -67,9 +67,13 @@ export function LegalPage({
       <PublicNavbar isLoggedIn={isLoggedIn} />
 
       <main className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
+        {/* Misurato alto 16px su un telefono: e' il link di uscita di una
+            pagina lunga, e a quell'altezza si prende il paragrafo accanto.
+            `md:mouse:min-h-0` lascia intatta la densita' dove si punta col
+            mouse, come gia' altrove nel progetto. */}
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex min-h-11 items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground md:mouse:min-h-0"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Torna alla home
@@ -96,17 +100,20 @@ export function LegalPage({
             </a>
             .
           </p>
+          {/* Quattro link da 20px d'altezza, uno accanto all'altro: al tocco
+              erano indistinguibili fra loro. Il pavimento li separa senza
+              cambiare ne' testo ne' colore. */}
           <div className="mt-4 flex flex-wrap gap-4 text-sm">
-            <Link href="/privacy" className="text-muted-foreground transition-colors hover:text-foreground">
+            <Link href="/privacy" className="inline-flex min-h-11 items-center text-muted-foreground transition-colors hover:text-foreground md:mouse:min-h-0">
               Privacy Policy
             </Link>
-            <Link href="/termini" className="text-muted-foreground transition-colors hover:text-foreground">
+            <Link href="/termini" className="inline-flex min-h-11 items-center text-muted-foreground transition-colors hover:text-foreground md:mouse:min-h-0">
               Termini di Servizio
             </Link>
-            <Link href="/dpa" className="text-muted-foreground transition-colors hover:text-foreground">
+            <Link href="/dpa" className="inline-flex min-h-11 items-center text-muted-foreground transition-colors hover:text-foreground md:mouse:min-h-0">
               Trattamento dati (DPA)
             </Link>
-            <Link href="/cookie" className="text-muted-foreground transition-colors hover:text-foreground">
+            <Link href="/cookie" className="inline-flex min-h-11 items-center text-muted-foreground transition-colors hover:text-foreground md:mouse:min-h-0">
               Cookie Policy
             </Link>
           </div>

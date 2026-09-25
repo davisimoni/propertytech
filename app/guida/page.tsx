@@ -33,7 +33,7 @@ export default async function GuidePage() {
       <main className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
         <Link
           href={session?.user ? "/dashboard" : "/"}
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex min-h-11 items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground md:mouse:min-h-0"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           {session?.user ? "Torna alla dashboard" : "Torna alla home"}

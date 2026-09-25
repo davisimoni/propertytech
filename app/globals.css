@@ -159,6 +159,59 @@ body {
     .input-field {
       min-height: 2.75rem;
     }
+
+    /* E ogni campo di testo, anche quello scritto senza la classe.
+
+       Misurato in produzione: i campi del modulo di accesso e quelli del
+       form di contatto della landing erano alti 42px su un telefono, due
+       sotto la soglia, perche' ricopiano a mano la dichiarazione di
+       `.input-field` invece di usarla — e una copia non porta con se' questa
+       regola. Elencare i tipi uno per uno invece di un `input` secco e'
+       voluto: una casella di spunta o un cursore non vanno alzati, e
+       `:not()` a catena si dimentica sempre di un tipo. */
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="tel"],
+    input[type="url"],
+    input[type="search"],
+    input[type="number"],
+    input[type="date"],
+    input[type="datetime-local"],
+    input[type="time"],
+    input[type="month"],
+    input:not([type]),
+    select,
+    textarea {
+      min-height: 2.75rem;
+    }
+  }
+
+  /* Il campo non deve far ingrandire la pagina quando lo si tocca.
+
+     Sotto i 16px Safari su iOS zooma da solo sul campo a fuoco, e l'agente
+     si ritrova la schermata ingrandita e disallineata da rimettere a posto a
+     mano, a ogni campo. `.input-field` lo evita da sempre con
+     `text-base sm:text-sm`; questa regola estende la stessa protezione a chi
+     non usa quella classe — il form di contatto della landing, misurato a
+     14px, e' il modulo pubblico piu' importante che abbiamo.
+
+     Il limite a 639px, e non a tutti i puntatori grossolani, perche' e' il
+     telefono a zoomare: su un tablet largo la densita' di `text-sm` resta
+     preferibile, ed e' anche il punto in cui `.input-field` cambia da se'. */
+  @media (pointer: coarse) and (max-width: 639px) {
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="tel"],
+    input[type="url"],
+    input[type="search"],
+    input[type="number"],
+    input:not([type]),
+    select,
+    textarea {
+      font-size: 1rem;
+    }
   }
 }
 
