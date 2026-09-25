@@ -290,7 +290,7 @@ export function ListingImport({
             aria-selected={sourceTab === id}
             onClick={() => setSourceTab(id)}
             className={cn(
-              "inline-flex min-h-11 items-center gap-1.5 border-b-2 px-3 text-xs font-medium transition-colors duration-200 sm:min-h-9",
+              "inline-flex min-h-11 items-center gap-1.5 border-b-2 px-3 text-xs font-medium transition-colors duration-200 sm:mouse:min-h-9",
               sourceTab === id
                 ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground"

@@ -692,7 +692,7 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                       aria-selected={attiva}
                       onClick={() => setPortalTab(voce.id)}
                       className={cn(
-                        "inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold transition-colors duration-200 sm:h-9",
+                        "inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold transition-colors duration-200 sm:mouse:h-9",
                         attiva
                           ? "bg-primary/10 text-primary"
                           : "text-muted-foreground hover:bg-muted"
