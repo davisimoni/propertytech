@@ -19,7 +19,11 @@ export function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             href={item.href}
             onClick={onNavigate}
             className={cn(
-              "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
+              // 44px dove si tocca: la barra compare da `md` in su, e a quella
+              // larghezza c'e' anche il tablet, che si usa col dito. Restano
+              // 36px dove si punta col mouse, che e' la densita' giusta per
+              // un elenco di otto voci sempre a schermo.
+              "group flex min-h-11 md:mouse:min-h-0 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
               isActive
                 ? "bg-brand-gradient text-white shadow-sm"
                 : "text-muted-foreground hover:translate-x-0.5 hover:bg-muted hover:text-foreground"
