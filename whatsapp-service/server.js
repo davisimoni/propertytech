@@ -1,5 +1,6 @@
 import express from "express";
 import { timingSafeEqual } from "node:crypto";
+import { rm } from "node:fs/promises";
 import QRCode from "qrcode";
 import { describeSender, resolveSendJid } from "./jid.js";
 import {
@@ -37,6 +38,36 @@ app.use(express.json());
 const TOKEN = process.env.SERVICE_TOKEN;
 const WEBHOOK = process.env.PLATFORM_WEBHOOK_URL;
 const SESSIONS_DIR = process.env.SESSIONS_DIR || "./sessions";
+
+/**
+ * Cancella dal disco le credenziali di una sessione.
+ *
+ * # Quando va fatto, e quando NON va fatto
+ *
+ * Va fatto quando le credenziali sono **morte**: logout dal telefono, o
+ * distacco chiesto dall'agenzia. Da quel momento WhatsApp non riconosce piu'
+ * quella sessione, ma i file restavano sul volume e `useMultiFileAuthState`
+ * li ricaricava al tentativo successivo. Il socket si apriva presentando
+ * credenziali che il server ha gia' invalidato, le init queries non
+ * ricevevano risposta, e l'abbinamento moriva con un 408 — cioe' il sintomo
+ * che sembra un problema di timeout e invece e' un residuo del collegamento
+ * precedente.
+ *
+ * NON va fatto su un 408 o su una caduta passeggera. Li' le credenziali sono
+ * buone e il socket va solo riaperto: cancellarle costringerebbe l'agenzia a
+ * riscansionare il QR per un'interruzione di rete di due secondi.
+ *
+ * Non lancia mai: e' sempre l'ultimo passo di una procedura che deve
+ * concludersi comunque, e una cartella gia' assente non e' un errore.
+ */
+async function eliminaCredenziali(sessionId, motivo) {
+  try {
+    await rm(`${SESSIONS_DIR}/${sessionId}`, { recursive: true, force: true });
+    console.log(`[${sessionId}] credenziali rimosse dal disco (${motivo})`);
+  } catch (error) {
+    console.error(`[${sessionId}] rimozione credenziali non riuscita:`, error.message);
+  }
+}
 const PORT = process.env.PORT || 3000;
 
 if (!TOKEN) {
@@ -305,6 +336,68 @@ async function startSession(sessionId) {
     printQRInTerminal: false,
     logger: loggerBaileys,
     msgRetryCounterCache,
+
+    /*
+     * ─── Stabilita' dell'abbinamento ───
+     *
+     * Il sintomo da cui nascono queste righe: durante la scansione del QR il
+     * socket moriva con `unexpected error in 'init queries' (statusCode: 408)`.
+     * Le "init queries" sono le interrogazioni che Baileys manda appena la
+     * connessione si apre; se una non risponde entro il timeout, l'abbinamento
+     * resta a meta' e il QR va rifatto.
+     *
+     * Si agisce sulle due leve insieme: **meno lavoro** da fare all'apertura, e
+     * **piu' tempo** per farlo.
+     */
+
+    /*
+     * Niente cronologia.
+     *
+     * `syncFullHistory: false` e' gia' il valore predefinito di Baileys 6.7 —
+     * scritto qui perche' un default non dichiarato e' un default che cambia
+     * senza che nessuno se ne accorga. La riga che conta davvero e' quella
+     * sotto: `shouldSyncHistoryMessage` vale `() => true` di default, quindi
+     * al login la cronologia che WhatsApp riversa veniva comunque elaborata.
+     * Su un numero di agenzia con migliaia di conversazioni e' proprio il
+     * lavoro che fa scadere le init queries.
+     *
+     * Non si perde niente: i messaggi vecchi venivano gia' scartati piu'
+     * avanti (`type !== "notify"`). Qui si evita di riceverli.
+     */
+    syncFullHistory: false,
+    shouldSyncHistoryMessage: () => false,
+
+    /*
+     * Non dichiararsi "online" all'apertura.
+     *
+     * Oltre a togliere una query al momento piu' affollato, ha un effetto che
+     * l'agenzia nota: finche' il client web risulta online, WhatsApp smette di
+     * mandare le notifiche push al telefono dell'agente. Con `false` il
+     * telefono continua a suonare come prima.
+     */
+    markOnlineOnConnect: false,
+
+    /*
+     * Il default e' 20 secondi, ed e' poco per un'istanza che si e' appena
+     * svegliata: il primo abbinamento della giornata paga anche l'avvio del
+     * processo e la latenza verso i server di WhatsApp.
+     */
+    connectTimeoutMs: 60_000,
+
+    /*
+     * E' questo il timeout che scade nelle init queries: usano la durata
+     * predefinita delle interrogazioni, 60 secondi. Portarla a 90 non rende
+     * il socket piu' lento — si aspetta solo quando serve davvero — e
+     * trasforma un abbinamento fallito in un abbinamento lento.
+     */
+    defaultQueryTimeoutMs: 90_000,
+
+    /*
+     * Un battito piu' frequente del default (30s): su un host che sospende le
+     * connessioni inattive, trenta secondi di silenzio bastano a far cadere il
+     * socket senza che nessuna delle due parti se ne accorga.
+     */
+    keepAliveIntervalMs: 20_000,
     /**
      * Serve a Baileys quando il cliente chiede di rispedire un messaggio che
      * non e' riuscito a decifrare. Senza, Baileys non ha nulla da mandare e
@@ -321,7 +414,21 @@ async function startSession(sessionId) {
   sock.ev.on("creds.update", saveCreds);
 
 
+  /*
+   * Tutto il gestore dentro un try/catch, e non e' prudenza generica.
+   *
+   * Questo ascoltatore e' `async`: un'eccezione al suo interno non risale a
+   * nessuno, diventa una promise rifiutata senza gestore, e su Node recente
+   * quello basta a **terminare il processo** — cioe' a far cadere le sessioni
+   * di tutte le agenzie per un errore su una sola. Dentro ci sono tre
+   * chiamate che possono fallire davvero: la generazione del QR, la notifica
+   * alla piattaforma e la pulizia su disco.
+   *
+   * Qui non si rimedia all'errore, si impedisce che si porti via il resto: la
+   * riga nei log dice cosa e' successo, e la riconnessione riparte comunque.
+   */
   sock.ev.on("connection.update", async (update) => {
+   try {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) entry.qr = await QRCode.toDataURL(qr);
@@ -375,8 +482,20 @@ async function startSession(sessionId) {
         // contatore va azzerato o il prossimo abbinamento erediterebbe
         // l'attesa accumulata da quello precedente.
         retryCount.delete(sessionId);
+        sessions.delete(sessionId);
+
+        // E le credenziali vanno via dal disco. Da qui in poi WhatsApp non
+        // riconosce piu' questa sessione: tenerle significa ripresentarle al
+        // prossimo abbinamento e farlo morire in init queries.
+        await eliminaCredenziali(sessionId, "logout dal telefono");
       }
     }
+   } catch (error) {
+    // Vedi il commento sopra: qui si assorbe per non far cadere il processo.
+    // Lo stato della sessione resta quello che e', e la riconnessione
+    // programmata prima dell'errore parte lo stesso.
+    console.error(`[${sessionId}] errore nel gestore della connessione:`, error?.message ?? error);
+   }
   });
 
   /*
@@ -699,7 +818,40 @@ app.delete("/sessions/:id", async (req, res) => {
   }
 
   sessions.delete(req.params.id);
+
+  // Distacco voluto dall'agenzia: le credenziali non servono piu' e, se
+  // restassero, il prossimo abbinamento ripartirebbe da una sessione che
+  // WhatsApp ha gia' chiuso.
+  await eliminaCredenziali(req.params.id, "distacco richiesto dalla piattaforma");
+
   res.json({ ok: true });
+});
+
+/*
+ * L'ultima rete, sotto tutto il resto.
+ *
+ * Qui gira un socket per ogni agenzia collegata, dentro un processo solo. Una
+ * promise rifiutata in un punto qualsiasi — una libreria che non gestisce un
+ * caso, un timer che scatta su un socket gia' chiuso — con il comportamento
+ * predefinito di Node termina il processo, e con lui cadono **tutte** le
+ * sessioni: ogni agenzia deve riscansionare il QR per un errore che
+ * riguardava una sola.
+ *
+ * Si registra e si prosegue. Non e' nascondere l'errore: la riga nei log c'e'
+ * e nomina la sessione dove e' possibile. E' decidere che un guasto isolato
+ * non merita di spegnere il servizio per tutti.
+ *
+ * `uncaughtException` e' diverso e si tratta diversamente: li' lo stato del
+ * processo non e' piu' affidabile, quindi si registra e si esce davvero,
+ * lasciando che Render riavvii con le sessioni ricaricate dal volume.
+ */
+process.on("unhandledRejection", (motivo) => {
+  console.error("[PROCESSO] promise rifiutata senza gestore:", motivo?.message ?? motivo);
+});
+
+process.on("uncaughtException", (errore) => {
+  console.error("[PROCESSO] eccezione non gestita, esco per farmi riavviare:", errore?.message ?? errore);
+  process.exit(1);
 });
 
 app.listen(PORT, () => {
