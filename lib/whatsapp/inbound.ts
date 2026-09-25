@@ -635,7 +635,8 @@ export async function handleInboundWhatsAppMessage(
           config,
           config.organization.agencyName,
           message.text,
-          config.organization
+          config.organization,
+          message.daVocale
         );
       } else if (!verdettoChiuso.pertinente) {
         /*
@@ -758,7 +759,8 @@ export async function handleInboundWhatsAppMessage(
         config,
         config.organization.agencyName,
         message.text,
-        config.organization
+        config.organization,
+        message.daVocale
       );
     }
   } catch (error) {

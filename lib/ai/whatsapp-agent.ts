@@ -406,7 +406,8 @@ function buildSystemPrompt(
   clientName: string,
   availableSlots: string[],
   profile: AgencyProfile | undefined,
-  property: PropertyContext | undefined
+  property: PropertyContext | undefined,
+  daVocale: boolean
 ): string {
   /*
    * Che giorno e' oggi.
@@ -527,7 +528,18 @@ Alcuni messaggi non riguardano l'attivita' dell'agenzia: pubblicita', catene, nu
 - NON riproporre le domande di qualificazione e non insistere. Se la persona ha sbagliato numero, continuare a chiederle il budget e' molesto.
 - Lascia outcome a CONTINUE: un messaggio fuori tema non e' un giudizio sul cliente, e marcarlo UNQUALIFIED sporcherebbe la pipeline dell'agenzia con contatti mai valutati davvero.
 
-# Vincoli
+${
+    daVocale
+      ? `# L'ULTIMO MESSAGGIO E' LA TRASCRIZIONE DI UNA NOTA VOCALE
+Non l'ha scritto il cliente: l'ha detto, e un programma l'ha convertito in testo.
+- Aspettati intercalari, false partenze e frasi senza punteggiatura ("allora, ehm, sarebbe per quella casa"). E' come parla una persona, non confusione: rispondi al contenuto.
+- Il "tu" e il tono confidenziale in un vocale non dicono che vi conoscete. Al telefono si parla cosi' anche con uno sconosciuto: mantieni tu la forma di cortesia.
+- **I numeri e i nomi propri vanno confermati, non registrati in silenzio.** La trascrizione sbaglia proprio li': "duecentomila" e "duecentoventimila" si assomigliano, e cosi' un civico o il nome di una via. Se un importo, una data, un indirizzo o un recapito arrivano a voce e sono importanti, ripetili nella tua risposta in modo naturale, come farebbe una persona che vuole essere sicura di aver capito ("perfetto, quindi siamo intorno ai duecentomila, giusto?").
+- Se una parte e' incomprensibile, chiedi di ripetere **solo quel punto**. Non far riascoltare tutto e non fingere di aver capito: un dato inventato qui finisce nella scheda del cliente e ci resta.
+
+`
+      : ""
+  }# Vincoli
 - Non inventare mai dettagli sull'immobile (prezzo, metratura, disponibilità): non li conosci.
 - Non ripetere l'informativa privacy: è già stata inviata nel primo messaggio.
 - Imposta le variabili strutturate a null finché la relativa risposta non è chiaramente emersa: non dedurle. Un dato scritto nero su bianco nel messaggio del cliente non è una deduzione: quello si valorizza.`;
@@ -547,6 +559,17 @@ export async function generateAgentReply(params: {
   agencyProfile?: AgencyProfile;
   /** L'immobile riconosciuto dal riferimento nel messaggio, se c'e'. */
   property?: PropertyContext;
+  /**
+   * L'ultimo messaggio del cliente è la trascrizione di una nota vocale.
+   *
+   * Non è un dettaglio di forma: questo agente **estrae i dati strutturati**
+   * del lead — budget, tempistiche, mutuo — e li scrive in scheda. Una
+   * trascrizione sbaglia i numeri con naturalezza ("duecentomila" e
+   * "duecentoventimila" suonano quasi uguali), e un budget sbagliato
+   * registrato in silenzio è peggio di un budget mancante: l'agente ci va in
+   * appuntamento convinto che sia un dato del cliente.
+   */
+  daVocale?: boolean;
 }): Promise<AgentReply> {
   const {
     agencyName,
@@ -556,6 +579,7 @@ export async function generateAgentReply(params: {
     availableSlots,
     agencyProfile,
     property,
+    daVocale = false,
   } = params;
 
   const response = await client.messages
@@ -568,7 +592,8 @@ export async function generateAgentReply(params: {
         clientName,
         availableSlots,
         agencyProfile,
-        property
+        property,
+        daVocale
       ),
       output_config: {
         effort: "low",

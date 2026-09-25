@@ -182,7 +182,15 @@ export async function handleIncomingMessage(
   config: WhatsAppConfig,
   agencyName: string,
   incomingText: string,
-  agencyProfile?: AgencyProfile
+  agencyProfile?: AgencyProfile,
+  /**
+   * `incomingText` è la trascrizione di una nota vocale.
+   *
+   * Lo sapeva solo il filtro di pertinenza. Ma è questo agente a scrivere i
+   * dati in scheda, ed è qui che una parola sentita male diventa un fatto
+   * sul cliente.
+   */
+  daVocale = false
 ): Promise<void> {
   const history = await appendMessage(lead.id, {
     sender: "user",
@@ -257,6 +265,7 @@ export async function handleIncomingMessage(
       history,
       availableSlots: availableSlots.map(formatSlotForChat),
       agencyProfile,
+      daVocale,
       ...(property
         ? {
             property: {
