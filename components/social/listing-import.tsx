@@ -388,7 +388,7 @@ export function ListingImport({
               onClick={() =>
                 onFreePromptChange(freePrompt.trim() ? `${freePrompt.trim()}. ${chip}` : chip)
               }
-              className="inline-flex h-11 items-center gap-1 rounded-full border border-border px-3 text-[11px] font-medium text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:text-foreground sm:h-8"
+              className="inline-flex h-11 items-center gap-1 rounded-full border border-border px-3 text-xs font-medium text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:text-foreground sm:h-8"
             >
               + {chip}
             </button>
@@ -494,7 +494,7 @@ export function ListingImport({
                   <span className="block text-xs font-medium text-foreground">
                     {INTENT_LABELS[id]}
                   </span>
-                  <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
+                  <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">
                     {INTENT_HINTS[id]}
                   </span>
                 </span>
