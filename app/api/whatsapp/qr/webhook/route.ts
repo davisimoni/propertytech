@@ -66,6 +66,25 @@ function tokenMatches(received: string, expected: string): boolean {
 }
 
 export async function POST(request: Request) {
+  /*
+   * La prima riga della rotta, prima di qualunque controllo.
+   *
+   * Serve a rispondere a una domanda sola, che finora non aveva risposta:
+   * **la chiamata arriva?** Ogni altra uscita di questa rotta lascia gia' una
+   * traccia, ma tutte stanno DOPO l'autenticazione: se il microservizio non
+   * chiamava affatto, o veniva respinto sulla porta, nei log di Vercel non
+   * restava niente — e un messaggio mai consegnato era indistinguibile da un
+   * messaggio mai scritto.
+   *
+   * Niente corpo e niente intestazioni: qui passano numeri di telefono e
+   * testi di clienti, e nei log non ci vanno (CLAUDE.md §5). Bastano la
+   * lunghezza e il tipo dichiarato per riconoscere la chiamata.
+   */
+  console.info("[QR-WEBHOOK] Chiamata ricevuta", {
+    lunghezzaCorpo: request.headers.get("content-length") ?? "sconosciuta",
+    haAutorizzazione: Boolean(request.headers.get("authorization")),
+  });
+
   const expected = readSecret("WHATSAPP_SERVICE_TOKEN");
   if (!expected) {
     console.error("[api/whatsapp/qr/webhook] WHATSAPP_SERVICE_TOKEN assente: rotta chiusa.");
@@ -74,6 +93,23 @@ export async function POST(request: Request) {
 
   const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!bearer || !tokenMatches(bearer, expected)) {
+    /*
+     * Era l'unica uscita muta rimasta, ed e' quella che conta di piu'.
+     *
+     * Un token disallineato fra Render e Vercel — tipicamente dopo aver
+     * rigenerato il segreto da una parte sola — produce esattamente il
+     * sintomo "l'assistente non risponde piu' e non si capisce perche'":
+     * il microservizio riceve i messaggi, li consegna, si becca un 401 e
+     * su Vercel non compariva una riga.
+     *
+     * Del token non si scrive niente, nemmeno un pezzo: si dice solo se
+     * l'intestazione c'era, che e' quanto basta a distinguere "chiamata
+     * senza credenziali" da "credenziali sbagliate".
+     */
+    console.error("[QR-WEBHOOK] Chiamata respinta: token non valido", {
+      intestazionePresente: Boolean(bearer),
+      nota: "WHATSAPP_SERVICE_TOKEN su Vercel e SERVICE_TOKEN su Render devono coincidere",
+    });
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -99,6 +135,17 @@ export async function POST(request: Request) {
   }
 
   const { sessionId, event, phoneNumber, message } = parsed.data;
+
+  // Accettato: da qui in poi ogni esito lascia una traccia propria. Questa
+  // riga chiude il cerchio — dice che la chiamata era valida e quale evento
+  // portava, senza il quale "arrivata" e "elaborata" restano indistinguibili.
+  console.info("[QR-WEBHOOK] Evento accettato", {
+    sessionId,
+    event,
+    haTesto: Boolean(message?.text),
+    haAudio: Boolean(message?.audio),
+    dallAgenzia: Boolean(message?.fromAgent),
+  });
 
   // `include` completo e non una `select` parziale: `handleInboundWhatsAppMessage`
   // richiede l'organizzazione intera, ed è lo stesso oggetto che gli passano
