@@ -457,7 +457,7 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                 <button
                   type="button"
                   onClick={() => setShowAdvanced((value) => !value)}
-                  className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground"
+                  className="flex min-h-11 md:mouse:min-h-0 items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground"
                 >
                   <ChevronDown
                     className={cn(
@@ -831,7 +831,7 @@ export function ConnectionPanel({ onConnectionChange }: { onConnectionChange?: (
                   type="button"
                   onClick={() => setShowChannelSetup((value) => !value)}
                   aria-expanded={showChannelSetup}
-                  className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground"
+                  className="flex min-h-11 md:mouse:min-h-0 items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground"
                 >
                   <ChevronDown
                     className={cn(

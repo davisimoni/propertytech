@@ -97,7 +97,7 @@ export function InfoTip({ label }: { label: string }) {
         title={label}
         // L'area toccabile è più grande del disegno: `after` la porta a 40px
         // senza allargare l'icona né spostare il testo che le sta accanto.
-        className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors after:absolute after:-inset-2.5 after:content-[''] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors after:absolute after:-inset-3 after:content-[''] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         <HelpCircle className="h-3.5 w-3.5" aria-hidden="true" />
       </button>

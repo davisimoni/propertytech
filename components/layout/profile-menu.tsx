@@ -73,7 +73,7 @@ export function ProfileMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Menu profilo"
-        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border pl-1.5 pr-2 text-sm font-medium text-foreground transition-all duration-200 hover:bg-muted"
+        className="inline-flex h-9 min-h-11 md:mouse:min-h-0 items-center gap-1.5 rounded-lg border border-border pl-1.5 pr-2 text-sm font-medium text-foreground transition-all duration-200 hover:bg-muted"
       >
         <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-gradient text-white">
           <User className="h-3.5 w-3.5" />

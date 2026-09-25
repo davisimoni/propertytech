@@ -292,7 +292,7 @@ export function SocialConnectionBadge() {
   return (
     <Link
       href="/settings?tab=integrations"
-      className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+      className="inline-flex min-h-11 md:mouse:min-h-0 items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
     >
       <Share2 className="h-3.5 w-3.5" />
       Social non collegati

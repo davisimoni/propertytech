@@ -56,7 +56,7 @@ export function WhatsAppModule() {
               aria-selected={isActive}
               onClick={() => setTab(item.id)}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
+                "inline-flex min-h-11 md:mouse:min-h-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
                 isActive
                   ? "bg-brand-gradient text-white shadow-sm"
                   : // Stesso trattamento dei tab in module-with-history: da

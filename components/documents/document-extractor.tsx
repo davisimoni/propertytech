@@ -508,7 +508,7 @@ function ExtractionResultView({
               aria-selected={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "shrink-0 snap-start whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors duration-200",
+                "shrink-0 snap-start whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium min-h-11 md:mouse:min-h-0 transition-colors duration-200",
                 activeTab === tab.id
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
@@ -846,7 +846,7 @@ function ExtractionResultView({
         <button
           type="button"
           onClick={onCopy}
-          className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+          className="inline-flex min-h-11 md:mouse:min-h-0 items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
         >
           {copied ? <Check className="h-4 w-4 text-primary" /> : <Clipboard className="h-4 w-4" />}
           {copied ? "Copiato!" : "Copia negli appunti"}
@@ -854,7 +854,7 @@ function ExtractionResultView({
         <button
           type="button"
           onClick={onDownloadJson}
-          className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+          className="inline-flex min-h-11 md:mouse:min-h-0 items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
         >
           <Download className="h-4 w-4" />
           Scarica JSON
@@ -867,7 +867,7 @@ function ExtractionResultView({
         <button
           type="button"
           onClick={() => window.print()}
-          className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+          className="inline-flex min-h-11 md:mouse:min-h-0 items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
         >
           <Printer className="h-4 w-4" />
           Stampa

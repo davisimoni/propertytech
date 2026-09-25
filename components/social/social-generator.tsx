@@ -384,7 +384,7 @@ export function SocialGenerator() {
                     onClick={() => setTone(option)}
                     aria-pressed={tone === option}
                     className={cn(
-                      "rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200",
+                      "inline-flex min-h-11 md:mouse:min-h-0 items-center rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200",
                       tone === option
                         ? "bg-brand-gradient text-white shadow-sm"
                         : "border border-border text-muted-foreground hover:bg-muted"
@@ -406,7 +406,7 @@ export function SocialGenerator() {
               type="button"
               onClick={handleGenerate}
               disabled={!canGenerate || isGenerating}
-              className="inline-flex items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 disabled:opacity-50"
+              className="btn-brand"
             >
               {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {isGenerating ? "Generazione in corso…" : "Genera annuncio, post e Reel"}
