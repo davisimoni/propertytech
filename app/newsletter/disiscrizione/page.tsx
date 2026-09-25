@@ -63,7 +63,7 @@ export default async function DisiscrizionePage({
         </p>
         <Link
           href="/settings?tab=privacy"
-          className="mt-5 inline-block text-sm font-medium text-primary hover:underline"
+          className="mt-5 inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline md:mouse:min-h-0"
         >
           Vai alle preferenze notifiche
         </Link>
