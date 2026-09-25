@@ -405,7 +405,7 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
           <button
             type="button"
             onClick={() => fetchLeads(filter, sortByPortfolio, onlyMine)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+            className="inline-flex min-h-11 md:mouse:min-h-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Aggiorna
@@ -421,7 +421,7 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
             onClick={() => setFilter(item.value)}
             aria-pressed={filter === item.value}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200",
+              "inline-flex min-h-11 md:mouse:min-h-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200",
               filter === item.value
                 ? "bg-brand-gradient text-white shadow-sm"
                 : "border border-border text-muted-foreground hover:bg-muted"
@@ -567,7 +567,7 @@ export function LeadPipeline({ onImportRequested, onTryAssistant }: LeadPipeline
                     <button
                       type="button"
                       onClick={() => setSelectedLead(lead)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
+                      className="inline-flex min-h-11 md:mouse:min-h-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted"
                     >
                       <Eye className="h-3.5 w-3.5" />
                       Dettaglio chat

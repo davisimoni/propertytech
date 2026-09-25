@@ -126,7 +126,7 @@ export function CrmExportCard({ lead }: { lead: LeadView }) {
         type="button"
         onClick={send}
         disabled={isSending}
-        className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50"
+        className="mt-2.5 inline-flex min-h-11 md:mouse:min-h-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted disabled:opacity-50"
       >
         {isSending ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />

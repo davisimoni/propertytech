@@ -24,7 +24,7 @@ export function Header() {
           // chi è già su Professional, a cui "Passa a Pro" non dice nulla.
           <Link
             href="/settings?tab=billing"
-            className="inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-xl bg-brand-gradient px-3 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 sm:px-4"
+            className="inline-flex h-9 min-h-11 md:mouse:min-h-0 shrink-0 items-center whitespace-nowrap rounded-xl bg-brand-gradient px-3 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:shadow-md hover:brightness-110 sm:px-4"
           >
             {/* "Aggiorna" da solo sul telefono: la frase intera andava a capo
                 dentro un pulsante alto 36px, sfondandolo. */}
