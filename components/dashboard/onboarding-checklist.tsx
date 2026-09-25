@@ -206,7 +206,16 @@ export function OnboardingChecklist() {
                             </span>
                           )}
                         </p>
-                        {!done && <p className="truncate text-xs text-muted-foreground">{step.hint}</p>}
+                        {/* Due righe sul telefono, una sola dove lo spazio c'e'.
+                            Con `truncate` la frase veniva tagliata a meta'
+                            parola a 390px — "in pochi secondi hai stato
+                            occupa" — e una spiegazione monca sulla lista dei
+                            primi passi e' peggio di nessuna spiegazione. */}
+                        {!done && (
+                          <p className="line-clamp-2 text-xs text-muted-foreground sm:truncate">
+                            {step.hint}
+                          </p>
+                        )}
                       </div>
                     </div>
 
