@@ -7,7 +7,9 @@ import {
   ImagePlus,
   Images,
   Loader2,
+  Play,
   Trash2,
+  Video as VideoIcon,
   X,
 } from "lucide-react";
 import { ALLOWED_IMAGE_MIME_TYPES } from "@/lib/listings/property-images";
@@ -104,6 +106,123 @@ interface ImmobileConFoto {
   reference: string;
   title: string;
   images: string[];
+}
+
+/**
+ * Anteprima di un allegato video.
+ *
+ * # Perché non basta il primo fotogramma
+ *
+ * Perché un fotogramma fermo **è** una foto: chi guarda la griglia vede due
+ * riquadri identici e allega al post un video credendo di allegare una seconda
+ * immagine. Poi pubblica, Meta lo tratta come Reel, e la scoperta arriva sul
+ * profilo dell'agenzia. Il movimento è l'unico segnale che si capisce senza
+ * leggere niente, e per questo l'anteprima parte da sola.
+ *
+ * # Muto non è un dettaglio
+ *
+ * È la condizione per partire: nessun browser fa partire da solo un video con
+ * audio, quindi senza `muted` l'autoplay verrebbe **bloccato** e resteremmo
+ * esattamente al fotogramma fermo di prima. Vale anche come cortesia — la
+ * griglia può contenerne più di uno — ma il motivo tecnico viene prima.
+ *
+ * # Quando il movimento non arriva
+ *
+ * Due casi, e portano allo stesso posto. Chi ha chiesto meno animazioni dal
+ * sistema operativo non deve ricevere un video che si muove in loop senza
+ * averlo chiesto; e l'autoplay può essere negato comunque — risparmio
+ * energetico su iOS, impostazioni del browser — senza che noi lo sappiamo in
+ * anticipo. In entrambi i casi il riquadro resta fermo, quindi il segnale deve
+ * esserci anche da fermo: il simbolo di riproduzione al centro compare proprio
+ * quando il video **non** sta andando, ed è un pulsante vero, che lo avvia.
+ * L'etichetta in alto a destra invece non se ne va mai: sopravvive al fermo
+ * immagine, alla riproduzione e allo screenshot che l'agente manda al collega.
+ */
+function AnteprimaVideo({ url, etichetta }: { url: string; etichetta: string }) {
+  const riferimento = useRef<HTMLVideoElement>(null);
+  const [inRiproduzione, setInRiproduzione] = useState(false);
+  /* `null` finché non si sa: si legge solo nel browser, e partire dal valore
+     sbagliato farebbe muovere per un istante ciò che deve stare fermo. */
+  const [movimentoRidotto, setMovimentoRidotto] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const ridotto = Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+    setMovimentoRidotto(ridotto);
+    if (ridotto) return;
+
+    /*
+     * L'avvio va chiesto, non solo dichiarato.
+     *
+     * `autoPlay` conta nel momento in cui il browser comincia a caricare la
+     * risorsa. Qui l'attributo arriva **dopo**, perche' la preferenza di
+     * movimento si legge solo nel browser e questo componente viene reso anche
+     * sul server: il primo render esce senza autoplay, il caricamento parte
+     * cosi', e l'attributo aggiunto subito dopo trova la frittata fatta. Senza
+     * questa chiamata l'anteprima resterebbe ferma proprio dove il fotogramma
+     * fermo e' il problema da risolvere.
+     */
+    const nodo = riferimento.current;
+    if (!nodo) return;
+
+    /*
+     * Muto imposto sulla proprieta', non solo dichiarato nel JSX.
+     *
+     * Su React 18 `muted` e' l'unico attributo di `<video>` che non viene
+     * riflesso in modo garantito sul nodo DOM: e' un baco noto, e qui
+     * costerebbe caro in silenzio. Un video non muto non viene avviato da
+     * nessun browser, quindi l'esito non sarebbe "audio a sorpresa" — sarebbe
+     * l'anteprima ferma, cioe' di nuovo il problema di partenza, senza errori
+     * da nessuna parte a dire perche'.
+     */
+    nodo.muted = true;
+    nodo.play().catch(() => {});
+  }, []);
+
+  function avvia() {
+    const nodo = riferimento.current;
+    if (!nodo) return;
+    // Muto anche qui: e' la condizione perche' `play()` non venga rifiutato,
+    // e chi tocca una miniatura in una lista non si aspetta dell'audio.
+    nodo.muted = true;
+    // Il rifiuto non va gestito: se non parte resta il simbolo, che è
+    // esattamente quello che serviva. `catch` vuoto solo per non far salire
+    // una promise rifiutata in console a ogni tocco.
+    nodo.play().catch(() => {});
+  }
+
+  return (
+    <>
+      <video
+        ref={riferimento}
+        src={url}
+        muted
+        playsInline
+        // Non prima di sapere cosa preferisce chi guarda.
+        autoPlay={movimentoRidotto === false}
+        loop={movimentoRidotto === false}
+        preload="metadata"
+        aria-label={`${etichetta} (video)`}
+        onPlay={() => setInRiproduzione(true)}
+        onPause={() => setInRiproduzione(false)}
+        onEnded={() => setInRiproduzione(false)}
+        onClick={avvia}
+        className="aspect-square w-full bg-black object-cover"
+      />
+
+      {/* Grande quanto basta per il pollice, non quanto il riquadro: le frecce
+          e il cestino stanno nella barra in basso e devono restare toccabili. */}
+      {!inRiproduzione && (
+        <button
+          type="button"
+          onClick={avvia}
+          aria-label={`Riproduci ${etichetta}`}
+          className="absolute left-1/2 top-1/2 grid h-10 w-10 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-black/60 text-white ring-1 ring-white/30 transition-colors duration-200 hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+        >
+          <Play className="h-4 w-4 fill-current" aria-hidden="true" />
+        </button>
+      )}
+    </>
+  );
 }
 
 export function MediaAttachments({
@@ -378,19 +497,13 @@ export function MediaAttachments({
                 key={`${url}-${indice}`}
                 className="group relative overflow-hidden rounded-lg border border-border"
               >
-                {/* Un video mostrato con `<img>` resta un riquadro rotto: il
-                    tipo si ricava dall'estensione dell'indirizzo del bucket,
-                    l'unico caso in cui un video puo' essere in elenco. */}
+                {/* Il tipo si ricava dall'estensione dell'indirizzo del bucket:
+                    e' l'unica forma con cui un video puo' arrivare qui, perche'
+                    gli indirizzi `/api/social/media/<id>` — senza estensione —
+                    sono sempre e solo foto (`kind: "image"` in entrambi i rami
+                    della rotta che li crea). */}
                 {kindFromExtension(url) === "video" ? (
-                  <video
-                    src={url}
-                    muted
-                    playsInline
-                    preload="metadata"
-                    // `controls` no: in un riquadro da 80px i comandi coprono
-                    // l'anteprima e intercettano i tocchi delle frecce.
-                    className="aspect-square w-full bg-black object-cover"
-                  />
+                  <AnteprimaVideo url={url} etichetta={`Allegato ${indice + 1}`} />
                 ) : (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
@@ -401,7 +514,8 @@ export function MediaAttachments({
                 )}
 
                 {kindFromExtension(url) === "video" && (
-                  <span className="absolute right-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                  <span className="pointer-events-none absolute right-1 top-1 inline-flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                    <VideoIcon className="h-2.5 w-2.5" aria-hidden="true" />
                     Video
                   </span>
                 )}
