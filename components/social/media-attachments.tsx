@@ -571,18 +571,43 @@ export function MediaAttachments({
             Il primo allegato è la copertina del post. Usa le frecce per riordinarli.
           </p>
 
-          {/* L'avvertenza compare solo quando c'è un'immagine generata, e dice
-              la cosa che conta: non raffigura l'immobile. Un post che la
-              presenta come la casa in vendita è pubblicità ingannevole, e a
-              rispondere è l'agenzia, non noi. */}
+          {/*
+            L'avvertenza compare solo quando c'e' un media prodotto da noi, e dice
+            la cosa che conta: non raffigura l'immobile. Un post che lo presenta
+            come la casa in vendita e' pubblicita' ingannevole, e a rispondere e'
+            l'agenzia, non noi.
+
+            La frase sul tour compare solo col video, perche' e' col video che
+            nasce l'equivoco: una grafica astratta nessuno la prende per una
+            stanza, una ripresa in movimento si'. E soprattutto un prompt puo'
+            aver chiesto proprio "video degli interni": chi lo ha scritto
+            crede di aver ottenuto quello, ed e' l'unico momento in cui
+            possiamo dirgli che no, e cosa fare invece.
+          */}
           {media.some((url) => generatiDaAi.includes(url)) && (
-            <p className="mt-2 rounded-lg border border-status-pending/35 bg-status-pending/5 px-3 py-2 text-xs leading-relaxed text-foreground">
-              I media prodotti automaticamente sono di corredo e <strong>non raffigurano
-              l&apos;immobile</strong>: la grafica è generata dall&apos;AI, il video viene da un
-              archivio di riprese libere. Per un annuncio usa le foto vere della scheda
-              (&laquo;Seleziona da Portafoglio Immobili&raquo;): un post che mostra una casa
-              diversa da quella in vendita è pubblicità ingannevole.
-            </p>
+            <div className="mt-2 rounded-lg border border-status-pending/35 bg-status-pending/5 px-3 py-2 text-xs leading-relaxed text-foreground">
+              <p>
+                I media prodotti automaticamente sono{" "}
+                <strong>contenuti concettuali di corredo</strong> e non raffigurano
+                l&apos;immobile, nemmeno quando l&apos;hai chiesto nel prompt: la grafica la
+                genera l&apos;AI, il video viene da un archivio di riprese libere e mostra un
+                luogo reale che non è quello dell&apos;annuncio.
+              </p>
+              {media.some(
+                (url) => generatiDaAi.includes(url) && kindFromExtension(url) === "video"
+              ) && (
+                <p className="mt-1.5">
+                  <strong>Non è un tour dell&apos;immobile.</strong> Per far vedere le stanze
+                  vere serve un video girato lì dentro: caricalo da &laquo;Carica dal
+                  computer&raquo;.
+                </p>
+              )}
+              <p className="mt-1.5">
+                Le foto vere stanno in &laquo;Seleziona da Portafoglio Immobili&raquo;. Un post
+                che fa passare un altro luogo per la casa in vendita è pubblicità ingannevole, e
+                a rispondere è l&apos;agenzia.
+              </p>
+            </div>
           )}
         </>
       )}

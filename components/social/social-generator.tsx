@@ -361,8 +361,14 @@ export function SocialGenerator() {
                   Genera anche contenuti multimediali con AI (Foto/Video)
                 </span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
+                  {/*
+                    L'aspettativa si forma qui, prima del prompt: e' l'unico
+                    punto in cui possiamo dirlo mentre l'agente decide cosa
+                    scrivere. L'avviso sotto gli allegati arriva a cose fatte,
+                    quando il video c'e' gia' e sembra quello che aveva chiesto.
+                  */}
                   {generaMedia
-                    ? "Una grafica e un video verticale finiscono fra gli allegati, pronti da sostituire o togliere. Sono di corredo e non raffigurano l'immobile: per un annuncio usa le foto della scheda."
+                    ? "Una grafica e un video verticale finiscono fra gli allegati, pronti da sostituire o togliere. Sono contenuti concettuali di corredo e non raffigurano l'immobile, nemmeno se il prompt chiede un tour degli interni: le riprese vere delle stanze si caricano dal computer."
                     : "Escono solo testo, hashtag e script del Reel. Nessuna chiamata ai modelli multimediali, e circa un minuto di attesa in meno."}
                 </span>
               </span>

@@ -29,6 +29,23 @@ import { putObject, readStorageConfig } from "@/lib/storage/object-storage";
  * per prudenza generica: è la sola forma in cui un video stock può stare sotto
  * un annuncio immobiliare senza mentire.
  *
+ * # Quando l'agente chiede proprio gli interni
+ *
+ * È la richiesta che mette in tensione le due cose: «video esplorativo degli
+ * interni» dice esattamente cosa si vuole, e questo archivio potrebbe darlo.
+ * Restituire un salotto arredato sarebbe la risposta più obbediente e la più
+ * dannosa — un tour di stanze sotto un annuncio si legge come quelle stanze, e
+ * nessuna didascalia lo disinnesca.
+ *
+ * Quella richiesta non viene quindi né esaudita né ignorata: si risponde con
+ * il **dettaglio** invece dell'ambiente. Le chiavi nella serratura, la luce che
+ * entra da una finestra, una planimetria sul tavolo, un particolare
+ * architettonico: sono riprese che stanno dentro l'intento — sono "interni",
+ * non sono la città — e che nessuno può confondere con la visita a un
+ * appartamento preciso. È un compromesso dichiarato, non una svista: chi vuole
+ * far vedere le stanze vere ha il caricamento dal computer, e l'avviso sotto
+ * gli allegati lo dice.
+ *
  * # Perché il file passa dal nostro bucket
  *
  * Perché a scaricarlo, in pubblicazione, sono i server di Meta, e l'indirizzo
@@ -63,7 +80,67 @@ export interface VideoStock {
 function ricerchePerTema(tema: string): string[] {
   const t = tema.toLowerCase();
 
-  const ha = (...parole: string[]) => parole.some((parola) => t.includes(parola));
+  /*
+   * Confronto a inizio di parola, non sottostringa.
+   *
+   * Con `includes` bastava una parola che ne contenesse un'altra per dirottare
+   * il tema, ed e' successo: **"catastale" contiene "asta"**, quindi un post
+   * su una visura finiva nel ramo delle aste giudiziarie. Lo stesso valeva per
+   * "internet" e "intern". Il danno era modesto — una ripresa di scrivania al
+   * posto di un'altra — ma la regola era sbagliata, e la prossima parola
+   * aggiunta all'elenco poteva pescare peggio.
+   *
+   * Il confine va davanti e solo davanti: le voci qui sotto sono radici volute
+   * (`stanz` prende stanza e stanze, `camer` prende camera e camere), mentre una
+   * coincidenza in mezzo a un'altra parola non conta piu'. E' scritto con
+   * `String.raw` per un motivo che morde in silenzio: in un template literal
+   * normale `\b` non e' il confine di parola, e' il carattere backspace, e la
+   * regex non corrisponderebbe piu' a nulla — ogni tema finirebbe nel ripiego
+   * generico senza un errore da nessuna parte.
+   */
+  const ha = (...parole: string[]) =>
+    new RegExp(String.raw`\b(${parole.join("|")})`).test(t);
+
+  /*
+   * Questo ramo sta per primo, e non per importanza del tema.
+   *
+   * Sta per primo perché è l'unico che esiste per **evitare un danno**, mentre
+   * gli altri scelgono solo la ripresa più adatta. Se un post dice «tour interni
+   * dell'attico», il ramo del terrazzo qui sotto vincerebbe e consegnerebbe un
+   * balcone con vista città: azzeccato sul tema, e mostrato sotto la parola
+   * "attico" diventa il balcone di quell'attico. Fra l'essere azzeccati e il
+   * non mentire, decide il secondo.
+   *
+   * `interni` e `interno` sono scritti per esteso di proposito: la radice
+   * "intern" prenderebbe anche "internet" e "internazionale", che con le stanze
+   * non hanno niente a che fare.
+   */
+  if (
+    ha(
+      "interni",
+      "interno",
+      "stanz",
+      "camer",
+      "soggiorno",
+      "salone",
+      "cucina",
+      "bagno",
+      "ambienti",
+      "tour",
+      "visita virtuale",
+      "metri quadri"
+    )
+  ) {
+    return [
+      "chiavi porta serratura",
+      "luce sole finestra tenda",
+      "planimetria progetto tavolo",
+      "dettaglio architettonico scala",
+      // Una in più delle altre liste: queste query sono strette, e se cadono
+      // tutte il ripiego generico è meglio di nessun video.
+      "città architettura",
+    ];
+  }
 
   if (ha("asta", "tribunale", "perizia", "giudiziari")) {
     return ["documenti firma scrivania", "architettura tribunale città", "città architettura"];
