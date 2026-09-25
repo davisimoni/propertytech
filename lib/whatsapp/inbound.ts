@@ -383,7 +383,7 @@ export async function handleInboundWhatsAppMessage(
     if (!verdetto.pertinente) {
       // Stesso marcatore degli altri due scarti: qui non c'e' un leadId perche'
       // la scheda non nasce, ed e' proprio il caso che si vuole poter contare.
-      console.info("[WA-INTENT-SKIP]", {
+      console.info("[WA-INTENT-SKIP] Fuori tema immobiliare", {
         organizationId: config.organizationId,
         motivo: verdetto.motivo,
         stato: "primo-contatto",
@@ -482,6 +482,12 @@ export async function handleInboundWhatsAppMessage(
 
     verdettoCache = await classifyIntent({
       message: message.text,
+      // Lo sapeva solo il primo contatto, e qui mancava: un vocale mandato in
+      // una chat gia' aperta veniva giudicato coi criteri dello scritto, cioe'
+      // proprio dove il registro parlato somiglia di piu' alla confidenza.
+      daVocale: message.daVocale,
+      // Solo chi ha detto cosa, mai quando: al filtro non arriva nessuna data,
+      // quindi non puo' giudicare un messaggio "vecchio" nemmeno volendo.
       recentContext: storico
         .slice(-4)
         .map((m) => `${m.sender === "bot" ? "Agenzia" : "Cliente"}: ${m.text}`),
@@ -648,7 +654,7 @@ export async function handleInboundWhatsAppMessage(
          */
         const sospeso = await recordOffTopicMessage(lead, message.text, verdettoChiuso.motivo);
 
-        console.info("[WA-INTENT-SKIP]", {
+        console.info("[WA-INTENT-SKIP] Fuori tema immobiliare", {
           leadId: lead.id,
           organizationId: config.organizationId,
           motivo: verdettoChiuso.motivo,
@@ -706,7 +712,7 @@ export async function handleInboundWhatsAppMessage(
          * taciuto e perche'. Due punti diversi la emettono — conversazione
          * aperta e pratica chiusa — e devono essere cercabili insieme.
          */
-        console.info("[WA-INTENT-SKIP]", {
+        console.info("[WA-INTENT-SKIP] Fuori tema immobiliare", {
           leadId: lead.id,
           organizationId: config.organizationId,
           motivo: verdetto.motivo,
