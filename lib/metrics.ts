@@ -26,22 +26,32 @@ export interface RoiMetrics {
 /**
  * Indicatori di ritorno per il titolare dell'agenzia.
  *
- * I lead qualificati sono contati dalla tabella Lead e non dal contatore
- * crediti: il credito viene consumato all'ingaggio, mentre qui interessa
- * quanti contatti sono arrivati davvero a qualificarsi.
+ * # Perché nessuno dei due numeri viene dai contatori crediti
+ *
+ * Perché i contatori sono la **dotazione del mese**, e si azzerano al rinnovo
+ * (`lib/billing/usage-period.ts`). Vanno benissimo per dire quanto resta da
+ * spendere, e malissimo per dire quanto ha reso il prodotto.
+ *
+ * I lead lo evitavano già, contando dalla tabella `Lead`. Le visure no:
+ * leggevano `docCreditsUsed`, cioè un numero che il primo giorno del ciclo
+ * torna a zero. Il primo del mese un'agenzia con duecento visure alle spalle
+ * apriva la Dashboard e trovava «Visure e atti letti: 0», e con essa crollava
+ * «Ore tornate in agenda», che somma i due. Il momento in cui si guarda quel
+ * riquadro è proprio quello in cui si decide se rinnovare.
+ *
+ * Ora entrambi contano righe che restano: i lead qualificati da `Lead`, le
+ * estrazioni da `AiGeneration`, dove ogni documento letto lascia la sua
+ * elaborazione in cronologia. Sono numeri di vita dell'agenzia, non del mese.
  */
 export async function getRoiMetrics(organizationId: string): Promise<RoiMetrics> {
-  const [qualifiedLeads, usage] = await Promise.all([
+  const [qualifiedLeads, documentsAnalyzed] = await Promise.all([
     prisma.lead.count({
       where: { organizationId, qualificationStatus: "QUALIFIED" },
     }),
-    prisma.usageTracker.findUnique({
-      where: { organizationId },
-      select: { docCreditsUsed: true },
+    prisma.aiGeneration.count({
+      where: { organizationId, kind: "DOCUMENT_EXTRACTION" },
     }),
   ]);
-
-  const documentsAnalyzed = usage?.docCreditsUsed ?? 0;
 
   const minutesSaved =
     qualifiedLeads * MINUTES_SAVED.perQualifiedLead +
