@@ -27,6 +27,24 @@ che il primo giorno di prova smentisce.
 Annunci sono del piano Enterprise: un post che li mostra senza dirlo porta in
 prova gente che non li troverà.
 
+# Come sono distribuiti i contenuti
+
+**Instagram e Facebook sono una piattaforma sola.** Le due pagine sono
+collegate e il crossposting è attivo: si pubblica da Instagram e il contenuto
+compare anche su Facebook. Nel piano compaiono quindi come "Instagram /
+Facebook", una riga per entrambe — un post caricato due volte sarebbe lavoro
+doppio e due copie nello stesso feed.
+
+**I Reel stanno lì, le immagini singole su LinkedIn.** Il video verticale è
+quello che i due algoritmi di Meta spingono, quindi ogni settimana un post a
+immagine singola diventa un Reel. Su LinkedIn resta l'immagine singola, dove
+un post statico con un testo lungo rende ancora meglio.
+
+**Un post su tre chiede un commento invece di un clic.** La CTA di conversione
+si alterna con una domanda diretta sul lavoro dell'agenzia: è il commento a
+far uscire un post dal giro di chi già ci segue. Sui post con la domanda il
+link non c'è, ed è voluto (`usa_cta_interazione`).
+
 # Uso
 
     python scripts/piano-editoriale.py [percorso.xlsx]
@@ -91,15 +109,69 @@ OBIETTIVI: dict[str, str] = {
     "acquisizione, al posto delle promesse che fanno tutti",
 }
 
+"""
+Domanda di chiusura per i post che puntano alla discussione.
+
+# Perché una per tema e non una per post
+
+Per la stessa ragione degli obiettivi qui sopra: scritte una alla volta,
+venti domande diventano venti modi di dire «e tu che ne pensi?», che è la
+formula che nessuno ha mai voglia di rispondere. Legate al tema, chiedono
+invece qualcosa che quella persona sa e noi no — come lavora la sua agenzia.
+
+# Perché chiedono un dato concreto
+
+Perché una domanda a cui si risponde con un numero o con un nome («la prima
+domanda che fai», «quante perizie») si risponde in cinque secondi dal
+telefono. Una che chiede un'opinione richiede di comporre un pensiero, e
+resta senza commenti.
+"""
+DOMANDE_INTERAZIONE: dict[str, str] = {
+    "Burocrazia": "Quante ore alla settimana ti mangia la parte burocratica, a occhio? "
+    "Scrivi il tuo numero nei commenti: fra un'agenzia e l'altra cambia più di quanto sembri.",
+    "Report Venditori": "Tu ogni quanto aggiorni il proprietario durante il mandato: dopo ogni "
+    "visita, una volta a settimana, o quando chiama lui? Raccontacelo nei commenti.",
+    "Qualifica Lead": "Qual è la prima domanda che fai a un contatto arrivato da un portale? "
+    "Scrivila nei commenti: è quella che divide chi perde il pomeriggio da chi fissa un "
+    "appuntamento.",
+    "Due Diligence Aste": "Quando apri una perizia, qual è la prima cosa che vai a cercare? "
+    "Scrivila nei commenti: è interessante vedere quanto cambia da chi le fa da anni.",
+    "Acquisizione": "Cosa porti oggi in un appuntamento di acquisizione per farti scegliere al "
+    "posto dell'agenzia qui accanto? Diccelo nei commenti.",
+}
+
+
+def usa_cta_interazione(indice: int) -> bool:
+    """
+    Vero per i post che chiudono con una domanda invece che con il link.
+
+    Uno ogni tre, calcolato e non deciso a mano post per post: un elenco
+    scritto a mano si sbilancia al primo ritocco del piano, e la regola —
+    alternare, senza mai due domande di fila — sparisce dentro i dati.
+
+    `indice % 3 == 2` fa cadere le domande sui post 2, 5, 8, 11, 14, 17 e 20,
+    cioè sette su venti e almeno una per ciascuno dei cinque temi. Partire da 2
+    e non da 3 serve proprio a questo: partendo da 3, i report ai venditori non
+    avrebbero mai una domanda, perché il tema dura solo due uscite.
+    """
+    return indice % 3 == 2
+
+
 # Proporzioni per formato: un Reel verticale, un carosello in verticale corto,
-# l'immagine singola quadrata dove la timeline è larga e 4:5 su Instagram, che
-# premia l'altezza.
+# l'immagine singola quadrata dove la timeline è larga e 4:5 dove si pubblica
+# passando da Instagram, che premia l'altezza.
+#
+# `in` e non `==` perché la piattaforma ora è "Instagram / Facebook": con il
+# crossposting attivo si pubblica una volta sola da Instagram e il contenuto
+# compare anche sulla pagina Facebook, quindi è il formato di Instagram a
+# comandare. Un confronto esatto avrebbe fatto tornare tutto a 1:1 senza
+# dirlo a nessuno.
 def proporzioni(formato: str, piattaforma: str) -> str:
     if formato == "Reel":
         return "9:16 verticale"
     if formato == "Giostra/Carosello":
         return "4:5 verticale"
-    return "4:5 verticale" if piattaforma == "Instagram" else "1:1 quadrato"
+    return "4:5 verticale" if "Instagram" in piattaforma else "1:1 quadrato"
 
 BLU = "0B3C6E"
 GHIACCIO = "EAF1F8"
@@ -157,7 +229,7 @@ _VOCI: list[tuple[str, ...]] = [
     ),
     (
         "13:00",
-        "Instagram",
+        "Instagram / Facebook",
         "Reel",
         "Report Venditori",
         "Esci dalla visita. Il proprietario ti chiama fra dieci minuti. Cosa gli dici?",
@@ -183,7 +255,7 @@ _VOCI: list[tuple[str, ...]] = [
     ),
     (
         "18:30",
-        "Facebook",
+        "Instagram / Facebook",
         "Giostra/Carosello",
         "Burocrazia",
         "Foglio, particella, subalterno. Tre dati, venti minuti, zero valore aggiunto.",
@@ -237,8 +309,8 @@ _VOCI: list[tuple[str, ...]] = [
     ),
     (
         "20:30",
-        "Instagram",
-        "Immagine Singola",
+        "Instagram / Facebook",
+        "Reel",
         "Burocrazia",
         "Se un documento manca, lo scopri adesso o davanti al notaio.",
         "Le cose che fanno saltare un rogito sono sempre le stesse. 🛑\n\n"
@@ -252,15 +324,15 @@ _VOCI: list[tuple[str, ...]] = [
         "Non certifica nulla e non sostituisce tecnico e notaio: serve a non arrivare al rogito "
         "con una sorpresa. ⚠️\n\n"
         "👉 propertytechsolutions.net",
-        "Professional stock photograph, 4:5 portrait. A close-up of an official-looking paper "
-        "checklist on a desk with a pen resting on it, some lines ticked, beside a small stack of "
-        "property documents and a set of house keys. Top-down flat lay, natural daylight, muted "
-        "navy and cream palette, crisp focus. Realistic editorial photography. No readable text on "
-        "the paper, no screens, no software interfaces, no logos. Generous empty space at the top "
-        "for a headline overlay.",
+        "Professional stock video, 9:16 vertical, 8-12 seconds. Top-down shot of a hand "
+        "ticking items on a paper checklist with a pen, then sliding a small stack of property "
+        "documents and a set of house keys into frame. Slow deliberate movements, natural "
+        "daylight, muted navy and cream palette, shallow depth of field. Realistic editorial "
+        "footage, steady camera. No readable text on the paper, no screens, no software "
+        "interfaces, no logos. Keep the top third of the frame clear for a headline overlay.",
         "#rogito #duediligence #agenziaimmobiliare #documenti #proptech #immobiliare #notaio",
         "Sapere quali documenti mancano prima di raccogliere la proposta, invece di scoprirlo davanti al notaio con la proposta già firmata",
-        "una checklist cartacea con penna appoggiata, accanto a documenti di proprietà e un mazzo di chiavi, ripresa dall'alto",
+        "una mano che spunta una checklist cartacea e fa scorrere in campo documenti di proprietà e un mazzo di chiavi, ripresa dall'alto",
     ),
     # ───────────────────────── Settimana 2: qualifica lead su WhatsApp
     (
@@ -289,7 +361,7 @@ _VOCI: list[tuple[str, ...]] = [
     ),
     (
         "13:00",
-        "Instagram",
+        "Instagram / Facebook",
         "Reel",
         "Qualifica Lead",
         "Nove chiamate su dieci sono curiosi. La decima è quella che paga l'anno.",
@@ -314,7 +386,7 @@ _VOCI: list[tuple[str, ...]] = [
     ),
     (
         "18:30",
-        "Facebook",
+        "Instagram / Facebook",
         "Immagine Singola",
         "Qualifica Lead",
         "Il sabato mattina è la tua risorsa più scarsa. Non regalarla ai curiosi.",
@@ -366,8 +438,8 @@ _VOCI: list[tuple[str, ...]] = [
     ),
     (
         "20:30",
-        "Instagram",
-        "Immagine Singola",
+        "Instagram / Facebook",
+        "Reel",
         "Qualifica Lead",
         "I tuoi dati restano tuoi. Non devi cambiare gestionale.",
         "La prima obiezione che sentiamo è sempre questa: \"dovrei migrare tutto?\". No. 🔌\n\n"
@@ -378,14 +450,15 @@ _VOCI: list[tuple[str, ...]] = [
         "• database e server in Unione Europea, trattamento conforme al GDPR\n\n"
         "Nessuna migrazione, nessun cambio di abitudini. Due minuti e sei operativo. ⚙️\n\n"
         "👉 propertytechsolutions.net",
-        "Professional stock photograph, 4:5 portrait. Close-up of two hands connecting a cable "
-        "into a modern network switch in a clean office environment, or alternatively a tidy desk "
-        "with a smartphone and a paper notebook side by side. Cool blue and grey palette, crisp "
-        "lighting, minimal composition. Realistic corporate photography. No text, no screen "
-        "content, no software interfaces, no logos. Generous negative space for a headline.",
+        "Professional stock video, 9:16 vertical, 8-12 seconds. A hand places a smartphone face "
+        "down on a tidy desk beside a paper notebook, then withdraws, followed by a slow "
+        "push-in on the two objects side by side. Cool blue and grey palette, crisp even "
+        "lighting, minimal composition. Realistic corporate footage, steady camera. No text, no "
+        "screen content, no software interfaces, no logos. Generous negative space for a "
+        "headline.",
         "#gdpr #gestionaleimmobiliare #integrazione #proptech #immobiliare #privacy #agenziaimmobiliare",
         "Aggiungere l'automazione senza migrare il gestionale e senza cambiare abitudini, con i dati che restano in Unione Europea",
-        "una scrivania ordinata con uno smartphone accanto a un taccuino di carta, luce fredda e composizione minimale",
+        "una mano che appoggia uno smartphone a faccia in giù accanto a un taccuino di carta, su una scrivania ordinata, luce fredda",
     ),
     # ───────────────────────── Settimana 3: aste e due diligence
     (
@@ -416,7 +489,7 @@ _VOCI: list[tuple[str, ...]] = [
     ),
     (
         "13:00",
-        "Instagram",
+        "Instagram / Facebook",
         "Reel",
         "Due Diligence Aste",
         "L'immobile all'asta costa poco per un motivo. Il punto è capire quale.",
@@ -443,7 +516,7 @@ _VOCI: list[tuple[str, ...]] = [
     ),
     (
         "18:30",
-        "Facebook",
+        "Instagram / Facebook",
         "Giostra/Carosello",
         "Due Diligence Aste",
         "Quattro voci che spostano il margine di un'operazione all'asta.",
@@ -493,8 +566,8 @@ _VOCI: list[tuple[str, ...]] = [
     ),
     (
         "20:30",
-        "Instagram",
-        "Immagine Singola",
+        "Instagram / Facebook",
+        "Reel",
         "Due Diligence Aste",
         "Il lotto giusto spesso ce l'hai già in archivio. Solo che non lo sai.",
         "Ogni agenzia ha una lista di clienti che cercavano qualcosa di preciso. 🗂️\n\n"
@@ -506,14 +579,15 @@ _VOCI: list[tuple[str, ...]] = [
         "• prepara il messaggio da mandare su WhatsApp\n\n"
         "Il lavoro di acquisizione più economico è quello sui clienti che hai già. ♻️\n\n"
         "👉 propertytechsolutions.net",
-        "Professional stock photograph, 4:5 portrait. A wall of old wooden filing drawers with one "
-        "drawer slightly open, warm side lighting, shallow depth of field on the open drawer. "
-        "Nobody in frame. Muted warm browns and navy shadows, editorial still-life photography. No "
-        "text, no labels readable, no screens, no software interfaces, no logos. Generous plain "
-        "space at the top for a headline overlay.",
+        "Professional stock video, 9:16 vertical, 8-12 seconds. Slow lateral dolly along a wall "
+        "of old wooden filing drawers, ending as one drawer slides quietly open. Warm side "
+        "lighting, shallow depth of field on the open drawer. Nobody in frame. Muted warm "
+        "browns and navy shadows, editorial footage, smooth continuous motion. No text, no "
+        "labels readable, no screens, no software interfaces, no logos. Keep the top of the "
+        "frame plain for a headline overlay.",
         "#asteimmobiliari #matchmaking #clienti #proptech #immobiliare #portafoglioimmobili",
         "Scoprire che il cliente giusto per quel lotto è già nell'archivio dell'agenzia, perché l'acquisizione più economica è quella sui clienti che si hanno già",
-        "una parete di vecchie cassettiere in legno con un cassetto socchiuso, luce laterale calda",
+        "una carrellata lenta lungo una parete di vecchie cassettiere in legno, fino a un cassetto che si apre, luce laterale calda",
     ),
     # ───────────────────────── Settimana 4: acquisizione e incarichi
     (
@@ -542,7 +616,7 @@ _VOCI: list[tuple[str, ...]] = [
     ),
     (
         "13:00",
-        "Instagram",
+        "Instagram / Facebook",
         "Reel",
         "Acquisizione",
         "Il proprietario sceglie l'agenzia che gli sembra più attrezzata. Non la più simpatica.",
@@ -568,7 +642,7 @@ _VOCI: list[tuple[str, ...]] = [
     ),
     (
         "18:30",
-        "Facebook",
+        "Instagram / Facebook",
         "Immagine Singola",
         "Acquisizione",
         "Quattro righe sull'immobile. Annuncio, post e script del Reel pronti.",
@@ -620,8 +694,8 @@ _VOCI: list[tuple[str, ...]] = [
     ),
     (
         "20:30",
-        "Instagram",
-        "Immagine Singola",
+        "Instagram / Facebook",
+        "Reel",
         "Acquisizione",
         "Due minuti per attivarlo. Nessuna carta di credito. Nessuna migrazione.",
         "Se sei arrivato fin qui, l'unica domanda che resta è quanto costa provarlo. 🎁\n\n"
@@ -633,15 +707,15 @@ _VOCI: list[tuple[str, ...]] = [
         "• verificare i documenti di un immobile con la checklist\n\n"
         "Database e server in Unione Europea, trattamento conforme al GDPR. 🇪🇺\n\n"
         "👉 propertytechsolutions.net",
-        "Professional stock photograph, 4:5 portrait. A person's hands holding a smartphone in a "
-        "bright modern office, screen angled away from the camera so no interface is visible, a cup "
-        "of coffee and a notebook on the desk beside them. Warm morning light, shallow depth of "
-        "field, optimistic mood. Realistic corporate photography. No text, no visible screen "
-        "content, no software interfaces, no logos. Leave the top third plain for a headline "
-        "overlay.",
+        "Professional stock video, 9:16 vertical, 8-12 seconds. A person picks up a smartphone "
+        "from a desk in a bright modern office and settles back into the chair, the screen "
+        "always angled away from the camera so no interface is ever visible, a cup of coffee "
+        "and a notebook beside them. Warm morning light, shallow depth of field, optimistic and "
+        "unhurried. Realistic corporate footage. No text, no visible screen content, no "
+        "software interfaces, no logos. Leave the top third of the frame plain for a headline.",
         "#provagratuita #proptech #agenziaimmobiliare #immobiliare #intelligenzaartificiale #gdpr #digitalizzazione",
         "Provare il software senza carta di credito, senza migrare niente e con i dati in Unione Europea",
-        "mani che tengono uno smartphone in un ufficio luminoso, con una tazza di caffè e un taccuino sulla scrivania, luce del mattino",
+        "una persona che prende uno smartphone dalla scrivania in un ufficio luminoso, con una tazza di caffè e un taccuino accanto, luce del mattino",
     ),
 ]
 
@@ -657,7 +731,32 @@ si scoprirebbe leggendo il file finito.
 POSTS: list[Post] = [Post(*voce) for voce in _VOCI]
 
 
-def prompt_definitivo(post: Post) -> str:
+def copy_con_cta(post: Post, indice: int) -> str:
+    """
+    Il copy con la chiusura giusta per quel post.
+
+    La sostituzione avviene qui e non dentro `_VOCI` perché la regola è una
+    sola e deve restare in un punto solo: scritta venti volte nei dati, basta
+    spostare un post di un giorno perché il ritmo delle CTA salti senza che
+    nessuno se ne accorga.
+
+    La riga di conversione viene **sostituita**, non affiancata: un post che
+    chiede un parere e subito sotto mette il link chiede due cose diverse, e
+    di solito non ne ottiene nessuna.
+    """
+    if not usa_cta_interazione(indice):
+        return post.copy
+
+    righe = post.copy.rstrip().split("\n")
+    if righe and righe[-1].lstrip().startswith("👉"):
+        righe.pop()
+    # L'emoji si aggiunge qui e non nel dizionario: nel copy stacca la domanda
+    # dal testo e si vede nello scroll, dentro l'istruzione a Predis sarebbe
+    # solo un carattere in piu' da interpretare.
+    return "\n".join(righe).rstrip() + "\n\n💬 " + DOMANDE_INTERAZIONE[post.tema]
+
+
+def prompt_definitivo(post: Post, indice: int) -> str:
     """
     Il testo da incollare in "Crea il tuo prossimo post" di Predis.ai.
 
@@ -678,6 +777,20 @@ def prompt_definitivo(post: Post) -> str:
     essere impossibile da fraintendere.
     """
     rapporto = proporzioni(post.formato, post.piattaforma)
+
+    # La chiusura e' l'unica parte del prompt che cambia per posizione e non
+    # per contenuto: un post su tre deve far parlare la gente invece di
+    # portarla sul sito, e a Predis va detto esplicitamente di non mettere il
+    # link, altrimenti lo aggiunge da se' e la domanda perde forza.
+    chiusura = (
+        "Chiudi con questa domanda rivolta ai colleghi, riportata alla lettera: "
+        f"«{DOMANDE_INTERAZIONE[post.tema]}». Non mettere link e non invitare a provare il "
+        "prodotto: questo contenuto serve a far parlare le persone, non a portarle sul sito."
+        if usa_cta_interazione(indice)
+        else "Chiudi invitando a seguire la pagina per altre strategie operative e a provare la "
+        "demo gratuita su propertytechsolutions.net, senza carta di credito."
+    )
+
     tipo = {
         "Reel": "video verticale breve (Reel) di 8-12 secondi",
         "Giostra/Carosello": f"carosello di 4 schede",
@@ -696,7 +809,7 @@ VIETATO IN MODO ASSOLUTO: screenshot di interfacce software, mockup di applicazi
 Testo sull'immagine in italiano, al massimo {MAX_PAROLE_SU_IMMAGINE} parole, con ampio spazio libero per il titolo.
 
 4) TONO E CALL TO ACTION
-Tono autorevole, professionale e diretto, da collega esperto che parla a un altro professionista: mai pubblicitario, mai entusiasta a vuoto. Dai del tu. Chiudi invitando a seguire la pagina per altre strategie operative e a provare la demo gratuita su propertytechsolutions.net, senza carta di credito."""
+Tono autorevole, professionale e diretto, da collega esperto che parla a un altro professionista: mai pubblicitario, mai entusiasta a vuoto. Dai del tu. {chiusura}"""
 
 
 def giorni_lavorativi(inizio: datetime.date, quanti: int) -> list[datetime.date]:
@@ -758,7 +871,10 @@ def scrivi_piano(destinazione: Path) -> None:
     date = giorni_lavorativi(INIZIO, len(POSTS))
 
     for riga, (giorno, post) in enumerate(zip(date, POSTS), start=2):
-        definitivo = prompt_definitivo(post)
+        # L'indice del post nel piano, non nel foglio: e' il ritmo delle uscite
+        # a decidere quando si chiede un commento invece di un clic.
+        indice = riga - 1
+        definitivo = prompt_definitivo(post, indice)
         valori = [
             giorno,
             post.ora,
@@ -766,7 +882,7 @@ def scrivi_piano(destinazione: Path) -> None:
             post.formato,
             post.tema,
             post.hook,
-            post.copy,
+            copy_con_cta(post, indice),
             post.prompt_visuale,
             definitivo,
             post.hashtag,
@@ -829,6 +945,20 @@ def scrivi_istruzioni(wb: Workbook, font_titolo: Font, fill_titolo: PatternFill,
         ("Periodo", f"Quattro settimane, cinque uscite a settimana (lunedì-venerdì), dal {INIZIO.strftime('%d/%m/%Y')}."),
         ("Rotazione dei temi", "Settimana 1 burocrazia e report vocali · Settimana 2 qualifica lead su WhatsApp · "
                               "Settimana 3 aste e due diligence · Settimana 4 acquisizione e incarichi."),
+        ("Instagram e Facebook", "Una riga sola per due pagine: la pagina Instagram è collegata a "
+                                 "quella Facebook e il crossposting è attivo, quindi si pubblica da "
+                                 "Instagram e il contenuto compare anche su Facebook. I post segnati "
+                                 "«Instagram / Facebook» non vanno ricaricati a mano sulla seconda "
+                                 "pagina: sarebbe lavoro doppio e due post identici nello stesso feed."),
+        ("Perché tanti Reel", "Su Instagram e Facebook il video verticale è il formato che i due "
+                              "algoritmi spingono di più, quindi ogni settimana c'è un Reel in più al "
+                              "posto di un'immagine singola. Le immagini singole restano su LinkedIn, "
+                              "dove un post statico con un testo lungo rende ancora meglio di un video."),
+        ("Le due call to action", "Un post su tre chiude con una domanda ai colleghi invece che con il "
+                                  "link: sono i post 2, 5, 8, 11, 14, 17 e 20. Servono a far commentare, "
+                                  "ed è il commento a far girare il post a chi non ci segue. Sui post con "
+                                  "la domanda il link NON va aggiunto: chiedere un parere e un clic "
+                                  "insieme di solito non ottiene né l'uno né l'altro."),
         ("Colonna Copy Completo", "Testo pronto da incollare. Gli a capo sono già quelli giusti per il post: "
                                   "copia la cella, non riscriverla."),
         ("Colonna Prompt Definitivo", "È quella da usare: si incolla intera nella schermata «Crea il tuo prossimo "
