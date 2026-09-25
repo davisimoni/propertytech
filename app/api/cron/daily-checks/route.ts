@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ritentaConsumiNonInviati } from "@/lib/billing/overage";
+import { verificaAncoreFatturazione } from "@/lib/billing/usage-period";
 import { isCronAuthorized } from "@/lib/cron/auth";
 import { riprendiNewsletterInSospeso } from "@/lib/newsletter/send";
 import { sendDueReminders } from "@/lib/whatsapp/reminders";
@@ -69,6 +70,17 @@ async function runChecks() {
   } catch (error) {
     console.error("[cron/daily-checks] Ripresa newsletter non riuscita", error);
     esito.newsletter = { errore: true };
+  }
+
+  // Sola lettura, e per questo sta in fondo: non cambia niente, guarda solo
+  // che l'impalcatura dei crediti sia a posto. Un'ancora mancante non rompe
+  // nulla subito — il primo accesso ne inventa una — ed e' esattamente il
+  // tipo di guasto che senza una riga nei log non si scopre mai.
+  try {
+    esito.ancoreFatturazione = await verificaAncoreFatturazione();
+  } catch (error) {
+    console.error("[cron/daily-checks] Verifica ancore non riuscita", error);
+    esito.ancoreFatturazione = { errore: true };
   }
 
   console.info("[DAILY-CHECKS]", esito);

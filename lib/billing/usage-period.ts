@@ -194,6 +194,94 @@ export async function assicuraPeriodoCorrente(
   return "invariato";
 }
 
+/** Esito della verifica quotidiana delle ancore. */
+export interface EsitoVerificaAncore {
+  /** Agenzie a pagamento esaminate. */
+  controllate: number;
+  /** Agenzie senza ancora: il mese di consumo non è allineato alla fatturazione. */
+  senzaAncora: number;
+  /** Ancora nel futuro: il periodo non scatterebbe mai. */
+  ancoraNelFuturo: number;
+  /** Nessuna riga contatori: il primo consumo fallirebbe. */
+  senzaContatore: number;
+}
+
+/**
+ * Rete di sicurezza quotidiana sulle ancore di fatturazione. **Non scrive.**
+ *
+ * # Cosa cerca, e cosa non è un problema
+ *
+ * Un `periodStart` vecchio **non** è un'anomalia: è il funzionamento normale.
+ * I contatori si chiudono al primo accesso, quindi un'agenzia che non usa la
+ * piattaforma da tre settimane ha legittimamente il periodo di tre settimane
+ * fa. Segnalarlo riempirebbe i log di righe che non chiedono niente a
+ * nessuno, ed è il modo più rapido per far smettere di leggerli.
+ *
+ * Le tre condizioni qui sotto invece non si sistemano da sole:
+ *
+ * - **Ancora mancante** su un piano a pagamento. Il primo accesso la imposta
+ *   ad "adesso", quindi i crediti ripartono lo stesso — ma da un giorno
+ *   qualsiasi invece che dalla data di rinnovo. L'agenzia paga il 3 e riceve
+ *   la dotazione il 17: non si accorge di niente finché non conta, e quando
+ *   conta ha ragione lei. Va scritta dal webhook al cambio piano o dallo
+ *   script dei piani manuali: se manca, uno dei due non è passato.
+ * - **Ancora nel futuro**, che `inizioPeriodo` non può che far scattare
+ *   all'indietro: sintomo di una data scritta male, non di un uso lecito.
+ * - **Contatori assenti**: `incrementUsage` fa una `update` su quella riga, e
+ *   senza riga il primo consumo fallisce. Meglio saperlo la notte prima.
+ *
+ * Volutamente di sola lettura. Correggere in automatico significherebbe
+ * scrivere un'ancora inventata sopra un dato che dovrebbe venire da Stripe, e
+ * l'errore diventerebbe invisibile proprio mentre lo si nasconde.
+ */
+export async function verificaAncoreFatturazione(
+  adesso: Date = new Date()
+): Promise<EsitoVerificaAncore> {
+  const agenzie = await prisma.organization.findMany({
+    where: { subscription: { is: { status: { not: "trial" } } } },
+    select: {
+      id: true,
+      agencyName: true,
+      subscription: { select: { status: true, billingCycleAnchor: true } },
+      usageTracker: { select: { periodStart: true } },
+    },
+  });
+
+  const esito: EsitoVerificaAncore = {
+    controllate: agenzie.length,
+    senzaAncora: 0,
+    ancoraNelFuturo: 0,
+    senzaContatore: 0,
+  };
+
+  for (const agenzia of agenzie) {
+    const ancora = agenzia.subscription?.billingCycleAnchor ?? null;
+    const comune = {
+      organizationId: agenzia.id,
+      agenzia: agenzia.agencyName,
+      piano: agenzia.subscription?.status,
+    };
+
+    if (!ancora) {
+      esito.senzaAncora++;
+      console.warn("[BILLING-ANCHOR] Piano a pagamento senza ancora di fatturazione", comune);
+    } else if (ancora.getTime() > adesso.getTime()) {
+      esito.ancoraNelFuturo++;
+      console.warn("[BILLING-ANCHOR] Ancora di fatturazione nel futuro", {
+        ...comune,
+        ancora: ancora.toISOString(),
+      });
+    }
+
+    if (!agenzia.usageTracker) {
+      esito.senzaContatore++;
+      console.warn("[BILLING-ANCHOR] Piano a pagamento senza riga contatori", comune);
+    }
+  }
+
+  return esito;
+}
+
 /**
  * Scritture per un cambio di piano: nuovo periodo e bonus consumato.
  *
