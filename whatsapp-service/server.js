@@ -1,6 +1,6 @@
 import express from "express";
 import { timingSafeEqual } from "node:crypto";
-import { rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import QRCode from "qrcode";
 import { describeSender, resolveSendJid } from "./jid.js";
 import {
@@ -285,6 +285,202 @@ function retryDelay(sessionId) {
   return Math.min(3000 * 2 ** (tentativo - 1), MAX_RETRY_DELAY_MS);
 }
 
+/**
+ * Ogni quanto si controlla lo stato delle sessioni.
+ *
+ * Un minuto: abbastanza spesso da riagganciare prima che l'agenzia se ne
+ * accorga, abbastanza raro da non pesare su un servizio che tiene aperti N
+ * socket.
+ *
+ * Regolabile da `HEALTH_INTERVAL_MS` senza toccare il codice: una soglia che
+ * si tara solo con un deploy, in pratica non si tara.
+ */
+const INTERVALLO_SORVEGLIANZA_MS = Number(process.env.HEALTH_INTERVAL_MS) || 60_000;
+
+/**
+ * Da quanto una sessione deve essere giu' prima di chiamare qualcuno.
+ *
+ * Cinque minuti, perche' sotto quella soglia e' quasi sempre il backoff che
+ * sta facendo il suo lavoro: una caduta passeggera si risolve in pochi
+ * secondi, e un avviso a ogni singhiozzo insegna a ignorare gli avvisi.
+ */
+const SOGLIA_ALLERTA_MS = Number(process.env.HEALTH_ALERT_MS) || 5 * 60_000;
+
+/**
+ * Le sessioni che **dovrebbero** essere collegate.
+ *
+ * Diversa da `sessions`, che contiene solo i socket vivi: quella mappa viene
+ * svuotata a ogni caduta, quindi da sola non permette di accorgersi che una
+ * sessione manca. Qui invece la voce resta finche' l'agenzia non si stacca
+ * davvero (logout dal telefono o distacco dalla piattaforma), ed e' cio' che
+ * rende possibile sia il riaggancio sia l'allerta.
+ *
+ * sessionId -> { giuDa, allertata, prossimoTentativo }
+ */
+const sessioniNote = new Map();
+
+function segnaNota(sessionId) {
+  if (!sessioniNote.has(sessionId)) {
+    sessioniNote.set(sessionId, { giuDa: null, allertata: false, prossimoTentativo: 0 });
+  }
+}
+
+/**
+ * Registra che un tentativo di riconnessione e' gia' in calendario.
+ *
+ * Serve a tenere separati i due meccanismi. Il backoff sulla
+ * `connection.update` e' quello che comanda: sa da quante volte si sta
+ * riprovando e allunga l'attesa di conseguenza, che davanti a un numero
+ * bannato e' l'unica cosa sensata da fare. La sorveglianza e' una rete, e una
+ * rete non deve tirare la corda: senza questa informazione richiamava
+ * `startSession` a ogni giro, annullando l'attesa progressiva proprio nel
+ * caso in cui serve di piu'.
+ */
+function programmaTentativo(sessionId, fraMs) {
+  segnaNota(sessionId);
+  sessioniNote.get(sessionId).prossimoTentativo = Date.now() + fraMs;
+}
+
+function dimentica(sessionId) {
+  sessioniNote.delete(sessionId);
+}
+
+/**
+ * Riapre all'avvio le sessioni gia' abbinate.
+ *
+ * # Il guasto che chiude
+ *
+ * Le credenziali vivono sul volume e sopravvivono ai riavvii, ma **nessuno
+ * riapriva i socket**: dopo ogni deploy di Render — o dopo un riavvio per
+ * qualunque motivo — il WhatsApp di ogni agenzia restava muto finche'
+ * qualcuno non riapriva la pagina e premeva "Connetti". E nessuno lo faceva,
+ * perche' in piattaforma la sessione risultava ancora collegata: l'evento di
+ * disconnessione non era mai partito, il processo era semplicemente morto
+ * insieme al socket.
+ *
+ * Il sintomo e' quello piu' difficile da attribuire: "l'assistente ha
+ * smesso di rispondere e non abbiamo toccato niente".
+ *
+ * # Perche' scaglionate
+ *
+ * Aprire venti socket nello stesso istante significa venti handshake
+ * simultanei verso WhatsApp da uno stesso indirizzo: e' il modo piu' rapido
+ * per farsi limitare. Due secondi di distanza costano quaranta secondi
+ * all'avvio e non li nota nessuno.
+ *
+ * # Perche' solo quelle registrate
+ *
+ * Una cartella puo' contenere i resti di un abbinamento mai completato: un
+ * `creds.json` senza `me`, lasciato da chi ha aperto il QR e non l'ha
+ * scansionato. Riaprirla non collegherebbe niente e genererebbe QR che
+ * nessuno guarda.
+ */
+async function ripristinaSessioni() {
+  let voci;
+  try {
+    voci = await readdir(SESSIONS_DIR, { withFileTypes: true });
+  } catch {
+    console.log("nessuna sessione da ripristinare (cartella assente)");
+    return;
+  }
+
+  const candidate = voci.filter((v) => v.isDirectory()).map((v) => v.name);
+  const daRiaprire = [];
+
+  for (const sessionId of candidate) {
+    try {
+      const creds = JSON.parse(
+        await readFile(`${SESSIONS_DIR}/${sessionId}/creds.json`, "utf8")
+      );
+      if (creds?.me?.id) daRiaprire.push(sessionId);
+      else console.log(`[${sessionId}] abbinamento mai completato: non la riapro`);
+    } catch {
+      // Nessun creds.json, o illeggibile: non c'e' una sessione da riprendere.
+      console.log(`[${sessionId}] credenziali assenti o illeggibili: non la riapro`);
+    }
+  }
+
+  console.log(
+    `ripristino sessioni: ${daRiaprire.length} da riaprire su ${candidate.length} cartelle`
+  );
+
+  for (const sessionId of daRiaprire) {
+    segnaNota(sessionId);
+    try {
+      await startSession(sessionId);
+      console.log(`[${sessionId}] riaperta all'avvio`);
+    } catch (error) {
+      // Una sessione che non riparte non deve impedire alle altre di ripartire.
+      console.error(`[${sessionId}] riapertura non riuscita:`, error?.message ?? error);
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+}
+
+/**
+ * Controllo periodico: riaggancia in silenzio, e chiama aiuto se non ci riesce.
+ *
+ * Il backoff sulla `connection.update` copre le cadute che WhatsApp annuncia.
+ * Questo giro copre tutto il resto — un socket morto senza evento, un
+ * `setTimeout` di riconnessione perso in un riavvio, una sessione che non e'
+ * mai ripartita — cioe' i casi in cui nessuno riproverebbe mai piu'.
+ */
+function avviaSorveglianza() {
+  setInterval(async () => {
+    for (const [sessionId, stato] of sessioniNote) {
+      const entry = sessions.get(sessionId);
+
+      if (entry?.status === "connected") {
+        if (stato.giuDa) console.log(`[${sessionId}] tornata su`);
+        stato.giuDa = null;
+        stato.allertata = false;
+        stato.prossimoTentativo = 0;
+        continue;
+      }
+
+      stato.giuDa ??= Date.now();
+      const giuDaMs = Date.now() - stato.giuDa;
+
+      /*
+       * Riaggancio silenzioso, ma solo quando non ci pensa gia' qualcun altro.
+       *
+       * Due condizioni, per due guasti diversi. `sock`/`starting` esclude che
+       * ci sia un socket vivo o in apertura: senza, si aprirebbero due socket
+       * sulla stessa sessione, che significa messaggi consegnati due volte e
+       * credenziali che si sovrascrivono. `prossimoTentativo` esclude che il
+       * backoff abbia gia' fissato un appuntamento: intervenire prima
+       * annullerebbe l'attesa progressiva, e su un numero bannato tornare a
+       * bussare ogni minuto e' il modo migliore per peggiorare le cose.
+       *
+       * Quello che resta — nessun socket, nessun tentativo in calendario — e'
+       * esattamente il caso che prima non riprovava mai piu': un socket morto
+       * senza evento di chiusura, o un timer perso in un riavvio.
+       */
+      const attesaScaduta = Date.now() >= (stato.prossimoTentativo ?? 0);
+
+      if (!entry?.sock && !entry?.starting && attesaScaduta) {
+        console.log(`[${sessionId}] non collegata da ${Math.round(giuDaMs / 1000)}s: riprovo`);
+        // Anche il tentativo della sorveglianza entra in calendario, con la
+        // stessa attesa progressiva: due reti che riprovano a ritmo pieno
+        // sarebbero peggio di nessuna rete.
+        programmaTentativo(sessionId, retryDelay(sessionId));
+        startSession(sessionId).catch((error) =>
+          console.error(`[${sessionId}] riaggancio non riuscito:`, error?.message ?? error)
+        );
+      }
+
+      // Una sola allerta per episodio: si riarma quando la sessione torna su.
+      if (giuDaMs >= SOGLIA_ALLERTA_MS && !stato.allertata) {
+        stato.allertata = true;
+        console.error(
+          `[${sessionId}] NON RIAGGANCIATA da ${Math.round(giuDaMs / 60_000)} minuti: avviso la piattaforma`
+        );
+        await notify({ sessionId, event: "unhealthy", unhealthyForMs: giuDaMs });
+      }
+    }
+  }, INTERVALLO_SORVEGLIANZA_MS);
+}
+
 async function startSession(sessionId) {
   const existing = sessions.get(sessionId);
   // `starting` e non solo `sock`: fra la creazione della voce e
@@ -410,6 +606,9 @@ async function startSession(sessionId) {
   });
   entry.sock = sock;
   entry.starting = false;
+  // Da qui in poi questa sessione "dovrebbe" essere collegata: se cade, e'
+  // la sorveglianza a doversene occupare.
+  segnaNota(sessionId);
 
   sock.ev.on("creds.update", saveCreds);
 
@@ -475,6 +674,8 @@ async function startSession(sessionId) {
       if (code !== DisconnectReason.loggedOut) {
         sessions.delete(sessionId);
         const attesa = retryDelay(sessionId);
+        // Dichiarato alla sorveglianza, che altrimenti riproverebbe prima.
+        programmaTentativo(sessionId, attesa);
         console.log(`[${sessionId}] riprovo fra ${Math.round(attesa / 1000)}s`);
         setTimeout(() => startSession(sessionId), attesa);
       } else {
@@ -487,6 +688,7 @@ async function startSession(sessionId) {
         // E le credenziali vanno via dal disco. Da qui in poi WhatsApp non
         // riconosce piu' questa sessione: tenerle significa ripresentarle al
         // prossimo abbinamento e farlo morire in init queries.
+        dimentica(sessionId);
         await eliminaCredenziali(sessionId, "logout dal telefono");
       }
     }
@@ -822,6 +1024,7 @@ app.delete("/sessions/:id", async (req, res) => {
   // Distacco voluto dall'agenzia: le credenziali non servono piu' e, se
   // restassero, il prossimo abbinamento ripartirebbe da una sessione che
   // WhatsApp ha gia' chiuso.
+  dimentica(req.params.id);
   await eliminaCredenziali(req.params.id, "distacco richiesto dalla piattaforma");
 
   res.json({ ok: true });
@@ -854,7 +1057,7 @@ process.on("uncaughtException", (errore) => {
   process.exit(1);
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`whatsapp-service in ascolto sulla porta ${PORT}`);
   console.log(`sessioni in ${SESSIONS_DIR}`);
   if (!WEBHOOK) {
@@ -868,6 +1071,17 @@ app.listen(PORT, () => {
   } else {
     console.log(`webhook di destinazione: ${WEBHOOK}`);
   }
+
+  // Prima si riaprono le sessioni gia' abbinate, poi si accende il giro di
+  // sorveglianza: al contrario, il primo passaggio le troverebbe tutte giu'
+  // e proverebbe a riaprirle in parallelo, che e' proprio cio' che il
+  // ripristino scaglionato evita.
+  await ripristinaSessioni();
+  avviaSorveglianza();
+  console.log(
+    `sorveglianza attiva: controllo ogni ${INTERVALLO_SORVEGLIANZA_MS / 1000}s, ` +
+      `allerta dopo ${SOGLIA_ALLERTA_MS / 60_000} minuti di sessione giu'`
+  );
 });
 
 /**

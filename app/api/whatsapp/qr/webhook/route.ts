@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { readSecret } from "@/lib/env";
 import { normalizePhone } from "@/lib/whatsapp/types";
 import { handleInboundWhatsAppMessage } from "@/lib/whatsapp/inbound";
+import { reportWebhookError } from "@/lib/observability/report-error";
 import { transcribeVoiceBuffer } from "@/lib/whatsapp/voice-note";
 import { replyToUntranscribableVoiceNote, VOICE_TOO_LONG_REPLY } from "@/lib/whatsapp/voice-reply";
 
@@ -34,7 +35,15 @@ export const maxDuration = 60;
 
 const eventSchema = z.object({
   sessionId: z.string().min(1),
-  event: z.enum(["connected", "disconnected", "message"]),
+  event: z.enum(["connected", "disconnected", "message", "unhealthy"]),
+  /**
+   * Da quanti millisecondi la sessione non riesce ad agganciarsi.
+   *
+   * Presente solo su `unhealthy`. Viaggia nel payload invece di essere
+   * calcolato qui perché è il microservizio a sapere quando il socket è
+   * caduto: la piattaforma vede solo l'istante in cui gliene arriva notizia.
+   */
+  unhealthyForMs: z.number().int().nonnegative().optional(),
   /** Numero abbinato, presente sugli eventi di connessione. */
   phoneNumber: z.string().optional(),
   /** Messaggio in arrivo, presente solo su `event: "message"`. */
@@ -134,7 +143,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
   }
 
-  const { sessionId, event, phoneNumber, message } = parsed.data;
+  const { sessionId, event, phoneNumber, message, unhealthyForMs } = parsed.data;
 
   // Accettato: da qui in poi ogni esito lascia una traccia propria. Questa
   // riga chiude il cerchio — dice che la chiamata era valida e quale evento
@@ -172,6 +181,40 @@ export async function POST(request: Request) {
         ...(phoneNumber ? { phoneNumber } : {}),
       },
     });
+    return NextResponse.json({ status: "ok" });
+  }
+
+  if (event === "unhealthy") {
+    /*
+     * Sessione che non si riaggancia da troppo tempo.
+     *
+     * Il microservizio riprova da solo con attesa progressiva, e quasi sempre
+     * ce la fa in pochi secondi: questo evento arriva solo quando NON ce l'ha
+     * fatta per minuti, cioè quando ha smesso di essere un contrattempo ed è
+     * diventato un guasto. Da lì in poi ogni cliente che scrive a
+     * quell'agenzia non riceve niente, e l'agenzia non ha modo di saperlo —
+     * dall'altro capo non c'è un utente che segnala, c'è un lead che se ne va.
+     *
+     * Non si cambia `isConnected`: lo stato della sessione lo dichiarano gli
+     * eventi di connessione, e sovrascriverlo qui farebbe risultare staccata
+     * un'agenzia che nel frattempo si è riagganciata. Questo evento avvisa, non
+     * decide.
+     */
+    const minuti = Math.round((unhealthyForMs ?? 0) / 60_000);
+
+    console.error("[WA-SESSION-UNHEALTHY]", {
+      sessionId,
+      organizationId: config.organizationId,
+      agenzia: config.organization.agencyName,
+      daMinuti: minuti,
+    });
+
+    reportWebhookError(
+      new Error(`Sessione WhatsApp non riagganciata da ${minuti} minuti`),
+      "whatsapp-qr",
+      "sessione-non-riagganciata"
+    );
+
     return NextResponse.json({ status: "ok" });
   }
 

@@ -124,6 +124,40 @@ inoltro alla piattaforma dei messaggi uno-a-uno (esclusi gruppi e messaggi
 inviati da noi), e `/health` esposta **prima** dell'autenticazione perché
 Render la interroga senza credenziali.
 
+## Come si rimette in piedi da solo
+
+**All'avvio riapre le sessioni già abbinate.** Le credenziali sopravvivono ai
+riavvii sul volume, ma prima nessuno riapriva i socket: dopo ogni deploy il
+WhatsApp di ogni agenzia restava muto finché qualcuno non premeva «Connetti»,
+e nessuno lo faceva perché in piattaforma la sessione risultava ancora
+collegata — il processo era morto insieme al socket, senza mandare l'evento di
+disconnessione. Le riaperture sono distanziate di due secondi: venti handshake
+simultanei verso WhatsApp dallo stesso indirizzo sono il modo più rapido per
+farsi limitare. Le cartelle senza un abbinamento completato (`creds.json`
+senza `me`) vengono saltate e il motivo è scritto nei log.
+
+**Ogni minuto controlla, e se serve riaggancia.** Il backoff sulla caduta
+copre le disconnessioni che WhatsApp annuncia; questo giro copre il resto —
+un socket morto senza evento, un timer perso in un riavvio — cioè i casi in
+cui nessuno riproverebbe mai più. Non scavalca il backoff: interviene solo
+quando non c'è già un tentativo in calendario, altrimenti su un numero
+bannato tornerebbe a bussare ogni minuto.
+
+**Dopo cinque minuti chiama aiuto.** Se una sessione non si riaggancia, il
+servizio manda alla piattaforma un evento `unhealthy`, che finisce nei log
+come `[WA-SESSION-UNHEALTHY]` e su Sentry. Una sola volta per episodio: si
+riarma quando la sessione torna su. Sotto i cinque minuti è quasi sempre il
+backoff che sta facendo il suo lavoro, e un avviso a ogni singhiozzo insegna
+a ignorare gli avvisi.
+
+| Variabile | Default | A cosa serve |
+|---|---|---|
+| `HEALTH_INTERVAL_MS` | `60000` | Ogni quanto si controlla lo stato delle sessioni |
+| `HEALTH_ALERT_MS` | `300000` | Da quanto una sessione deve essere giù prima dell'avviso |
+
+Entrambe sono regolabili senza toccare il codice: una soglia che si tara solo
+con un deploy, in pratica non si tara.
+
 ---
 
 ## Verifica dopo il deploy
