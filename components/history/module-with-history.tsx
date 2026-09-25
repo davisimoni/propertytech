@@ -104,7 +104,7 @@ function Tab({
       aria-selected={isActive}
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
+        "inline-flex min-h-11 md:mouse:min-h-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
         isActive
           ? "bg-brand-gradient text-white shadow-sm"
           : // Bordo marcato e testo pieno: da inattivo era doppiamente

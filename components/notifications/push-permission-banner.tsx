@@ -79,7 +79,7 @@ export function PushPermissionBanner() {
         <button
           type="button"
           onClick={rimanda}
-          className="rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex min-h-11 md:mouse:min-h-0 items-center justify-center rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           Non ora
         </button>
