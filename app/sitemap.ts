@@ -31,5 +31,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_URL}/termini`, lastModified, changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/cookie`, lastModified, changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE_URL}/dpa`, lastModified, changeFrequency: "yearly", priority: 0.3 },
+    // Richiesta dalle piattaforme Meta come pagina pubblica raggiungibile, e
+    // dovuta a chi vuole esercitare la cancellazione: deve essere trovabile
+    // senza passare da noi.
+    { url: `${SITE_URL}/data-deletion`, lastModified, changeFrequency: "yearly", priority: 0.3 },
   ];
 }

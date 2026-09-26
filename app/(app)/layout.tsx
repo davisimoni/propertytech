@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -8,6 +9,31 @@ import { JobIndicator } from "@/components/jobs/job-indicator";
 import { DpaAcceptancePrompt } from "@/components/dashboard/dpa-acceptance-prompt";
 import { ReferralPromo } from "@/components/referrals/referral-promo";
 import { SupportWidget } from "@/components/support/support-widget";
+
+/**
+ * Nessuna pagina di quest'area va indicizzata.
+ *
+ * # Perché serve, visto che c'è già `robots.txt`
+ *
+ * Perché i due strumenti fanno cose diverse. `Disallow` dice di **non
+ * visitare**, `noindex` dice di **non indicizzare**: un indirizzo bloccato in
+ * `robots.txt` può comunque finire nei risultati, senza descrizione, se
+ * qualcuno lo linka da fuori — è il caso classico della pagina che compare
+ * come «Nessuna informazione disponibile per questa pagina».
+ *
+ * # E perché non basta neanche questo da solo
+ *
+ * Perché un crawler che rispetta il `Disallow` non visita la pagina e quindi
+ * non legge mai questo tag. I due si coprono a vicenda e nessuno dei due
+ * sostituisce l'altro: il `Disallow` ferma la scansione, questo tag copre il
+ * caso in cui qualcuno arrivi lo stesso.
+ *
+ * A monte c'è comunque l'autenticazione, che a un crawler restituisce un
+ * reindirizzamento al login. Questi due sono la seconda e la terza rete.
+ */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, nocache: true },
+};
 
 /**
  * Il gate sull'accordo di trattamento vive qui e non nella singola dashboard:
