@@ -44,6 +44,16 @@ const eventSchema = z.object({
    * caduto: la piattaforma vede solo l'istante in cui gliene arriva notizia.
    */
   unhealthyForMs: z.number().int().nonnegative().optional(),
+  /**
+   * Quanto è durata la caduta da cui la sessione sta tornando su.
+   *
+   * Presente solo su `connected`, e solo quando c'era davvero una caduta: al
+   * primo abbinamento non c'è nulla da cui tornare. È il dato che permette di
+   * dire nei log se l'avviso in attesa è stato annullato, e dopo quanto.
+   */
+  downForMs: z.number().int().nonnegative().optional(),
+  /** Vero se per quella caduta l'avviso all'agenzia era già partito. */
+  eraInAllerta: z.boolean().optional(),
   /** Numero abbinato, presente sugli eventi di connessione. */
   phoneNumber: z.string().optional(),
   /** Messaggio in arrivo, presente solo su `event: "message"`. */
@@ -66,6 +76,58 @@ const eventSchema = z.object({
     })
     .optional(),
 });
+
+/**
+ * Avvisa l'agenzia che la sessione WhatsApp e' giu' da troppo tempo.
+ *
+ * # Perche' e' una funzione e non due righe nel ramo
+ *
+ * Perche' prima stava dentro `disconnected` e ci e' rimasta per mesi: era
+ * l'unico posto da cui si poteva avvisare, quindi nessuno si e' chiesto se
+ * fosse il posto giusto. Spostandola qui il punto da cui parte l'avviso
+ * diventa una scelta esplicita — oggi e' `unhealthy`, cioe' dopo cinque
+ * minuti di silenzio continuativo — e spostarla di nuovo domani e' una riga.
+ *
+ * Non lancia: un'email che non parte non deve far fallire la rotta, o il
+ * microservizio riproverebbe a consegnare lo stesso evento all'infinito.
+ */
+async function avvisaDisconnessione(
+  config: { id: string; organizationId: string; phoneNumber: string | null },
+  daMinuti: number
+): Promise<void> {
+  try {
+    const { resolveOwner } = await import("@/lib/email/recipients");
+    const { sendWhatsAppDisconnectedEmail } = await import("@/lib/email/transactional");
+    const { inviaPushAUtenti } = await import("@/lib/push/send");
+    const { pushSessioneWhatsappDisconnessa } = await import("@/lib/push/messages");
+
+    const owner = await resolveOwner(config.organizationId);
+    if (!owner) return;
+
+    // Email e push insieme: la push è quella che arriva sul telefono mentre
+    // l'agente è in visita, l'email quella che resta quando torna in ufficio.
+    const [outcome, push] = await Promise.all([
+      sendWhatsAppDisconnectedEmail({
+        to: owner.email,
+        firstName: owner.firstName,
+        phoneNumber: config.phoneNumber,
+      }),
+      inviaPushAUtenti([owner.id], pushSessioneWhatsappDisconnessa()),
+    ]);
+
+    console.info("[WA-DISCONNECTED-NOTIFY]", {
+      organizationId: config.organizationId,
+      daMinuti,
+      outcome,
+      push: push.inviate,
+    });
+  } catch (error) {
+    console.error("[api/whatsapp/qr/webhook] Avviso di disconnessione non inviato", {
+      organizationId: config.organizationId,
+      reason: error instanceof Error ? error.message : "unknown",
+    });
+  }
+}
 
 /** Confronto a tempo costante: un confronto ingenuo trasforma il token in un oracolo. */
 function tokenMatches(received: string, expected: string): boolean {
@@ -143,7 +205,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
   }
 
-  const { sessionId, event, phoneNumber, message, unhealthyForMs } = parsed.data;
+  const { sessionId, event, phoneNumber, message, unhealthyForMs, downForMs, eraInAllerta } =
+    parsed.data;
 
   // Accettato: da qui in poi ogni esito lascia una traccia propria. Questa
   // riga chiude il cerchio — dice che la chiamata era valida e quale evento
@@ -172,6 +235,30 @@ export async function POST(request: Request) {
   }
 
   if (event === "connected") {
+    /*
+     * Tornata su: se un avviso era in attesa, qui si annulla.
+     *
+     * "In attesa" non significa che ci fosse una coda da svuotare. L'avviso
+     * non viene programmato con un timer — su una funzione serverless un
+     * timer di cinque minuti non sopravvive alla risposta — ma semplicemente
+     * non ancora inviato, perche' parte solo con l'evento `unhealthy`.
+     * Questa riga serve a vederlo nei log: senza, una caduta rientrata in
+     * venti secondi e una caduta mai avvenuta sono indistinguibili, e nel
+     * giorno in cui qualcuno chiede "ma quante volte e' successo?" non c'e'
+     * modo di rispondere.
+     */
+    if (downForMs !== undefined) {
+      console.info("[WA-DISCONNECT-NOTIFY-ANNULLATA]", {
+        organizationId: config.organizationId,
+        agenzia: config.organization.agencyName,
+        giuPerSecondi: Math.round(downForMs / 1000),
+        avvisoGiaPartito: Boolean(eraInAllerta),
+        esito: eraInAllerta
+          ? "l'agenzia era gia' stata avvisata: la caduta era durata oltre la finestra"
+          : "rientrata entro la finestra di tolleranza: nessuna email inviata",
+      });
+    }
+
     await prisma.whatsAppConfig.update({
       where: { id: config.id },
       data: {
@@ -215,6 +302,24 @@ export async function POST(request: Request) {
       "sessione-non-riagganciata"
     );
 
+    /*
+     * E' QUI che si avvisa l'agenzia, non alla prima caduta.
+     *
+     * Prima l'email partiva dal ramo `disconnected`, cioe' al primo evento
+     * utile: un deploy del microservizio o un singhiozzo di rete di tre
+     * secondi facevano arrivare al titolare "Sessione WhatsApp disconnessa",
+     * e trenta secondi dopo tutto era di nuovo verde. Un avviso che si
+     * smentisce da solo insegna a ignorare gli avvisi, e il giorno in cui la
+     * sessione cade davvero quell'email viene archiviata come le altre.
+     *
+     * Questo evento arriva solo dopo cinque minuti di sessione giu' **in
+     * modo continuativo** — il microservizio lo misura su un processo vivo,
+     * cosa che una funzione serverless non puo' fare — e una sola volta per
+     * episodio. A quel punto non e' piu' un contrattempo: ogni cliente che
+     * scrive a quell'agenzia non riceve niente.
+     */
+    await avvisaDisconnessione(config, minuti);
+
     return NextResponse.json({ status: "ok" });
   }
 
@@ -228,43 +333,25 @@ export async function POST(request: Request) {
       data: { isConnected: false },
     });
 
-    // Avviso all'agenzia solo se era davvero connessa fino a un attimo fa.
-    //
-    // Il microservizio puo' emettere piu' eventi di disconnessione per la
-    // stessa caduta - riconnessioni tentate e fallite - e senza questa
-    // condizione l'agenzia riceverebbe una raffica di email per un solo
-    // problema.
+    /*
+     * Qui NON si avvisa piu' nessuno.
+     *
+     * La finestra di tolleranza non e' un ritardo programmato — su una
+     * funzione serverless non esiste un timer che sopravviva alla risposta —
+     * ma uno spostamento: chi conta i cinque minuti e' il microservizio, che
+     * e' un processo vivo, e quando sono passati manda `unhealthy`. Qui resta
+     * solo l'annotazione che il conto e' partito.
+     */
+    // Solo se era connessa fino a un attimo fa: il microservizio emette piu'
+    // eventi di disconnessione per la stessa caduta (riconnessioni tentate e
+    // fallite), e senza questa condizione il log si riempirebbe di righe che
+    // raccontano lo stesso episodio.
     if (config.isConnected) {
-      try {
-        const { resolveOwner } = await import("@/lib/email/recipients");
-        const { sendWhatsAppDisconnectedEmail } = await import("@/lib/email/transactional");
-        const { inviaPushAUtenti } = await import("@/lib/push/send");
-        const { pushSessioneWhatsappDisconnessa } = await import("@/lib/push/messages");
-
-        const owner = await resolveOwner(config.organizationId);
-        if (owner) {
-          // Email e push in parallelo: la push è quella che arriva sul
-          // telefono mentre l'agente è in visita.
-          const [outcome, push] = await Promise.all([
-            sendWhatsAppDisconnectedEmail({
-              to: owner.email,
-              firstName: owner.firstName,
-              phoneNumber: config.phoneNumber,
-            }),
-            inviaPushAUtenti([owner.id], pushSessioneWhatsappDisconnessa()),
-          ]);
-          console.info("[WA-DISCONNECTED-NOTIFY]", {
-            organizationId: config.organizationId,
-            outcome,
-            push: push.inviate,
-          });
-        }
-      } catch (error) {
-        console.error("[api/whatsapp/qr/webhook] Avviso di disconnessione non inviato", {
-          organizationId: config.organizationId,
-          reason: error instanceof Error ? error.message : "unknown",
-        });
-      }
+      console.info("[WA-DISCONNECT-NOTIFY-PROGRAMMATA]", {
+        organizationId: config.organizationId,
+        agenzia: config.organization.agencyName,
+        nota: "nessuna email adesso: parte solo se la sessione resta giu' oltre la finestra",
+      });
     }
 
     return NextResponse.json({ status: "ok" });

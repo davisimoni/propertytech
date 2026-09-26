@@ -638,8 +638,40 @@ async function startSession(sessionId) {
       entry.phoneNumber = sock.user?.id?.split(":")[0] ?? null;
       // Connessione riuscita: il prossimo distacco riparte da tre secondi.
       retryCount.delete(sessionId);
-      console.log(`[${sessionId}] connesso: ${entry.phoneNumber}`);
-      await notify({ sessionId, event: "connected", phoneNumber: entry.phoneNumber });
+
+      /*
+       * Quanto e' durata la caduta, se c'e' stata.
+       *
+       * Lo sa solo questo processo: la piattaforma vede eventi separati e non
+       * puo' misurare l'intervallo fra due funzioni serverless che non si
+       * conoscono. Serve a decidere se l'email di disconnessione che era in
+       * attesa va annullata, e a scriverlo nei log con un numero invece che
+       * con un "poco fa".
+       *
+       * Assente al primo abbinamento: li' non c'e' nessuna caduta da cui si
+       * stia tornando, e dire "riconnessa" sarebbe falso.
+       */
+      const stato = sessioniNote.get(sessionId);
+      const downForMs = stato?.giuDa ? Date.now() - stato.giuDa : undefined;
+      const eraInAllerta = Boolean(stato?.allertata);
+
+      if (stato) {
+        stato.giuDa = null;
+        stato.allertata = false;
+        stato.prossimoTentativo = 0;
+      }
+
+      console.log(
+        `[${sessionId}] connesso: ${entry.phoneNumber}` +
+          (downForMs ? ` (era giu' da ${Math.round(downForMs / 1000)}s)` : "")
+      );
+
+      await notify({
+        sessionId,
+        event: "connected",
+        phoneNumber: entry.phoneNumber,
+        ...(downForMs !== undefined ? { downForMs, eraInAllerta } : {}),
+      });
     }
 
     if (connection === "close") {
