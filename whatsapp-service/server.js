@@ -130,7 +130,26 @@ const sessions = new Map();
  * come non sano.
  */
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, sessions: sessions.size });
+  /*
+   * Tre numeri, perche' dicono cose diverse.
+   *
+   * `sessions` e' quante voci ci sono in quel preciso istante, e oscilla: fra
+   * una caduta e il tentativo successivo la voce viene rimossa, quindi durante
+   * una riconnessione il numero scende senza che manchi niente. Va bene per
+   * un'occhiata, non per decidere.
+   *
+   * `note` e' quante sessioni **dovrebbero** essere collegate, e non oscilla:
+   * cambia solo quando un'agenzia si abbina o si stacca davvero. E' il numero
+   * su cui la piattaforma decide se qualcosa manca, perche' un `note` piu'
+   * basso delle agenzie collegate a database significa una cosa sola — il
+   * servizio non sa nemmeno di doverle tenere su.
+   *
+   * `connesse` e' quante stanno parlando adesso. Serve a leggere i log, non a
+   * far scattare allarmi: le cadute passeggere le gestisce gia' il backoff, e
+   * quelle lunghe le segnala `unhealthy`.
+   */
+  const connesse = [...sessions.values()].filter((e) => e.status === "connected").length;
+  res.json({ ok: true, sessions: sessions.size, note: sessioniNote.size, connesse });
 });
 
 app.use((req, res, next) => {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ritentaConsumiNonInviati } from "@/lib/billing/overage";
 import { verificaAncoreFatturazione } from "@/lib/billing/usage-period";
+import { verificaVitalitaServizio } from "@/lib/whatsapp/service-health";
 import { isCronAuthorized } from "@/lib/cron/auth";
 import { riprendiNewsletterInSospeso } from "@/lib/newsletter/send";
 import { sendDueReminders } from "@/lib/whatsapp/reminders";
@@ -70,6 +71,22 @@ async function runChecks() {
   } catch (error) {
     console.error("[cron/daily-checks] Ripresa newsletter non riuscita", error);
     esito.newsletter = { errore: true };
+  }
+
+  /*
+   * Il microservizio delle sessioni WhatsApp e' ancora vivo?
+   *
+   * Sta qui perche' e' l'unico controllo che deve guardare **fuori** dalla
+   * piattaforma. Tutti gli avvisi sulle sessioni arrivano dal microservizio, e
+   * quella catena si interrompe proprio quando lui smette di esistere: se
+   * Render cade, nessuno emette niente e ogni agenzia continua a risultare
+   * collegata. Il silenzio diventa indistinguibile dal funzionamento normale.
+   */
+  try {
+    esito.servizioWhatsapp = await verificaVitalitaServizio();
+  } catch (error) {
+    console.error("[cron/daily-checks] Verifica vitalita' del microservizio non riuscita", error);
+    esito.servizioWhatsapp = { errore: true };
   }
 
   // Sola lettura, e per questo sta in fondo: non cambia niente, guarda solo
